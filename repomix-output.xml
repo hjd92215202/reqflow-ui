@@ -1,0 +1,1028 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.gitignore
+index.html
+package.json
+public/favicon.ico
+README.md
+src/api/auth.js
+src/api/discussion.js
+src/api/request.js
+src/api/requirement.js
+src/api/subtask.js
+src/App.vue
+src/assets/logo.png
+src/assets/styles/global.css
+src/components/SvgIcon.vue
+src/main.js
+src/router/index.js
+src/store/user.js
+src/views/Login.vue
+src/views/RequirementList.vue
+vite.config.js
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path=".gitignore">
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+</file>
+
+<file path="index.html">
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>reqflow-ui</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
+</file>
+
+<file path="package.json">
+{
+  "name": "reqflow-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "element-plus": "^2.5.6",
+    "pinia": "^2.1.7",
+    "vue": "^3.4.15",
+    "vue-router": "^4.2.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.3",
+    "vite": "^5.1.0"
+  }
+}
+</file>
+
+<file path="README.md">
+# Vue 3 + Vite
+
+This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+
+Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+</file>
+
+<file path="src/api/auth.js">
+import request from './request'
+
+export function loginApi(data) {
+  return request({
+    url: '/api/auth/login',
+    method: 'post',
+    data
+  })
+}
+
+export function registerApi(data) {
+  return request({
+    url: '/api/auth/register',
+    method: 'post',
+    data
+  })
+}
+</file>
+
+<file path="src/api/discussion.js">
+import request from './request' // 引入统一请求工具
+
+/**
+ * 1. 获取某个主需求下的所有进展讨论记录（时间轴数据）
+ * @param {number} reqId - 主需求ID
+ */
+export function getDiscussionsApi(reqId) {
+  return request.get(`/api/discussions/requirement/${reqId}`)
+}
+
+/**
+ * 2. 提交一条新的沟通讨论/进展记录
+ * @param {object} data - 包含: requirementId, content
+ */
+export function createDiscussionApi(data) {
+  return request.post('/api/discussions', data)
+}
+</file>
+
+<file path="src/api/request.js">
+import axios from 'axios'
+import { ElMessage } from 'element-plus'
+import { useUserStore } from '@/store/user'
+
+const request = axios.create({
+  baseURL: '', // 留空，以便通过 vite.config 中的 proxy 转发代理
+  timeout: 10000
+})
+
+// 请求拦截器
+request.interceptors.request.use(config => {
+  const userStore = useUserStore()
+  if (userStore.token) {
+    config.headers['Authorization'] = `Bearer ${userStore.token}`
+  }
+  return config;
+}, error => {
+  return Promise.reject(error)
+})
+
+// 响应拦截器
+request.interceptors.response.use(response => {
+  return response.data; // 直接返回业务数据
+}, error => {
+  const userStore = useUserStore()
+  if (error.response && error.response.status === 401) {
+    userStore.clearUserInfo()
+    ElMessage.error('会话已过期，请重新登录')
+    window.location.hash = '#/login'
+  } else {
+    ElMessage.error(error.response?.data || '服务器响应异常')
+  }
+  return Promise.reject(error)
+})
+
+export default request
+</file>
+
+<file path="src/api/requirement.js">
+import request from './request'
+
+export function getRequirementsListApi() {
+  return request({
+    url: '/api/requirements',
+    method: 'get'
+  })
+}
+
+export function createRequirementApi(data) {
+  return request({
+    url: '/api/requirements',
+    method: 'post',
+    data
+  })
+}
+
+export function updateRequirementApi(id, data) {
+  return request({
+    url: `/api/requirements/${id}`,
+    method: 'put',
+    data
+  })
+}
+
+export function deleteRequirementApi(id) {
+  return request({
+    url: `/api/requirements/${id}`,
+    method: 'delete'
+  })
+}
+</file>
+
+<file path="src/api/subtask.js">
+import request from './request' // 引入我们在第一阶段配置的统一请求工具
+
+/**
+ * 1. 根据主需求ID获取其下的所有子任务
+ * @param {number} reqId - 主需求ID
+ */
+export function getSubTasksApi(reqId) {
+  return request.get(`/api/subtasks/requirement/${reqId}`)
+}
+
+/**
+ * 2. 创建一个新的子任务
+ * @param {object} data - 子任务数据，包含: requirementId, title, assignee
+ */
+export function createSubTaskApi(data) {
+  return request.post('/api/subtasks', data)
+}
+
+/**
+ * 3. 更新子任务（例如修改标题、修改负责人、或者勾选/取消勾选完成状态）
+ * @param {number} id - 子任务ID
+ * @param {object} data - 完整的子任务对象数据
+ */
+export function updateSubTaskApi(id, data) {
+  return request.put(`/api/subtasks/${id}`, data)
+}
+
+/**
+ * 4. 删除指定的子task
+ * @param {number} id - 子任务ID
+ */
+export function deleteSubTaskApi(id) {
+  return request.delete(`/api/subtasks/${id}`)
+}
+</file>
+
+<file path="src/App.vue">
+<template>
+  <router-view />
+</template>
+
+<script setup>
+</script>
+
+<style>
+</style>
+</file>
+
+<file path="src/assets/styles/global.css">
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: #f5f7fa;
+  color: #303133;
+}
+
+#app {
+  height: 100%;
+}
+</file>
+
+<file path="src/components/SvgIcon.vue">
+
+</file>
+
+<file path="src/main.js">
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import App from './App.vue'
+import router from './router'
+import ElementPlus from 'element-plus'
+import 'element-plus/dist/index.css'
+import '@/assets/styles/global.css'
+
+const app = createApp(App)
+
+app.use(createPinia())
+app.use(router)
+app.use(ElementPlus)
+
+app.mount('#app')
+</file>
+
+<file path="src/router/index.js">
+import { createRouter, createWebHashHistory } from 'vue-router'
+import { useUserStore } from '@/store/user'
+
+const routes = [
+  { path: '/', redirect: '/login' },
+  { 
+    path: '/login', 
+    component: () => import('@/views/Login.vue') 
+  },
+  { 
+    path: '/requirements', 
+    component: () => import('@/views/RequirementList.vue') 
+  }
+]
+
+const router = createRouter({
+  history: createWebHashHistory(),
+  routes
+})
+
+router.beforeEach((to, from, next) => {
+  const userStore = useUserStore()
+  if (to.path !== '/login' && !userStore.token) {
+    next('/login')
+  } else {
+    next()
+  }
+})
+
+export default router
+</file>
+
+<file path="src/store/user.js">
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
+
+export const useUserStore = defineStore('user', () => {
+  const token = ref(localStorage.getItem('token') || '')
+  const nickname = ref(localStorage.getItem('nickname') || '')
+
+  function setUserInfo(userToken, userNickname) {
+    token.value = userToken
+    nickname.value = userNickname
+    localStorage.setItem('token', userToken)
+    localStorage.setItem('nickname', userNickname)
+  }
+
+  function clearUserInfo() {
+    token.value = ''
+    nickname.value = ''
+    localStorage.removeItem('token')
+    localStorage.removeItem('nickname')
+  }
+
+  return { token, nickname, setUserInfo, clearUserInfo }
+})
+</file>
+
+<file path="src/views/Login.vue">
+<template>
+  <div class="login-container">
+    <el-card class="login-card">
+      <h2 class="title">ReqFlow</h2>
+      <p class="subtitle">工作需求事项记录与统计系统</p>
+      
+      <el-tabs v-model="activeTab" stretch>
+        <!-- 登录面板 -->
+        <el-tab-pane label="账密登录" name="login">
+          <el-form :model="loginForm" label-position="top">
+            <el-form-item label="用户名">
+              <el-input v-model="loginForm.username" placeholder="请输入用户名" />
+            </el-form-item>
+            <el-form-item label="密码">
+              <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" show-password />
+            </el-form-item>
+            <el-form-item style="margin-top: 25px;">
+              <el-button type="primary" :loading="loading" @click="handleLogin" style="width: 100%;">登 录</el-button>
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+
+        <!-- 注册面板 -->
+        <el-tab-pane label="注册账户" name="register">
+          <el-form :model="registerForm" label-position="top">
+            <el-form-item label="用户名">
+              <el-input v-model="registerForm.username" placeholder="创建系统用户名" />
+            </el-form-item>
+            <el-form-item label="昵称">
+              <el-input v-model="registerForm.nickname" placeholder="显示昵称（如：张三）" />
+            </el-form-item>
+            <el-form-item label="密码">
+              <el-input v-model="registerForm.password" type="password" placeholder="设置密码" show-password />
+            </el-form-item>
+            <el-form-item style="margin-top: 25px;">
+              <el-button type="success" :loading="loading" @click="handleRegister" style="width: 100%;">注 册</el-button>
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+      </el-tabs>
+    </el-card>
+  </div>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { loginApi, registerApi } from '@/api/auth'
+import { useUserStore } from '@/store/user'
+import { ElMessage } from 'element-plus'
+
+const router = useRouter()
+const userStore = useUserStore()
+
+const activeTab = ref('login')
+const loading = ref(false)
+
+const loginForm = ref({ username: '', password: '' })
+const registerForm = ref({ username: '', password: '', nickname: '' })
+
+const handleLogin = async () => {
+  if (!loginForm.value.username || !loginForm.value.password) {
+    ElMessage.warning('请填写完整的账号和密码')
+    return
+  }
+  loading.value = true
+  try {
+    const data = await loginApi(loginForm.value)
+    userStore.setUserInfo(data.token, data.nickname)
+    ElMessage.success('登录成功')
+    router.push('/requirements')
+  } catch (error) {
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleRegister = async () => {
+  if (!registerForm.value.username || !registerForm.value.password) {
+    ElMessage.warning('用户名和密码为必填项')
+    return
+  }
+  loading.value = true
+  try {
+    // 注册时，将前端输入的原始密码传给后端，后端负责进行 Bcrypt 哈希存储
+    const payload = {
+      username: registerForm.value.username,
+      passwordHash: registerForm.value.password, // 后端注册入参映射 passwordHash 字段
+      nickname: registerForm.value.nickname
+    }
+    await registerApi(payload)
+    ElMessage.success('注册成功，请使用新账户登录')
+    activeTab.value = 'login'
+    loginForm.value.username = registerForm.value.username
+  } catch (error) {
+  } finally {
+    loading.value = false
+  }
+}
+</script>
+
+<style scoped>
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #f0f2f5;
+}
+.login-card {
+  width: 400px;
+  padding: 15px;
+}
+.title {
+  text-align: center;
+  margin: 0;
+  color: #409EFF;
+}
+.subtitle {
+  text-align: center;
+  margin-top: 5px;
+  margin-bottom: 25px;
+  font-size: 13px;
+  color: #909399;
+}
+</style>
+</file>
+
+<file path="src/views/RequirementList.vue">
+<template>
+  <div class="layout-container">
+    <header class="navbar">
+      <div class="logo">ReqFlow</div>
+      <div class="user-meta">
+        <span>当前用户：<strong>{{ userStore.nickname }}</strong></span>
+        <el-button type="danger" link @click="logout" style="margin-left: 15px;">退出</el-button>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <div class="list-card">
+        <div class="card-header">
+          <span class="card-title">需求事项看板</span>
+          <el-button type="primary" @click="openCreateDialog">新建需求</el-button>
+        </div>
+
+        <el-table :data="tableData" style="width: 100%; margin-top: 15px;" border stripe>
+          <el-table-column prop="title" label="需求标题" min-width="150" />
+          <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
+          <el-table-column prop="priority" label="优先级" width="100">
+            <template #default="scope">
+              <el-tag :type="getPriorityTag(scope.row.priority)">{{ scope.row.priority }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="status" label="进展状态" width="120">
+            <template #default="scope">
+              <el-tag :type="getStatusTag(scope.row.status)" effect="dark">{{ scope.row.status }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="管理操作" width="220" align="center">
+            <template #default="scope">
+              <el-button size="small" link type="success" @click="openDetailDrawer(scope.row)">详情与跟进</el-button>
+              <el-button size="small" link type="primary" @click="openEditDialog(scope.row)">编辑</el-button>
+              <el-button size="small" link type="danger" @click="handleDelete(scope.row.id)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </main>
+
+    <!-- 需求新建/编辑模态窗 -->
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑需求事项' : '新建需求事项'" width="500px">
+      <el-form :model="form" label-width="85px" label-position="right">
+        <el-form-item label="需求标题" required>
+          <el-input v-model="form.title" placeholder="如：实现用户登录日志记录" />
+        </el-form-item>
+        <el-form-item label="详细说明">
+          <el-input v-model="form.description" type="textarea" :rows="4" placeholder="在此录入该需求的细节和交付边界..." />
+        </el-form-item>
+        <el-form-item label="优先级">
+          <el-radio-group v-model="form.priority">
+            <el-radio-button label="LOW">低</el-radio-button>
+            <el-radio-button label="MEDIUM">中</el-radio-button>
+            <el-radio-button label="HIGH">高</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="状态" v-if="isEdit">
+          <el-select v-model="form.status" style="width: 100%;">
+            <el-option label="待处理" value="TODO" />
+            <el-option label="进行中" value="IN_PROGRESS" />
+            <el-option label="测试中" value="TESTING" />
+            <el-option label="已上线" value="DONE" />
+            <el-option label="挂起" value="SUSPENDED" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitForm">确定保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 需求详情/子任务/讨论日志跟进 侧边抽屉 -->
+    <el-drawer v-model="drawerVisible" :title="selectedRequirement?.title" size="550px" direction="rtl">
+      <div class="drawer-layout" v-if="selectedRequirement">
+        <!-- 1. 子任务管理区域 -->
+        <div class="section">
+          <h4 class="section-title">子任务拆解</h4>
+          
+          <!-- 子任务快速新建表单 -->
+          <div class="subtask-creator">
+            <el-input v-model="subTaskForm.title" placeholder="新增具体任务..." style="flex: 2; margin-right: 10px;" />
+            <el-input v-model="subTaskForm.assignee" placeholder="负责人" style="flex: 1; margin-right: 10px;" />
+            <el-button type="primary" @click="handleAddSubTask">添加</el-button>
+          </div>
+
+          <!-- 子任务展示列表 -->
+          <div class="subtask-list">
+            <div v-for="task in subTasks" :key="task.id" class="subtask-item">
+              <el-checkbox v-model="task.isCompleted" @change="toggleSubTaskStatus(task)">
+                <span :class="{ 'completed-text': task.isCompleted }">{{ task.title }}</span>
+              </el-checkbox>
+              <div class="subtask-right">
+                <el-tag size="small" type="info" v-if="task.assignee">👤 {{ task.assignee }}</el-tag>
+                <el-button type="danger" link size="small" @click="handleDeleteSubTask(task.id)" style="margin-left: 10px;">删除</el-button>
+              </div>
+            </div>
+            <el-empty v-if="subTasks.length === 0" description="暂无拆解任务" :image-size="40" />
+          </div>
+        </div>
+
+        <el-divider />
+
+        <!-- 2. 推进讨论记录（时间轴） -->
+        <div class="section discussion-section">
+          <h4 class="section-title">跟进时间轴</h4>
+          
+          <!-- 讨论日志时间轴 -->
+          <div class="timeline-box">
+            <el-timeline v-if="discussions.length > 0">
+              <el-timeline-item
+                v-for="log in discussions"
+                :key="log.id"
+                :timestamp="formatTime(log.createdAt)"
+                placement="top"
+                type="primary"
+              >
+                <el-card class="log-card">
+                  <p class="log-content">{{ log.content }}</p>
+                  <span class="log-author">记录人: {{ log.user?.nickname || '系统用户' }}</span>
+                </el-card>
+              </el-timeline-item>
+            </el-timeline>
+            <el-empty v-else description="暂无讨论跟进" :image-size="40" />
+          </div>
+
+          <!-- 发表跟进内容输入框 -->
+          <div class="discussion-poster">
+            <el-input 
+              v-model="newDiscussionContent" 
+              type="textarea" 
+              :rows="2" 
+              placeholder="在这里追加新的讨论细节或进展..." 
+            />
+            <el-button type="success" style="margin-top: 10px; float: right;" @click="handlePostDiscussion">提交进展</el-button>
+          </div>
+        </div>
+      </div>
+    </el-drawer>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useUserStore } from '@/store/user'
+import { 
+  getRequirementsListApi, 
+  createRequirementApi, 
+  updateRequirementApi, 
+  deleteRequirementApi 
+} from '@/api/requirement'
+import { 
+  getSubTasksApi, 
+  createSubTaskApi, 
+  updateSubTaskApi, 
+  deleteSubTaskApi 
+} from '@/api/subtask'
+import { 
+  getDiscussionsApi, 
+  createDiscussionApi 
+} from '@/api/discussion'
+import { ElMessage, ElMessageBox } from 'element-plus'
+
+const router = useRouter()
+const userStore = useUserStore()
+
+const tableData = ref([])
+const dialogVisible = ref(false)
+const isEdit = ref(false)
+
+// 详情抽屉相关的状态
+const drawerVisible = ref(false)
+const selectedRequirement = ref(null)
+const subTasks = ref([])
+const discussions = ref([])
+const newDiscussionContent = ref('')
+const subTaskForm = ref({ title: '', assignee: '' })
+
+const form = ref({
+  id: null,
+  title: '',
+  description: '',
+  priority: 'MEDIUM',
+  status: 'TODO'
+})
+
+const loadData = async () => {
+  try {
+    const data = await getRequirementsListApi()
+    tableData.value = data
+  } catch (error) {}
+}
+
+const openCreateDialog = () => {
+  isEdit.value = false
+  form.value = { id: null, title: '', description: '', priority: 'MEDIUM', status: 'TODO' }
+  dialogVisible.value = true
+}
+
+const openEditDialog = (row) => {
+  isEdit.value = true
+  form.value = { ...row }
+  dialogVisible.value = true
+}
+
+const submitForm = async () => {
+  if (!form.value.title.trim()) {
+    ElMessage.warning('请填写需求标题')
+    return
+  }
+  try {
+    if (isEdit.value) {
+      await updateRequirementApi(form.value.id, form.value)
+      ElMessage.success('修改成功')
+    } else {
+      await createRequirementApi(form.value)
+      ElMessage.success('创建成功')
+    }
+    dialogVisible.value = false
+    loadData()
+  } catch (error) {}
+}
+
+const handleDelete = (id) => {
+  ElMessageBox.confirm('数据删除后无法恢复，确定删除该事项吗？', '重要提示', {
+    confirmButtonText: '确定删除',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(async () => {
+    try {
+      await deleteRequirementApi(id)
+      ElMessage.success('删除成功')
+      loadData()
+    } catch (error) {}
+  }).catch(() => {})
+}
+
+// ================= 抽屉交互逻辑 =================
+
+const openDetailDrawer = async (row) => {
+  selectedRequirement.value = row
+  drawerVisible.value = true
+  // 初始化数据
+  newDiscussionContent.value = ''
+  subTaskForm.value = { title: '', assignee: '' }
+  
+  await loadSubTasks(row.id)
+  await loadDiscussions(row.id)
+}
+
+// 1. 子任务逻辑
+const loadSubTasks = async (reqId) => {
+  subTasks.value = await getSubTasksApi(reqId)
+}
+
+const handleAddSubTask = async () => {
+  if (!subTaskForm.value.title.trim()) {
+    ElMessage.warning('子任务内容不能为空')
+    return
+  }
+  try {
+    await createSubTaskApi({
+      requirementId: selectedRequirement.value.id,
+      title: subTaskForm.value.title,
+      assignee: subTaskForm.value.assignee
+    })
+    ElMessage.success('子任务添加成功')
+    subTaskForm.value = { title: '', assignee: '' }
+    loadSubTasks(selectedRequirement.value.id)
+  } catch (error) {}
+}
+
+const toggleSubTaskStatus = async (task) => {
+  try {
+    await updateSubTaskApi(task.id, task)
+    ElMessage.success(task.isCompleted ? '任务标记为完成' : '任务标记为未完成')
+  } catch (error) {
+    task.isCompleted = !task.isCompleted // 失败时回滚界面状态
+  }
+}
+
+const handleDeleteSubTask = async (id) => {
+  try {
+    await deleteSubTaskApi(id)
+    ElMessage.success('子任务已删除')
+    loadSubTasks(selectedRequirement.value.id)
+  } catch (error) {}
+}
+
+// 2. 进展讨论逻辑
+const loadDiscussions = async (reqId) => {
+  discussions.value = await getDiscussionsApi(reqId)
+}
+
+const handlePostDiscussion = async () => {
+  if (!newDiscussionContent.value.trim()) {
+    ElMessage.warning('请输入讨论内容')
+    return
+  }
+  try {
+    await createDiscussionApi({
+      requirementId: selectedRequirement.value.id,
+      content: newDiscussionContent.value
+    })
+    ElMessage.success('进展提交成功')
+    newDiscussionContent.value = ''
+    loadDiscussions(selectedRequirement.value.id)
+  } catch (error) {}
+}
+
+// 退出登录与样式转换辅助
+const logout = () => {
+  userStore.clearUserInfo()
+  router.push('/login')
+}
+
+const getPriorityTag = (p) => {
+  if (p === 'HIGH') return 'danger'
+  if (p === 'MEDIUM') return 'warning'
+  return 'info'
+}
+
+const getStatusTag = (s) => {
+  switch (s) {
+    case 'TODO': return 'info'
+    case 'IN_PROGRESS': return 'warning'
+    case 'TESTING': return 'primary'
+    case 'DONE': return 'success'
+    case 'SUSPENDED': return 'danger'
+    default: return 'info'
+  }
+}
+
+const formatTime = (timeStr) => {
+  if (!timeStr) return ''
+  const date = new Date(timeStr)
+  return `${date.getMonth() + 1}月${date.getDate()}日 ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+onMounted(() => {
+  loadData()
+})
+</script>
+
+<style scoped>
+.layout-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.navbar {
+  height: 60px;
+  background-color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 25px;
+  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+}
+.logo {
+  font-size: 22px;
+  font-weight: bold;
+  color: #409eff;
+}
+.user-meta {
+  font-size: 14px;
+}
+.main-content {
+  flex: 1;
+  padding: 25px;
+  display: flex;
+  justify-content: center;
+}
+.list-card {
+  width: 100%;
+  max-width: 1150px;
+  background-color: #ffffff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.05);
+}
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #ebeef5;
+  padding-bottom: 15px;
+}
+.card-title {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* 抽屉布局样式 */
+.drawer-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.section {
+  margin-bottom: 10px;
+}
+.section-title {
+  margin: 0 0 15px 0;
+  font-size: 15px;
+  color: #303133;
+  border-left: 3px solid #409eff;
+  padding-left: 8px;
+}
+.subtask-creator {
+  display: flex;
+  margin-bottom: 15px;
+}
+.subtask-list {
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  padding: 10px;
+  max-height: 250px;
+  overflow-y: auto;
+}
+.subtask-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 5px;
+  border-bottom: 1px dashed #e4e7ed;
+}
+.subtask-item:last-child {
+  border-bottom: none;
+}
+.completed-text {
+  text-decoration: line-through;
+  color: #909399;
+}
+.subtask-right {
+  display: flex;
+  align-items: center;
+}
+
+.timeline-box {
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 10px;
+  margin-bottom: 20px;
+}
+.log-card {
+  padding: 10px;
+  border-radius: 4px;
+}
+.log-content {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.log-author {
+  display: block;
+  font-size: 11px;
+  color: #909399;
+  text-align: right;
+  margin-top: 5px;
+}
+.discussion-poster {
+  border-top: 1px solid #e4e7ed;
+  padding-top: 15px;
+}
+</style>
+</file>
+
+<file path="vite.config.js">
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import { fileURLToPath, URL } from 'node:url'
+
+export default defineConfig({
+  plugins: [vue()],
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url))
+    }
+  },
+  server: {
+    port: 5173,
+    proxy: {
+      // 代理所有开头的 /api 请求到本地 Java 服务
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        rewrite: (path) => path // 保持路径原样转发给后端
+      }
+    }
+  }
+})
+</file>
+
+</files>
