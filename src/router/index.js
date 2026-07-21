@@ -10,6 +10,11 @@ const routes = [
   { 
     path: '/requirements', 
     component: () => import('@/views/RequirementList.vue') 
+  },
+  { 
+    // 新增：独立阶段执行看板路由
+    path: '/stages', 
+    component: () => import('@/views/StageBoard.vue') 
   }
 ]
 
