@@ -37,35 +37,29 @@
 
       <!-- 矩阵主工作区 -->
       <main class="workbench-workspace">
-        
-        <!-- 1. 顶部需求工作表页签切换栏 -->
-        <div class="requirement-selector-tabs">
-          <span class="selector-label">切换协同工作表：</span>
-          <div class="tab-list">
-            <div 
-              v-for="req in requirements" 
-              :key="req.id" 
-              :class="['tab-item', { active: activeReqId === req.id }]"
-              @click="switchRequirement(req)"
-            >
-              <span class="tab-dot" :class="getPriorityClass(req.priority)"></span>
-              <span class="tab-text">{{ req.title }}</span>
-            </div>
-          </div>
-          <el-empty v-if="requirements.length === 0" description="暂无需求，请在“需求管理”中添加" :image-size="30" />
-        </div>
-
-        <!-- 2. 中部：协同矩阵板 -->
+        <!-- 核心协同矩阵板 -->
         <div class="matrix-board" v-if="selectedRequirement">
           <div class="board-top-info">
             <div>
               <h3 class="board-header-title">📋 {{ selectedRequirement.title }} · 阶段协同矩阵表</h3>
               <p class="board-header-desc" v-if="selectedRequirement.description">{{ selectedRequirement.description }}</p>
             </div>
-            <el-button type="primary" size="small" @click="openCreateStageDialog">划分执行阶段</el-button>
+            <div class="top-action-bar">
+              <!-- 恢复并启用：执行阶段切换下拉选项 -->
+              <el-select 
+                v-model="activeStageId" 
+                placeholder="切换执行阶段" 
+                size="small" 
+                style="width: 180px;"
+                @change="handleStageChange"
+              >
+                <el-option v-for="s in stages" :key="s.id" :label="s.title" :value="s.id" />
+              </el-select>
+              <el-button type="primary" size="small" @click="openCreateStageDialog">划分执行阶段</el-button>
+            </div>
           </div>
 
-          <!-- 纵向阶段区块列表 -->
+          <!-- 核心：一屏只专注展示当前激活的阶段大表 -->
           <div v-if="activeStage" class="stage-table-block" style="margin-top: 20px;">
             
             <div class="stage-block-header">
@@ -281,49 +275,7 @@
                 </template>
               </el-table-column>
 
-              <!-- 7. 进展备注日志（悬浮查看时间轴） -->
-              <el-table-column label="最新进展备注" min-width="180">
-                <template #default="scope">
-                  <el-popover
-                    placement="top"
-                    :width="360"
-                    trigger="hover"
-                    @show="loadTimelineForTask(scope.row.id)"
-                  >
-                    <template #reference>
-                      <span class="log-preview-text">💬 {{ scope.row.latestLog || '暂无跟进...悬浮追加' }}</span>
-                    </template>
-                    <div class="popover-timeline-container">
-                      <h4 class="popover-timeline-title">📋 进展时间轴</h4>
-                      <div class="popover-scroll-area">
-                        <el-timeline v-if="taskTimelines[scope.row.id]?.length > 0">
-                          <el-timeline-item
-                            v-for="log in taskTimelines[scope.row.id]"
-                            :key="log.id"
-                            :timestamp="formatTime(log.createdAt)"
-                            type="primary"
-                          >
-                            <p class="timeline-pop-text">{{ log.content }}</p>
-                            <span class="timeline-pop-author">记录人: {{ log.user?.nickname }}</span>
-                          </el-timeline-item>
-                        </el-timeline>
-                        <el-empty v-else description="暂无历史备注" :image-size="30" />
-                      </div>
-                      <div class="quick-post-row">
-                        <el-input 
-                          v-model="quickLogs[scope.row.id]" 
-                          placeholder="追加备注..." 
-                          size="small" 
-                          style="flex: 1; margin-right: 8px;"
-                        />
-                        <el-button type="success" size="small" @click="submitQuickLog(scope.row)">提交</el-button>
-                      </div>
-                    </div>
-                  </el-popover>
-                </template>
-              </el-table-column>
-
-              <!-- 8. 操作 -->
+              <!-- 7. 操作 -->
               <el-table-column label="操作" width="70" align="center">
                 <template #default="scope">
                   <el-button type="danger" link size="small" @click="handleDeleteSubTask(scope.row.id, activeStage.id)">删除</el-button>
@@ -420,7 +372,7 @@ const activeStageId = ref(null)
 // 响应式存储：每个阶段下扫描出的全部自定义属性 Key
 const detectedColumnKeys = ref({})
 
-// 计算属性：当前选中阶段
+// 计算属性：当前选中阶段（控制一屏只显示这一个大表）
 const activeStage = computed(() => {
   return stages.value.find(s => s.id === activeStageId.value)
 })
@@ -431,11 +383,14 @@ const stageAddForms = ref({})
 const taskTimelines = ref({})
 const quickLogs = ref({})
 
-// 各列筛选器激活的状态（格式：{ [columnKey]: [selectedValues] }）
-const activeFilters = ref({})
+// 状态过滤绑定，默认全选
+const filterStatuses = ref(['TODO', 'IN_PROGRESS', 'DONE'])
 
 // 行内属性配置新表单
 const newPropForm = ref({ key: '', value: '' })
+
+// 各列筛选器激活的状态（格式：{ [columnKey]: [selectedValues] }）
+const activeFilters = ref({})
 
 // 阶段、子树弹窗
 const stageDialogVisible = ref(false)
@@ -644,6 +599,7 @@ const loadStages = async (reqId) => {
     const stageList = await getStagesApi(reqId)
     stages.value = stageList
     
+    // 初始化首选状态：切换需求时，自动高亮并载入该需求的第一个阶段
     if (stageList.length > 0) {
       activeStageId.value = stageList[0].id
       await handleStageChange(stageList[0].id)
@@ -653,6 +609,7 @@ const loadStages = async (reqId) => {
   } catch (error) {}
 }
 
+// 当切换执行阶段时，进行按需数据懒加载
 const handleStageChange = async (stageId) => {
   if (stageId) {
     stageAddForms.value[stageId] = { title: '', assignee: '' }
@@ -714,6 +671,7 @@ const handleSubTaskDateChange = async (row) => {
 
 const saveSubTask = async (row) => {
   try {
+    // 异步前先写入真实源对象
     const originalList = stageSubTasks.value[row.stageId] || []
     updateOriginalNode(originalList, row)
 
@@ -769,7 +727,7 @@ const submitChildTask = async () => {
   } catch (error) {}
 }
 
-// ----------------- 日志时间轴跟进 -----------------
+// ----------------- 日志时间轴跟进 (保留业务底层，仅主要移除表格列展示) -----------------
 
 const loadTimelineForTask = async (taskId) => {
   taskTimelines.value[taskId] = await getDiscussionsApi(taskId)
@@ -917,6 +875,12 @@ const formatTime = (timeStr) => {
   if (!timeStr) return ''
   const date = new Date(timeStr)
   return `${date.getMonth() + 1}月${date.getDate()}日 ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+const getStageStatusTag = (s) => {
+  if (s === 'DONE') return 'success'
+  if (s === 'IN_PROGRESS') return 'warning'
+  return 'info'
 }
 
 onMounted(async () => {
@@ -1110,7 +1074,7 @@ onMounted(async () => {
   padding: 0 10px;
 }
 
-/* 核心修复：防止树形首列的单元格内容换行，强力保证排期、缩进与文字在同一水平线上 */
+/* ================= 核心修复：强迫树形首列的箭头、缩进与文字绝对在同一行水平排列 ================= */
 .excel-table-style :deep(.el-table__row) td:first-child .cell {
   display: flex !important;
   align-items: center !important;
