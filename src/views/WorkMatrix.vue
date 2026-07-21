@@ -62,22 +62,11 @@
               <h3 class="board-header-title">📋 {{ selectedRequirement.title }} · 阶段协同矩阵表</h3>
               <p class="board-header-desc" v-if="selectedRequirement.description">{{ selectedRequirement.description }}</p>
             </div>
-            <!-- 右上操作区：已移除繁琐的“添加自定义列”按钮，改为一键划分阶段，保持极其简练 -->
             <el-button type="primary" size="small" @click="openCreateStageDialog">划分执行阶段</el-button>
           </div>
 
-          <!-- 状态过滤控制栏 -->
-          <div class="matrix-filter-row">
-            <span class="filter-label">🔍 矩阵状态过滤：</span>
-            <el-checkbox-group v-model="filterStatuses" size="small">
-              <el-checkbox-button value="TODO">待处理</el-checkbox-button>
-              <el-checkbox-button value="IN_PROGRESS">进行中</el-checkbox-button>
-              <el-checkbox-button value="DONE">已完成</el-checkbox-button>
-            </el-checkbox-group>
-          </div>
-
           <!-- 纵向阶段区块列表 -->
-          <div v-if="activeStage" class="stage-table-block">
+          <div v-if="activeStage" class="stage-table-block" style="margin-top: 20px;">
             
             <div class="stage-block-header">
               <div class="stage-title-left">
@@ -133,8 +122,14 @@
                 </template>
               </el-table-column>
 
-              <!-- 2. 状态列（支持行内下拉直接修改） -->
-              <el-table-column label="状态" width="130" align="center">
+              <!-- 2. 状态列（已移回：直接集成表头过滤器 & 内部级联递归筛选） -->
+              <el-table-column 
+                label="状态" 
+                width="130" 
+                align="center"
+                column-key="status"
+                :filters="[{ text: '待处理', value: 'TODO' }, { text: '进行中', value: 'IN_PROGRESS' }, { text: '已完成', value: 'DONE' }]"
+              >
                 <template #default="scope">
                   <el-select 
                     v-model="scope.row.status" 
@@ -149,7 +144,7 @@
                 </template>
               </el-table-column>
 
-              <!-- 3. 负责人列（双击修改 & 支持表头自动搜集值过滤） -->
+              <!-- 3. 负责人列（支持表头过滤器） -->
               <el-table-column 
                 label="负责人" 
                 width="135" 
@@ -189,7 +184,7 @@
                 </template>
               </el-table-column>
 
-              <!-- 5. 属性标签列（Notion 风格：点击卡片自由写任何 Property，写入即自动在表格右侧生成对应的列！） -->
+              <!-- 5. 属性标签列 -->
               <el-table-column label="🏷️ 属性标签 (点击可原地扩展任意键值)" width="180" align="center">
                 <template #default="scope">
                   <el-popover
@@ -256,7 +251,7 @@
                 </template>
               </el-table-column>
 
-              <!-- 6. 【黑科技核心】：自动扫描渲染出的独立大列！完全不需要手动建列！支持行内直接编辑 & 列头下拉过滤！ -->
+              <!-- 6. 自动扫描渲染列（集成列头下拉过滤） -->
               <el-table-column 
                 v-for="key in detectedColumnKeys[activeStage.id] || []" 
                 :key="key" 
@@ -422,7 +417,7 @@ const stages = ref([])
 // 阶段切换激活ID
 const activeStageId = ref(null)
 
-// 响应式存储：每个阶段下扫描并析出的全部自定义属性 Key（如：{ stageId: ['测试负责人', '工时'] }）
+// 响应式存储：每个阶段下扫描出的全部自定义属性 Key
 const detectedColumnKeys = ref({})
 
 // 计算属性：当前选中阶段
@@ -436,14 +431,11 @@ const stageAddForms = ref({})
 const taskTimelines = ref({})
 const quickLogs = ref({})
 
-// 状态过滤绑定，默认全选
-const filterStatuses = ref(['TODO', 'IN_PROGRESS', 'DONE'])
+// 各列筛选器激活的状态（格式：{ [columnKey]: [selectedValues] }）
+const activeFilters = ref({})
 
 // 行内属性配置新表单
 const newPropForm = ref({ key: '', value: '' })
-
-// 列头筛选绑定的状态（格式：{ [columnKey]: [selectedValues] }）
-const activeFilters = ref({})
 
 // 阶段、子树弹窗
 const stageDialogVisible = ref(false)
@@ -463,7 +455,7 @@ const vFocus = {
   }
 }
 
-// 高灵敏列自动扫描器：递归搜集本阶段所有任务和子项中使用过的全部 JSONB 属性 Key
+// 自动扫描 JSONB 属性 Key 列表
 const scanCustomColumns = (list) => {
   const keys = new Set()
   const traverse = (items) => {
@@ -528,7 +520,7 @@ const updateOriginalNode = (nodes, updatedNode) => {
   return false
 }
 
-// 树形递归剪枝过滤算法 (升级：全面融合“状态”及“多列自动扫描列”组合筛选联动)
+// 树形递归剪枝过滤算法 (升级：多列自定义属性过滤器组合筛选联动，支持状态直接在表头过滤)
 const filterTreeData = (nodes, allowedStatuses, currentFilters) => {
   const result = []
   for (const node of nodes) {
@@ -539,12 +531,14 @@ const filterTreeData = (nodes, allowedStatuses, currentFilters) => {
       clonedNode.children = filterTreeData(node.children, allowedStatuses, currentFilters)
     }
     
-    // 2. 判断当前节点是否符合“全局状态过滤”
+    // 2. 判断当前节点是否符合“表格状态头过滤器配置”
     const isStatusMatch = allowedStatuses.length === 0 || allowedStatuses.includes(node.status)
     
-    // 3. 判断当前节点是否符合“各表头独立筛选器”
+    // 3. 判断当前节点是否符合“各表头自选列独立过滤器”
     let isHeaderFiltersMatch = true
     for (const key in currentFilters) {
+      if (key === 'status') continue // 关键：状态已经在 isStatusMatch 中做单独高精细匹配，在此排除
+      
       const selectedVals = currentFilters[key]
       if (selectedVals && selectedVals.length > 0) {
         let nodeVal = ''
@@ -573,16 +567,26 @@ const filterTreeData = (nodes, allowedStatuses, currentFilters) => {
 // 供表格绑定的过滤计算方法
 const getFilteredTasks = (stageId) => {
   const originalTree = stageSubTasks.value[stageId] || []
-  const hasActiveFilters = Object.values(activeFilters.value).some(arr => arr && arr.length > 0)
-  if (filterStatuses.value.length === 3 && !hasActiveFilters) {
-    return originalTree // 无任何过滤时，直接放回原树
+  
+  // 从表头筛选状态中获取允许的状态值，如无，则默认显示全部
+  const allowedStatuses = activeFilters.value['status'] && activeFilters.value['status'].length > 0 
+    ? activeFilters.value['status'] 
+    : ['TODO', 'IN_PROGRESS', 'DONE']
+
+  const hasActiveFilters = Object.keys(activeFilters.value).some(key => {
+    return activeFilters.value[key] && activeFilters.value[key].length > 0
+  })
+
+  // 如果无任何表头筛选条件，则直接返还原树（提升渲染性能）
+  if (allowedStatuses.length === 3 && !hasActiveFilters) {
+    return originalTree 
   }
-  return filterTreeData(originalTree, filterStatuses.value, activeFilters.value)
+  return filterTreeData(originalTree, allowedStatuses, activeFilters.value)
 }
 
-// ----------------- 高度智能：列头过滤选项动态数据搜集 -----------------
+// ----------------- 列头过滤选项动态数据搜集 -----------------
 
-// A. 动态搜集并渲染“负责人”表头筛选器选项
+// A. 动态搜集“负责人”表头选项
 const getAssigneeFilters = (stageId) => {
   const tasks = stageSubTasks.value[stageId] || []
   const uniqueValues = new Set()
@@ -597,7 +601,7 @@ const getAssigneeFilters = (stageId) => {
   return Array.from(uniqueValues).map(val => ({ text: val, value: val }))
 }
 
-// B. 【无感核心】：自动搜集并渲染“自动生成扩展列”的表头筛选器选项
+// B. 动态搜集并渲染“自动生成扩展列”的表头选项
 const getCustomColumnFilters = (columnKey, stageId) => {
   const tasks = stageSubTasks.value[stageId] || []
   const uniqueValues = new Set()
@@ -613,7 +617,7 @@ const getCustomColumnFilters = (columnKey, stageId) => {
   return Array.from(uniqueValues).map(val => ({ text: val, value: val }))
 }
 
-// 监听 Element Plus 表头筛选改变事件
+// 监听表头筛选改变
 const handleFilterChange = (filters) => {
   for (const key in filters) {
     activeFilters.value[key] = filters[key]
@@ -640,7 +644,6 @@ const loadStages = async (reqId) => {
     const stageList = await getStagesApi(reqId)
     stages.value = stageList
     
-    // 初始化首选状态：切换需求时，自动高亮并载入该需求的第一个阶段
     if (stageList.length > 0) {
       activeStageId.value = stageList[0].id
       await handleStageChange(stageList[0].id)
@@ -650,7 +653,6 @@ const loadStages = async (reqId) => {
   } catch (error) {}
 }
 
-// 当切换执行阶段时，进行按需数据懒加载
 const handleStageChange = async (stageId) => {
   if (stageId) {
     stageAddForms.value[stageId] = { title: '', assignee: '' }
@@ -664,7 +666,6 @@ const loadSubTasks = async (stageId) => {
   for (let task of flatTaskList) {
     task.isEditingTitle = false
     task.isEditingAssignee = false
-    task.isEditingCustom = null
     task.dateRange = (task.startDate && task.endDate) ? [task.startDate, task.endDate] : []
     
     if (!task.customFields) {
@@ -713,7 +714,6 @@ const handleSubTaskDateChange = async (row) => {
 
 const saveSubTask = async (row) => {
   try {
-    // 异步前先写入真实源对象
     const originalList = stageSubTasks.value[row.stageId] || []
     updateOriginalNode(originalList, row)
 
@@ -919,12 +919,6 @@ const formatTime = (timeStr) => {
   return `${date.getMonth() + 1}月${date.getDate()}日 ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
-const getStageStatusTag = (s) => {
-  if (s === 'DONE') return 'success'
-  if (s === 'IN_PROGRESS') return 'warning'
-  return 'info'
-}
-
 onMounted(async () => {
   await loadRequirements()
   const queryReqId = route.query.reqId
@@ -1077,21 +1071,6 @@ onMounted(async () => {
 .top-action-bar {
   display: flex;
   gap: 10px;
-}
-
-.matrix-filter-row {
-  margin-top: 15px;
-  background-color: #f8f9fa;
-  padding: 10px 16px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  border: 1px dashed #e4e7ed;
-}
-.filter-label {
-  font-size: 13px;
-  font-weight: bold;
-  color: #606266;
 }
 
 .stage-table-block {
