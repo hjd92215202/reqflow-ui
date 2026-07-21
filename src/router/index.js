@@ -12,9 +12,9 @@ const routes = [
     component: () => import('@/views/RequirementList.vue') 
   },
   { 
-    // 新增：独立阶段执行看板路由
-    path: '/stages', 
-    component: () => import('@/views/StageBoard.vue') 
+    // 替换为全新的：工作事项矩阵路由
+    path: '/matrix', 
+    component: () => import('@/views/WorkMatrix.vue') 
   }
 ]
 

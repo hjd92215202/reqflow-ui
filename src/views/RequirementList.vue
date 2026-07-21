@@ -1,6 +1,6 @@
 <template>
   <div class="layout-wrapper">
-    <!-- 左侧侧边菜单栏 -->
+    <!-- 左侧一级导航菜单 -->
     <aside class="sidebar">
       <div class="brand">
         <span class="logo-icon">🌊</span>
@@ -18,9 +18,9 @@
           <el-icon><Menu /></el-icon>
           <span>需求事项管理</span>
         </el-menu-item>
-        <el-menu-item index="/stages">
+        <el-menu-item index="/matrix">
           <el-icon><Checked /></el-icon>
-          <span>阶段执行看板</span>
+          <span>工作事项矩阵</span>
         </el-menu-item>
       </el-menu>
     </aside>
@@ -65,8 +65,8 @@
             </el-table-column>
             <el-table-column label="操作面板" width="220" align="center" fixed="right">
               <template #default="scope">
-                <!-- 优化：点击直接携带参数跳转到看板菜单 -->
-                <el-button size="small" link type="success" @click="goToStageBoard(scope.row.id)">阶段与跟进</el-button>
+                <!-- 优化：点击携带参数跳转到全新的工作事项矩阵 -->
+                <el-button size="small" link type="success" @click="goToWorkMatrix(scope.row.id)">矩阵与跟进</el-button>
                 <el-button size="small" link type="primary" @click="openEditDialog(scope.row)">编辑</el-button>
                 <el-button size="small" link type="danger" @click="handleDelete(scope.row.id)">删除</el-button>
               </template>
@@ -98,9 +98,9 @@
         </el-form-item>
         <el-form-item label="优先级">
           <el-radio-group v-model="form.priority">
-            <el-radio-button label="LOW">低</el-radio-button>
-            <el-radio-button label="MEDIUM">中</el-radio-button>
-            <el-radio-button label="HIGH">高</el-radio-button>
+            <el-radio-button value="LOW">低</el-radio-button>
+            <el-radio-button value="MEDIUM">中</el-radio-button>
+            <el-radio-button value="HIGH">高</el-radio-button>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="主状态" v-if="isEdit">
@@ -158,9 +158,8 @@ const loadRequirements = async () => {
   } catch (error) {}
 }
 
-const goToStageBoard = (reqId) => {
-  // 携带选中的需求ID跳转至看板路由
-  router.push({ path: '/stages', query: { reqId } })
+const goToWorkMatrix = (reqId) => {
+  router.push({ path: '/matrix', query: { reqId } })
 }
 
 const openCreateDialog = () => {
@@ -207,7 +206,7 @@ const submitForm = async () => {
 }
 
 const handleDelete = (id) => {
-  ElMessageBox.confirm('确定要删除该需求吗？其下关联的所有阶段信息也将一并清空。', '重要提示', {
+  ElMessageBox.confirm('确定要删除该需求吗？其下关联的所有阶段及子任务信息也将一并清空。', '重要提示', {
     type: 'warning'
   }).then(async () => {
     try {
@@ -246,7 +245,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 与此前一致的通用布局样式 */
 .layout-wrapper {
   display: flex;
   height: 100vh;
