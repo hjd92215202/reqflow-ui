@@ -62,6 +62,7 @@
               <h3 class="board-header-title">📋 {{ selectedRequirement.title }} · 阶段协同矩阵表</h3>
               <p class="board-header-desc" v-if="selectedRequirement.description">{{ selectedRequirement.description }}</p>
             </div>
+            <!-- 右上操作区：已移除繁琐的“添加自定义列”按钮，改为一键划分阶段，保持极其简练 -->
             <el-button type="primary" size="small" @click="openCreateStageDialog">划分执行阶段</el-button>
           </div>
 
@@ -76,32 +77,33 @@
           </div>
 
           <!-- 纵向阶段区块列表 -->
-          <div v-for="stage in stages" :key="stage.id" class="stage-table-block">
+          <div v-if="activeStage" class="stage-table-block">
             
             <div class="stage-block-header">
               <div class="stage-title-left">
-                <span class="block-stage-name">📍 {{ stage.title }}</span>
-                <span class="block-stage-dates"> 排期：{{ stage.startDate || '未定' }} 至 {{ stage.endDate || '未定' }} </span>
+                <span class="block-stage-name">📍 当前执行阶段：{{ activeStage.title }}</span>
+                <span class="block-stage-dates"> 排期：{{ activeStage.startDate || '未定' }} 至 {{ activeStage.endDate || '未定' }} </span>
               </div>
               <div class="stage-title-right">
-                <el-radio-group v-model="stage.status" size="small" @change="handleStageStatusChange(stage)">
+                <el-radio-group v-model="activeStage.status" size="small" @change="handleStageStatusChange(activeStage)">
                   <el-radio-button value="TODO">待处理</el-radio-button>
                   <el-radio-button value="IN_PROGRESS">进行中</el-radio-button>
                   <el-radio-button value="DONE">已完成</el-radio-button>
                 </el-radio-group>
-                <el-button type="danger" link size="small" @click="handleDeleteStage(stage.id)" style="margin-left: 20px;">移除阶段</el-button>
+                <el-button type="danger" link size="small" @click="handleDeleteStage(activeStage.id)" style="margin-left: 20px;">移除阶段</el-button>
               </div>
             </div>
 
             <!-- 树形 Excel 协同表格 -->
             <el-table 
-              :data="getFilteredTasks(stage.id)" 
+              :data="getFilteredTasks(activeStage.id)" 
               border 
               row-key="id" 
               default-expand-all
               :tree-props="{ children: 'children' }"
               :indent="28"
               class="excel-table-style"
+              @filter-change="handleFilterChange"
             >
               <!-- 1. 子任务核心标题（支持行内编辑 & 子项一键拆解） -->
               <el-table-column label="任务与子项内容 (双击编辑 / 回车保存)" min-width="260">
@@ -123,7 +125,7 @@
                       size="small" 
                       type="primary" 
                       link 
-                      @click="openAddChildDialog(scope.row, stage.id)"
+                      @click="openAddChildDialog(scope.row, activeStage.id)"
                     >
                       + 拆解子项
                     </el-button>
@@ -147,8 +149,14 @@
                 </template>
               </el-table-column>
 
-              <!-- 3. 负责人（支持行内点击修改） -->
-              <el-table-column label="负责人" width="120" align="center">
+              <!-- 3. 负责人列（双击修改 & 支持表头自动搜集值过滤） -->
+              <el-table-column 
+                label="负责人" 
+                width="135" 
+                align="center"
+                column-key="assignee"
+                :filters="getAssigneeFilters(activeStage.id)"
+              >
                 <template #default="scope">
                   <div class="inline-edit-cell" @click="scope.row.isEditingAssignee = true">
                     <el-input 
@@ -181,8 +189,8 @@
                 </template>
               </el-table-column>
 
-              <!-- 5. 任务专属属性配置（Notion 风格：单任务独立配置，千人千面） -->
-              <el-table-column label="📋 任务属性标签 (点击可自由扩展配置)" min-width="210">
+              <!-- 5. 属性标签列（Notion 风格：点击卡片自由写任何 Property，写入即自动在表格右侧生成对应的列！） -->
+              <el-table-column label="🏷️ 属性标签 (点击可原地扩展任意键值)" width="180" align="center">
                 <template #default="scope">
                   <el-popover
                     placement="top"
@@ -193,21 +201,15 @@
                     <template #reference>
                       <div class="properties-preview-box">
                         <template v-if="hasProperties(scope.row.customFields)">
-                          <el-tag 
-                            v-for="(val, key) in scope.row.customFields" 
-                            :key="key"
-                            size="small"
-                            type="info"
-                            style="margin-right: 4px; margin-bottom: 4px;"
-                          >
-                            {{ key }}: {{ val }}
+                          <el-tag size="small" type="info" style="cursor:pointer;">
+                            ⚙️ {{ Object.keys(scope.row.customFields).length }}个扩展值
                           </el-tag>
                         </template>
                         <span v-else class="properties-placeholder">+ 属性扩展</span>
                       </div>
                     </template>
                     
-                    <!-- 属性卡片工作台面板 -->
+                    <!-- 原地属性标签卡片面板 -->
                     <div class="property-inspector">
                       <h4 class="inspector-title">📌 属性配置看板</h4>
                       
@@ -254,7 +256,37 @@
                 </template>
               </el-table-column>
 
-              <!-- 6. 进展备注日志（悬浮查看时间轴） -->
+              <!-- 6. 【黑科技核心】：自动扫描渲染出的独立大列！完全不需要手动建列！支持行内直接编辑 & 列头下拉过滤！ -->
+              <el-table-column 
+                v-for="key in detectedColumnKeys[activeStage.id] || []" 
+                :key="key" 
+                :column-key="key"
+                min-width="140"
+                :filters="getCustomColumnFilters(key, activeStage.id)"
+              >
+                <template #header>
+                  <div class="custom-header-wrapper">
+                    <span>{{ key }}</span>
+                  </div>
+                </template>
+                <template #default="scope">
+                  <div class="inline-edit-cell" @click="scope.row.isEditingCustom = key">
+                    <el-input 
+                      v-if="scope.row.isEditingCustom === key" 
+                      v-model="scope.row.customFields[key]" 
+                      size="small" 
+                      @blur="finishCustomFieldEdit(scope.row)"
+                      @keyup.enter="finishCustomFieldEdit(scope.row)"
+                      v-focus
+                    />
+                    <span v-else class="custom-field-text">
+                      {{ scope.row.customFields?.[key] || '-' }}
+                    </span>
+                  </div>
+                </template>
+              </el-table-column>
+
+              <!-- 7. 进展备注日志（悬浮查看时间轴） -->
               <el-table-column label="最新进展备注" min-width="180">
                 <template #default="scope">
                   <el-popover
@@ -296,10 +328,10 @@
                 </template>
               </el-table-column>
 
-              <!-- 7. 操作 -->
+              <!-- 8. 操作 -->
               <el-table-column label="操作" width="70" align="center">
                 <template #default="scope">
-                  <el-button type="danger" link size="small" @click="handleDeleteSubTask(scope.row.id, stage.id)">删除</el-button>
+                  <el-button type="danger" link size="small" @click="handleDeleteSubTask(scope.row.id, activeStage.id)">删除</el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -307,9 +339,9 @@
             <!-- 每一阶段底部的快速录入 -->
             <div class="excel-quick-append-row">
               <span class="append-tag">➕ 添加行</span>
-              <el-input v-model="stageAddForms[stage.id].title" placeholder="添加一级子任务..." size="small" style="flex: 2; margin-right: 12px;" />
-              <el-input v-model="stageAddForms[stage.id].assignee" placeholder="负责人" size="small" style="flex: 0.8; margin-right: 12px;" />
-              <el-button type="primary" size="small" @click="handleQuickAddSubTask(stage.id)">确定添加</el-button>
+              <el-input v-model="stageAddForms[activeStage.id].title" placeholder="添加一级子任务..." size="small" style="flex: 2; margin-right: 12px;" />
+              <el-input v-model="stageAddForms[activeStage.id].assignee" placeholder="负责人" size="small" style="flex: 0.8; margin-right: 12px;" />
+              <el-button type="primary" size="small" @click="handleQuickAddSubTask(activeStage.id)">确定添加</el-button>
             </div>
           </div>
 
@@ -323,7 +355,7 @@
       </main>
     </div>
 
-    <!-- 弹窗1：划分新阶段 -->
+    <!-- 弹窗：划分新阶段 -->
     <el-dialog v-model="stageDialogVisible" title="划分新执行阶段" width="400px" append-to-body>
       <el-form :model="stageForm" label-width="80px">
         <el-form-item label="阶段名称" required>
@@ -348,7 +380,7 @@
       </template>
     </el-dialog>
 
-    <!-- 弹窗2：拆解子项模态窗 -->
+    <!-- 弹窗：拆解子项模态窗 -->
     <el-dialog v-model="childTaskDialogVisible" title="拆解微观子项" width="400px" append-to-body>
       <el-form :model="childTaskForm" label-width="80px">
         <el-form-item label="子项标题" required>
@@ -367,7 +399,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { Menu, Checked } from '@element-plus/icons-vue'
@@ -387,6 +419,17 @@ const activeReqId = ref(null)
 const selectedRequirement = ref(null)
 const stages = ref([])
 
+// 阶段切换激活ID
+const activeStageId = ref(null)
+
+// 响应式存储：每个阶段下扫描并析出的全部自定义属性 Key（如：{ stageId: ['测试负责人', '工时'] }）
+const detectedColumnKeys = ref({})
+
+// 计算属性：当前选中阶段
+const activeStage = computed(() => {
+  return stages.value.find(s => s.id === activeStageId.value)
+})
+
 // 状态映射绑定
 const stageSubTasks = ref({})
 const stageAddForms = ref({})
@@ -398,6 +441,9 @@ const filterStatuses = ref(['TODO', 'IN_PROGRESS', 'DONE'])
 
 // 行内属性配置新表单
 const newPropForm = ref({ key: '', value: '' })
+
+// 列头筛选绑定的状态（格式：{ [columnKey]: [selectedValues] }）
+const activeFilters = ref({})
 
 // 阶段、子树弹窗
 const stageDialogVisible = ref(false)
@@ -417,6 +463,27 @@ const vFocus = {
   }
 }
 
+// 高灵敏列自动扫描器：递归搜集本阶段所有任务和子项中使用过的全部 JSONB 属性 Key
+const scanCustomColumns = (list) => {
+  const keys = new Set()
+  const traverse = (items) => {
+    items.forEach(item => {
+      if (item.customFields) {
+        Object.keys(item.customFields).forEach(k => {
+          if (k && k.trim() !== '') {
+            keys.add(k.trim())
+          }
+        })
+      }
+      if (item.children && item.children.length > 0) {
+        traverse(item.children)
+      }
+    })
+  }
+  traverse(list)
+  return Array.from(keys)
+}
+
 // 扁平数组转化为树形网格的算法
 const arrayToTree = (list) => {
   const map = {}, roots = [];
@@ -426,7 +493,6 @@ const arrayToTree = (list) => {
   }
   for (let i = 0; i < list.length; i++) {
     const node = list[i];
-    // 关键兼容：同时适配驼峰 parentId 和下划线 parent_id
     const pId = node.parentId !== undefined ? node.parentId : node.parent_id;
     if (pId) {
       const parentIndex = map[pId];
@@ -462,20 +528,39 @@ const updateOriginalNode = (nodes, updatedNode) => {
   return false
 }
 
-// 树形递归剪枝过滤算法
-const filterTreeData = (nodes, allowedStatuses) => {
-  if (!allowedStatuses || allowedStatuses.length === 0) {
-    return []
-  }
+// 树形递归剪枝过滤算法 (升级：全面融合“状态”及“多列自动扫描列”组合筛选联动)
+const filterTreeData = (nodes, allowedStatuses, currentFilters) => {
   const result = []
   for (const node of nodes) {
     const clonedNode = { ...node, children: [] }
     
+    // 1. 递归优先过滤子项
     if (node.children && node.children.length > 0) {
-      clonedNode.children = filterTreeData(node.children, allowedStatuses)
+      clonedNode.children = filterTreeData(node.children, allowedStatuses, currentFilters)
     }
     
-    const isCurrentMatch = allowedStatuses.includes(node.status)
+    // 2. 判断当前节点是否符合“全局状态过滤”
+    const isStatusMatch = allowedStatuses.length === 0 || allowedStatuses.includes(node.status)
+    
+    // 3. 判断当前节点是否符合“各表头独立筛选器”
+    let isHeaderFiltersMatch = true
+    for (const key in currentFilters) {
+      const selectedVals = currentFilters[key]
+      if (selectedVals && selectedVals.length > 0) {
+        let nodeVal = ''
+        if (key === 'assignee') {
+          nodeVal = node.assignee ? node.assignee.trim() : '未分配'
+        } else {
+          nodeVal = node.customFields?.[key] ? String(node.customFields[key]).trim() : '空'
+        }
+        if (!selectedVals.includes(nodeVal)) {
+          isHeaderFiltersMatch = false
+          break
+        }
+      }
+    }
+    
+    const isCurrentMatch = isStatusMatch && isHeaderFiltersMatch
     const hasMatchingChildren = clonedNode.children.length > 0
     
     if (isCurrentMatch || hasMatchingChildren) {
@@ -488,11 +573,54 @@ const filterTreeData = (nodes, allowedStatuses) => {
 // 供表格绑定的过滤计算方法
 const getFilteredTasks = (stageId) => {
   const originalTree = stageSubTasks.value[stageId] || []
-  if (filterStatuses.value.length === 3) {
-    return originalTree
+  const hasActiveFilters = Object.values(activeFilters.value).some(arr => arr && arr.length > 0)
+  if (filterStatuses.value.length === 3 && !hasActiveFilters) {
+    return originalTree // 无任何过滤时，直接放回原树
   }
-  return filterTreeData(originalTree, filterStatuses.value)
+  return filterTreeData(originalTree, filterStatuses.value, activeFilters.value)
 }
+
+// ----------------- 高度智能：列头过滤选项动态数据搜集 -----------------
+
+// A. 动态搜集并渲染“负责人”表头筛选器选项
+const getAssigneeFilters = (stageId) => {
+  const tasks = stageSubTasks.value[stageId] || []
+  const uniqueValues = new Set()
+  
+  const collect = (list) => {
+    list.forEach(t => {
+      uniqueValues.add(t.assignee ? t.assignee.trim() : '未分配')
+      if (t.children && t.children.length > 0) collect(t.children)
+    })
+  }
+  collect(tasks)
+  return Array.from(uniqueValues).map(val => ({ text: val, value: val }))
+}
+
+// B. 【无感核心】：自动搜集并渲染“自动生成扩展列”的表头筛选器选项
+const getCustomColumnFilters = (columnKey, stageId) => {
+  const tasks = stageSubTasks.value[stageId] || []
+  const uniqueValues = new Set()
+  
+  const collect = (list) => {
+    list.forEach(t => {
+      const val = t.customFields?.[columnKey]
+      uniqueValues.add(val && String(val).trim() !== '' ? String(val).trim() : '空')
+      if (t.children && t.children.length > 0) collect(t.children)
+    })
+  }
+  collect(tasks)
+  return Array.from(uniqueValues).map(val => ({ text: val, value: val }))
+}
+
+// 监听 Element Plus 表头筛选改变事件
+const handleFilterChange = (filters) => {
+  for (const key in filters) {
+    activeFilters.value[key] = filters[key]
+  }
+}
+
+// ----------------- 数据加载业务 -----------------
 
 const loadRequirements = async () => {
   try {
@@ -503,6 +631,7 @@ const loadRequirements = async () => {
 const switchRequirement = async (req) => {
   selectedRequirement.value = req
   activeReqId.value = req.id
+  activeFilters.value = {} // 重置列过滤
   await loadStages(req.id)
 }
 
@@ -510,11 +639,23 @@ const loadStages = async (reqId) => {
   try {
     const stageList = await getStagesApi(reqId)
     stages.value = stageList
-    stageList.forEach(async (stage) => {
-      stageAddForms.value[stage.id] = { title: '', assignee: '' }
-      await loadSubTasks(stage.id)
-    })
+    
+    // 初始化首选状态：切换需求时，自动高亮并载入该需求的第一个阶段
+    if (stageList.length > 0) {
+      activeStageId.value = stageList[0].id
+      await handleStageChange(stageList[0].id)
+    } else {
+      activeStageId.value = null
+    }
   } catch (error) {}
+}
+
+// 当切换执行阶段时，进行按需数据懒加载
+const handleStageChange = async (stageId) => {
+  if (stageId) {
+    stageAddForms.value[stageId] = { title: '', assignee: '' }
+    await loadSubTasks(stageId)
+  }
 }
 
 const loadSubTasks = async (stageId) => {
@@ -523,6 +664,7 @@ const loadSubTasks = async (stageId) => {
   for (let task of flatTaskList) {
     task.isEditingTitle = false
     task.isEditingAssignee = false
+    task.isEditingCustom = null
     task.dateRange = (task.startDate && task.endDate) ? [task.startDate, task.endDate] : []
     
     if (!task.customFields) {
@@ -533,6 +675,10 @@ const loadSubTasks = async (stageId) => {
     task.latestLog = (discussions && discussions.length > 0) ? discussions[discussions.length - 1].content : ''
   }
 
+  // 1. 无感列扫描：获取该阶段目前所有数据行中已写入的全部 Key 并激活表头列
+  detectedColumnKeys.value[stageId] = scanCustomColumns(flatTaskList)
+
+  // 2. 转换为树形数据
   stageSubTasks.value[stageId] = arrayToTree(flatTaskList)
 }
 
@@ -546,6 +692,11 @@ const finishTitleEdit = async (row) => {
 
 const finishAssigneeEdit = async (row) => {
   row.isEditingAssignee = false
+  await saveSubTask(row)
+}
+
+const finishCustomFieldEdit = async (row) => {
+  row.isEditingCustom = null
   await saveSubTask(row)
 }
 
@@ -565,6 +716,9 @@ const saveSubTask = async (row) => {
     // 异步前先写入真实源对象
     const originalList = stageSubTasks.value[row.stageId] || []
     updateOriginalNode(originalList, row)
+
+    // 局部响应式重算列：让新增属性后，动态表头瞬间生成并响应重绘
+    detectedColumnKeys.value[row.stageId] = scanCustomColumns(originalList)
 
     const updatePayload = {
       id: row.id,
@@ -611,7 +765,7 @@ const submitChildTask = async () => {
     })
     ElMessage.success('子项拆解成功')
     childTaskDialogVisible.value = false
-    loadSubTasks(selectedParentStageId.value)
+    await loadSubTasks(selectedParentStageId.value)
   } catch (error) {}
 }
 
@@ -656,7 +810,7 @@ const handleQuickAddSubTask = async (stageId) => {
     })
     ElMessage.success('任务录入完成')
     stageAddForms.value[stageId] = { title: '', assignee: '' }
-    loadSubTasks(stageId)
+    await loadSubTasks(stageId)
   } catch (error) {}
 }
 
@@ -666,7 +820,7 @@ const handleDeleteSubTask = (id, stageId) => {
   }).then(async () => {
     await deleteSubTaskApi(id)
     ElMessage.success('删除成功')
-    loadSubTasks(stageId)
+    await loadSubTasks(stageId)
   }).catch(() => {})
 }
 
@@ -700,7 +854,7 @@ const submitStageForm = async () => {
     })
     ElMessage.success('阶段划分成功')
     stageDialogVisible.value = false
-    loadStages(selectedRequirement.value.id)
+    await loadStages(selectedRequirement.value.id)
   } catch (error) {}
 }
 
@@ -712,7 +866,7 @@ const handleDeleteStage = (id) => {
   }).then(async () => {
     await deleteStageApi(id)
     ElMessage.success('阶段已被移除')
-    loadStages(selectedRequirement.value.id)
+    await loadStages(selectedRequirement.value.id)
   }).catch(() => {})
 }
 
@@ -777,10 +931,10 @@ onMounted(async () => {
   if (queryReqId) {
     const target = requirements.value.find(r => r.id === Number(queryReqId))
     if (target) {
-      switchRequirement(target)
+      await switchRequirement(target)
     }
   } else if (requirements.value.length > 0) {
-    switchRequirement(requirements.value[0])
+    await switchRequirement(requirements.value[0])
   }
 })
 </script>
@@ -991,7 +1145,6 @@ onMounted(async () => {
   justify-content: space-between;
   flex: 1;
   overflow: hidden;
-  width: 100%;
 }
 .add-sub-child-btn {
   visibility: hidden;
