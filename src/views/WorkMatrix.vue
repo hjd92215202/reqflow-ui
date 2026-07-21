@@ -1,17 +1,31 @@
 <template>
   <div class="layout-wrapper">
-    <!-- 左侧主侧边栏 -->
+    <!-- 左侧主侧边栏 (支持动态折叠与过渡动画) -->
     <aside class="sidebar">
-      <div class="brand">
-        <span class="logo-icon">🌊</span>
-        <span class="logo-text">ReqFlow</span>
+      <!-- 优化：增加 :class 状态控制，解决折叠后内容挤压问题 -->
+      <div class="brand" :class="{ 'collapsed': isCollapsed }">
+        <span v-if="!isCollapsed" class="logo-text">🌊 ReqFlow</span>
+        <!-- 菜单折叠切换按钮 -->
+        <el-button 
+          type="text" 
+          @click="isCollapsed = !isCollapsed" 
+          class="collapse-toggle-btn"
+        >
+          <el-icon>
+            <Expand v-if="isCollapsed" />
+            <Fold v-else />
+          </el-icon>
+        </el-button>
       </div>
+      
       <el-menu
         default-active="/matrix"
         class="sidebar-menu"
         background-color="#001529"
         text-color="#a6adb4"
         active-text-color="#ffffff"
+        :collapse="isCollapsed"
+        :collapse-transition="false"
         router
       >
         <el-menu-item index="/requirements">
@@ -23,18 +37,28 @@
           <span>工作事项矩阵</span>
         </el-menu-item>
       </el-menu>
+
+      <!-- 底部用户信息及退出 (下放到侧边栏底部，自适应折叠状态) -->
+      <div class="sidebar-user-footer" :class="{ 'collapsed': isCollapsed }">
+        <div class="user-info-text">
+          <span class="user-avatar">👤</span>
+          <span v-if="!isCollapsed" class="user-name">{{ userStore.nickname }}</span>
+        </div>
+        <el-button 
+          type="danger" 
+          link 
+          size="small" 
+          @click="logout"
+          class="logout-btn"
+        >
+          <el-icon><SwitchButton /></el-icon>
+          <span v-if="!isCollapsed" style="margin-left: 6px;">退出登录</span>
+        </el-button>
+      </div>
     </aside>
 
     <!-- 右侧工作面板 -->
     <div class="main-container">
-      <header class="topbar">
-        <div class="breadcrumb">项目控制台 / 工作事项矩阵</div>
-        <div class="user-profile">
-          <span>当前用户：<strong>{{ userStore.nickname }}</strong></span>
-          <el-button type="danger" link @click="logout" style="margin-left: 15px;">退出登录</el-button>
-        </div>
-      </header>
-
       <!-- 矩阵主工作区 -->
       <main class="workbench-workspace">
         <!-- 核心协同矩阵板 -->
@@ -45,7 +69,7 @@
               <p class="board-header-desc" v-if="selectedRequirement.description">{{ selectedRequirement.description }}</p>
             </div>
             <div class="top-action-bar">
-              <!-- 恢复并启用：执行阶段切换下拉选项 -->
+              <!-- 执行阶段切换下拉选项 -->
               <el-select 
                 v-model="activeStageId" 
                 placeholder="切换执行阶段" 
@@ -283,12 +307,22 @@
               </el-table-column>
             </el-table>
 
-            <!-- 每一阶段底部的快速录入 -->
+            <!-- 每一阶段底部的快速录入 (优化：强制不折行并配置宽度比例) -->
             <div class="excel-quick-append-row">
               <span class="append-tag">➕ 添加行</span>
-              <el-input v-model="stageAddForms[activeStage.id].title" placeholder="添加一级子任务..." size="small" style="flex: 2; margin-right: 12px;" />
-              <el-input v-model="stageAddForms[activeStage.id].assignee" placeholder="负责人" size="small" style="flex: 0.8; margin-right: 12px;" />
-              <el-button type="primary" size="small" @click="handleQuickAddSubTask(activeStage.id)">确定添加</el-button>
+              <el-input 
+                v-model="stageAddForms[activeStage.id].title" 
+                placeholder="添加一级子任务..." 
+                size="small" 
+                style="flex: 3 !important; margin-right: 12px; width: auto !important;" 
+              />
+              <el-input 
+                v-model="stageAddForms[activeStage.id].assignee" 
+                placeholder="负责人" 
+                size="small" 
+                style="flex: 1 !important; margin-right: 12px; width: auto !important;" 
+              />
+              <el-button type="primary" size="small" style="flex-shrink: 0;" @click="handleQuickAddSubTask(activeStage.id)">确定添加</el-button>
             </div>
           </div>
 
@@ -349,7 +383,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
-import { Menu, Checked } from '@element-plus/icons-vue'
+import { Menu, Checked, SwitchButton, Expand, Fold } from '@element-plus/icons-vue'
 import { getRequirementsListApi } from '@/api/requirement'
 import { getStagesApi, createStageApi, updateStageApi, deleteStageApi } from '@/api/stage'
 import { getSubTasksApi, createSubTaskApi, updateSubTaskApi, deleteSubTaskApi } from '@/api/subtask'
@@ -366,8 +400,12 @@ const activeReqId = ref(null)
 const selectedRequirement = ref(null)
 const stages = ref([])
 
-// 阶段切换激活ID
+// 阶段切换与菜单折叠状态
 const activeStageId = ref(null)
+const isCollapsed = ref(false) // 菜单折叠标记
+
+// 动态计算菜单宽度
+const sidebarWidth = computed(() => isCollapsed.value ? '64px' : '240px')
 
 // 响应式存储：每个阶段下扫描出的全部自定义属性 Key
 const detectedColumnKeys = ref({})
@@ -383,14 +421,11 @@ const stageAddForms = ref({})
 const taskTimelines = ref({})
 const quickLogs = ref({})
 
-// 状态过滤绑定，默认全选
-const filterStatuses = ref(['TODO', 'IN_PROGRESS', 'DONE'])
+// 各列筛选器激活的状态（格式：{ [columnKey]: [selectedValues] }）
+const activeFilters = ref({})
 
 // 行内属性配置新表单
 const newPropForm = ref({ key: '', value: '' })
-
-// 各列筛选器激活的状态（格式：{ [columnKey]: [selectedValues] }）
-const activeFilters = ref({})
 
 // 阶段、子树弹窗
 const stageDialogVisible = ref(false)
@@ -904,30 +939,84 @@ onMounted(async () => {
   overflow: hidden;
 }
 .sidebar {
-  width: 240px;
+  width: v-bind(sidebarWidth);
+  transition: width 0.2s ease-in-out;
   background-color: #001529;
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
 }
 .brand {
   height: 60px;
   display: flex;
   align-items: center;
-  padding: 0 20px;
+  justify-content: space-between;
+  padding: 0 16px;
   background-color: #002140;
-}
-.logo-icon {
-  font-size: 22px;
-  margin-right: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 .logo-text {
   font-size: 18px;
   font-weight: bold;
   color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.collapse-toggle-btn {
+  color: #ffffff;
+  font-size: 16px;
+  padding: 0;
 }
 .sidebar-menu {
   border-right: none;
   flex: 1;
+}
+
+/* 侧边栏底部用户信息和退出区 */
+.sidebar-user-footer {
+  border-top: 1px solid #002140;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: #001529;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.sidebar-user-footer.collapsed {
+  align-items: center;
+  padding: 16px 0;
+}
+.sidebar-user-footer.collapsed .user-info-text {
+  justify-content: center;
+}
+.sidebar-user-footer.collapsed .logout-btn {
+  justify-content: center;
+  padding-left: 0;
+  width: 100%;
+}
+.user-info-text {
+  display: flex;
+  align-items: center;
+  color: #ffffff;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.user-avatar {
+  font-size: 16px;
+  margin-right: 8px;
+}
+.user-name {
+  font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.logout-btn {
+  justify-content: flex-start;
+  padding-left: 0;
+  color: #f56c6c;
 }
 
 .main-container {
@@ -937,19 +1026,6 @@ onMounted(async () => {
   background-color: #f0f2f5;
   overflow: hidden;
 }
-.topbar {
-  height: 60px;
-  background-color: #ffffff;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 24px;
-  border-bottom: 1px solid #e8e8e8;
-}
-.breadcrumb {
-  font-size: 14px;
-  color: #666;
-}
 
 .workbench-workspace {
   flex: 1;
@@ -958,58 +1034,6 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
 }
-
-.requirement-selector-tabs {
-  background-color: #ffffff;
-  border-radius: 4px;
-  padding: 12px 20px;
-  box-shadow: 0 1px 4px rgba(0,21,41,.05);
-  display: flex;
-  align-items: center;
-  margin-bottom: 20px;
-  flex-shrink: 0;
-}
-.selector-label {
-  font-size: 13px;
-  font-weight: bold;
-  color: #606266;
-  margin-right: 15px;
-  flex-shrink: 0;
-}
-.tab-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-.tab-item {
-  display: flex;
-  align-items: center;
-  padding: 6px 14px;
-  border-radius: 20px;
-  border: 1px solid #dcdfe6;
-  background-color: #fafafa;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.tab-item:hover {
-  border-color: #409eff;
-  background-color: #f0f7ff;
-}
-.tab-item.active {
-  background-color: #ecf5ff;
-  border-color: #409eff;
-  color: #409eff;
-  font-weight: bold;
-}
-.tab-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 8px;
-}
-.dot-high { background-color: #f56c6c; }
-.dot-medium { background-color: #e6a23c; }
-.dot-low { background-color: #909399; }
 
 .matrix-board {
   background-color: #ffffff;
@@ -1074,7 +1098,7 @@ onMounted(async () => {
   padding: 0 10px;
 }
 
-/* ================= 核心修复：强迫树形首列的箭头、缩进与文字绝对在同一行水平排列 ================= */
+/* ================= 核心修复：防止树形首列的单元格内容换行，强力保证排期、缩进与文字在同一水平线上 ================= */
 .excel-table-style :deep(.el-table__row) td:first-child .cell {
   display: flex !important;
   align-items: center !important;
@@ -1113,67 +1137,6 @@ onMounted(async () => {
   padding: 2px 8px;
   border-radius: 12px;
   color: #909399;
-}
-
-.log-preview-text {
-  cursor: help;
-  font-size: 12px;
-  color: #606266;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  display: inline-block;
-}
-
-.popover-timeline-container {
-  padding: 5px;
-}
-.popover-timeline-title {
-  margin: 0 0 10px 0;
-  font-size: 13px;
-  color: #333;
-  border-bottom: 1.5px solid #ebeef5;
-  padding-bottom: 6px;
-}
-.popover-scroll-area {
-  max-height: 180px;
-  overflow-y: auto;
-  padding-right: 5px;
-  margin-bottom: 12px;
-}
-.timeline-pop-text {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.5;
-}
-.timeline-pop-author {
-  display: block;
-  font-size: 10px;
-  color: #909399;
-  text-align: right;
-  margin-top: 3px;
-}
-.quick-post-row {
-  display: flex;
-  border-top: 1px solid #ebeef5;
-  padding-top: 10px;
-}
-
-.excel-quick-append-row {
-  height: 42px;
-  background-color: #ffffff;
-  border-top: 1px solid #ebeef5;
-  display: flex;
-  align-items: center;
-  padding: 0 15px;
-}
-.append-tag {
-  font-size: 12px;
-  color: #409eff;
-  font-weight: bold;
-  margin-right: 15px;
-  flex-shrink: 0;
 }
 
 .empty-board-state {
