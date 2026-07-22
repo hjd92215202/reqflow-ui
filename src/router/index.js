@@ -8,13 +8,20 @@ const routes = [
     component: () => import('@/views/Login.vue') 
   },
   { 
-    path: '/requirements', 
-    component: () => import('@/views/RequirementList.vue') 
-  },
-  { 
-    // 替换为全新的：工作事项矩阵路由
-    path: '/matrix', 
-    component: () => import('@/views/WorkMatrix.vue') 
+    // 统一全局骨架布局路由
+    path: '/', 
+    component: () => import('@/views/MainLayout.vue'),
+    redirect: '/requirements',
+    children: [
+      { 
+        path: 'requirements', 
+        component: () => import('@/views/RequirementList.vue') 
+      },
+      { 
+        path: 'matrix', 
+        component: () => import('@/views/WorkMatrix.vue') 
+      }
+    ]
   }
 ]
 
