@@ -1,0 +1,51 @@
+name: Release App
+on:
+  push:
+    # 当你推送以 v 开头标签（如 v1.0.0）时，自动触发打包
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        # 同时在 Mac 和 Windows 虚拟服务器上进行构建
+        platform: [macos-latest, windows-latest]
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 1. 准备 Node.js 环境
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # 2. 准备 Rust 环境
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      # 3. 如果是 Mac 系统，自动缓存 Cargo 依赖以加快速度
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.platform }}-cargo
+
+      # 4. 安装前端依赖
+      - name: Install frontend dependencies
+        run: npm install
+
+      # 5. 调用 Tauri 官方 Action 自动编译并发布
+      - name: Build and Publish
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'ReqFlow ${{ github.ref_name }}'
+          releaseBody: 'ReqFlow 桌面客户端最新版发布。'
+          releaseDraft: true
+          prerelease: false
