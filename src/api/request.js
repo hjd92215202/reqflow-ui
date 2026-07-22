@@ -3,13 +3,19 @@ import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/store/user'
 
 const request = axios.create({
-  baseURL: '', // 留空，以便通过 vite.config 中的 proxy 转发代理
   timeout: 10000
 })
 
 // 请求拦截器
 request.interceptors.request.use(config => {
   const userStore = useUserStore()
+  
+  // 核心逻辑：动态拼接自定义后端地址
+  if (userStore.serverUrl) {
+    // 如果 config.url 是 '/api/xxx'，拼接后变成 'http://ip:port/api/xxx'
+    config.baseURL = userStore.serverUrl
+  }
+
   if (userStore.token) {
     config.headers['Authorization'] = `Bearer ${userStore.token}`
   }

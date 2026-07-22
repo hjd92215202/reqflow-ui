@@ -40,27 +40,16 @@
         <el-table :data="getFilteredTasks(activeStage.id)" border row-key="id" default-expand-all
           :tree-props="{ children: 'children' }" :indent="28" class="excel-table-style"
           @filter-change="handleFilterChange">
-          
+
           <!-- 1. 子任务标题列 -->
           <el-table-column label="任务与子项内容 (双击编辑 / 回车保存)" min-width="260">
             <template #default="scope">
               <div class="inline-edit-cell" @click.stop @dblclick.stop="startTitleEdit(scope.row)">
-                <el-input 
-                  key="edit-title-input" 
-                  v-if="editingTitleTaskId === scope.row.id" 
-                  v-model="scope.row.title" 
-                  size="small"
-                  @blur="finishTitleEdit(scope.row)" 
-                  @keyup.enter="finishTitleEdit(scope.row)" 
-                  @click.stop
-                  @dblclick.stop 
-                  v-focus 
-                />
-                <span 
-                  key="read-title-text" 
-                  v-else 
-                  :class="['cell-text', { 'completed-style': scope.row.status === 'DONE' }]"
-                >
+                <el-input key="edit-title-input" v-if="editingTitleTaskId === scope.row.id" v-model="scope.row.title"
+                  size="small" @blur="finishTitleEdit(scope.row)" @keyup.enter="finishTitleEdit(scope.row)" @click.stop
+                  @dblclick.stop v-focus />
+                <span key="read-title-text" v-else
+                  :class="['cell-text', { 'completed-style': scope.row.status === 'DONE' }]">
                   {{ scope.row.title }}
                 </span>
                 <el-button class="add-sub-child-btn" size="small" type="primary" link
@@ -75,13 +64,8 @@
           <el-table-column label="状态" width="130" align="center" column-key="status"
             :filters="[{ text: '待处理', value: 'TODO' }, { text: '进行中', value: 'IN_PROGRESS' }, { text: '已完成', value: 'DONE' }]">
             <template #default="scope">
-              <el-select 
-                v-model="scope.row.status" 
-                size="small" 
-                @change="saveSubTask(scope.row)" 
-                @click.stop
-                style="width: 100%;"
-              >
+              <el-select v-model="scope.row.status" size="small" @change="saveSubTask(scope.row)" @click.stop
+                style="width: 100%;">
                 <el-option label="待处理" value="TODO" />
                 <el-option label="进行中" value="IN_PROGRESS" />
                 <el-option label="已完成" value="DONE" />
@@ -94,17 +78,9 @@
             :filters="getAssigneeFilters(activeStage.id)">
             <template #default="scope">
               <div class="inline-edit-cell" @click.stop @dblclick.stop="startAssigneeEdit(scope.row)">
-                <el-input 
-                  key="edit-assignee-input"
-                  v-if="editingAssigneeTaskId === scope.row.id" 
-                  v-model="scope.row.assignee" 
-                  size="small"
-                  @blur="finishAssigneeEdit(scope.row)" 
-                  @keyup.enter="finishAssigneeEdit(scope.row)" 
-                  @click.stop
-                  @dblclick.stop
-                  v-focus 
-                />
+                <el-input key="edit-assignee-input" v-if="editingAssigneeTaskId === scope.row.id"
+                  v-model="scope.row.assignee" size="small" @blur="finishAssigneeEdit(scope.row)"
+                  @keyup.enter="finishAssigneeEdit(scope.row)" @click.stop @dblclick.stop v-focus />
                 <span v-else class="assignee-tag">👤 {{ scope.row.assignee || '未分配' }}</span>
               </div>
             </template>
@@ -113,18 +89,9 @@
           <!-- 4. 排期起止 -->
           <el-table-column label="起止排期" width="220" align="center">
             <template #default="scope">
-              <el-date-picker 
-                v-model="scope.row.dateRange" 
-                type="daterange" 
-                range-separator="-" 
-                start-placeholder="始"
-                end-placeholder="止" 
-                size="small" 
-                value-format="YYYY-MM-DD" 
-                style="width: 100%;"
-                @click.stop
-                @change="handleSubTaskDateChange(scope.row)" 
-              />
+              <el-date-picker v-model="scope.row.dateRange" type="daterange" range-separator="-" start-placeholder="始"
+                end-placeholder="止" size="small" value-format="YYYY-MM-DD" style="width: 100%;" @click.stop
+                @change="handleSubTaskDateChange(scope.row)" />
             </template>
           </el-table-column>
 
@@ -180,18 +147,12 @@
               </div>
             </template>
             <template #default="scope">
-              <div class="inline-edit-cell" @click.stop @dblclick.stop="startCustomFieldEdit(scope.row, key, scope.row.customFields[key])">
-                <el-input 
-                  key="edit-custom-input"
-                  v-if="editingCustomField.taskId === scope.row.id && editingCustomField.key === key" 
-                  v-model="scope.row.customFields[key]" 
-                  size="small"
-                  @blur="finishCustomFieldEdit(scope.row, key)" 
-                  @keyup.enter="finishCustomFieldEdit(scope.row, key)"
-                  @click.stop
-                  @dblclick.stop
-                  v-focus 
-                />
+              <div class="inline-edit-cell" @click.stop
+                @dblclick.stop="startCustomFieldEdit(scope.row, key, scope.row.customFields[key])">
+                <el-input key="edit-custom-input"
+                  v-if="editingCustomField.taskId === scope.row.id && editingCustomField.key === key"
+                  v-model="scope.row.customFields[key]" size="small" @blur="finishCustomFieldEdit(scope.row, key)"
+                  @keyup.enter="finishCustomFieldEdit(scope.row, key)" @click.stop @dblclick.stop v-focus />
                 <span v-else class="custom-field-text">
                   {{ scope.row.customFields?.[key] || '-' }}
                 </span>
@@ -227,6 +188,38 @@
     <div class="empty-board-state" v-else>
       <el-empty description="选择上方一个工作协同表" :image-size="120" />
     </div>
+    <!-- 1. 新建执行阶段微型弹窗 -->
+    <el-dialog v-model="stageDialogVisible" title="划分新执行阶段" width="400px" append-to-body>
+      <el-form :model="stageForm" label-width="80px">
+        <el-form-item label="阶段名称" required>
+          <el-input v-model="stageForm.title" placeholder="如：研发编码期 / 业务测试期" />
+        </el-form-item>
+        <el-form-item label="起止排期">
+          <el-date-picker v-model="stageDateRange" type="daterange" range-separator="-" start-placeholder="开始"
+            end-placeholder="截止" value-format="YYYY-MM-DD" style="width: 100%;" size="small" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="stageDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitStageForm">确定添加</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 2. 拆解子项微型弹窗 -->
+    <el-dialog v-model="childTaskDialogVisible" title="拆解下级子项" width="400px" append-to-body>
+      <el-form :model="childTaskForm" label-width="80px">
+        <el-form-item label="子项内容" required>
+          <el-input v-model="childTaskForm.title" placeholder="请输入拆解的具体任务" />
+        </el-form-item>
+        <el-form-item label="负责人">
+          <el-input v-model="childTaskForm.assignee" placeholder="请输入负责人姓名" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="childTaskDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitChildTask">确定拆解</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
