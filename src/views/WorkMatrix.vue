@@ -40,15 +40,27 @@
         <el-table :data="getFilteredTasks(activeStage.id)" border row-key="id" default-expand-all
           :tree-props="{ children: 'children' }" :indent="28" class="excel-table-style"
           @filter-change="handleFilterChange">
-          <!-- 1. 子任务标题 -->
+          
+          <!-- 1. 子任务标题列 -->
           <el-table-column label="任务与子项内容 (双击编辑 / 回车保存)" min-width="260">
             <template #default="scope">
-              <!-- 同时阻止单次点击与双击事件向上冒泡，彻底隔离单元格操作与行折叠行为 -->
               <div class="inline-edit-cell" @click.stop @dblclick.stop="startTitleEdit(scope.row)">
-                <el-input key="edit-input" v-if="scope.row.isEditingTitle" v-model="scope.row.title" size="small"
-                  @blur="finishTitleEdit(scope.row)" @keyup.enter="finishTitleEdit(scope.row)" @click.stop
-                  @dblclick.stop v-focus />
-                <span key="read-text" v-else :class="['cell-text', { 'completed-style': scope.row.status === 'DONE' }]">
+                <el-input 
+                  key="edit-title-input" 
+                  v-if="editingTitleTaskId === scope.row.id" 
+                  v-model="scope.row.title" 
+                  size="small"
+                  @blur="finishTitleEdit(scope.row)" 
+                  @keyup.enter="finishTitleEdit(scope.row)" 
+                  @click.stop
+                  @dblclick.stop 
+                  v-focus 
+                />
+                <span 
+                  key="read-title-text" 
+                  v-else 
+                  :class="['cell-text', { 'completed-style': scope.row.status === 'DONE' }]"
+                >
                   {{ scope.row.title }}
                 </span>
                 <el-button class="add-sub-child-btn" size="small" type="primary" link
@@ -63,7 +75,13 @@
           <el-table-column label="状态" width="130" align="center" column-key="status"
             :filters="[{ text: '待处理', value: 'TODO' }, { text: '进行中', value: 'IN_PROGRESS' }, { text: '已完成', value: 'DONE' }]">
             <template #default="scope">
-              <el-select v-model="scope.row.status" size="small" @change="saveSubTask(scope.row)" style="width: 100%;">
+              <el-select 
+                v-model="scope.row.status" 
+                size="small" 
+                @change="saveSubTask(scope.row)" 
+                @click.stop
+                style="width: 100%;"
+              >
                 <el-option label="待处理" value="TODO" />
                 <el-option label="进行中" value="IN_PROGRESS" />
                 <el-option label="已完成" value="DONE" />
@@ -75,9 +93,18 @@
           <el-table-column label="负责人" width="135" align="center" column-key="assignee"
             :filters="getAssigneeFilters(activeStage.id)">
             <template #default="scope">
-              <div class="inline-edit-cell" @click="startAssigneeEdit(scope.row)">
-                <el-input v-if="scope.row.isEditingAssignee" v-model="scope.row.assignee" size="small"
-                  @blur="finishAssigneeEdit(scope.row)" @keyup.enter="finishAssigneeEdit(scope.row)" v-focus />
+              <div class="inline-edit-cell" @click.stop @dblclick.stop="startAssigneeEdit(scope.row)">
+                <el-input 
+                  key="edit-assignee-input"
+                  v-if="editingAssigneeTaskId === scope.row.id" 
+                  v-model="scope.row.assignee" 
+                  size="small"
+                  @blur="finishAssigneeEdit(scope.row)" 
+                  @keyup.enter="finishAssigneeEdit(scope.row)" 
+                  @click.stop
+                  @dblclick.stop
+                  v-focus 
+                />
                 <span v-else class="assignee-tag">👤 {{ scope.row.assignee || '未分配' }}</span>
               </div>
             </template>
@@ -86,9 +113,18 @@
           <!-- 4. 排期起止 -->
           <el-table-column label="起止排期" width="220" align="center">
             <template #default="scope">
-              <el-date-picker v-model="scope.row.dateRange" type="daterange" range-separator="-" start-placeholder="始"
-                end-placeholder="止" size="small" value-format="YYYY-MM-DD" style="width: 100%;"
-                @change="handleSubTaskDateChange(scope.row)" />
+              <el-date-picker 
+                v-model="scope.row.dateRange" 
+                type="daterange" 
+                range-separator="-" 
+                start-placeholder="始"
+                end-placeholder="止" 
+                size="small" 
+                value-format="YYYY-MM-DD" 
+                style="width: 100%;"
+                @click.stop
+                @change="handleSubTaskDateChange(scope.row)" 
+              />
             </template>
           </el-table-column>
 
@@ -97,7 +133,7 @@
             <template #default="scope">
               <el-popover placement="top" :width="320" trigger="click" @show="initPropertyForm">
                 <template #reference>
-                  <div class="properties-preview-box">
+                  <div class="properties-preview-box" @click.stop>
                     <template v-if="hasProperties(scope.row.customFields)">
                       <el-tag size="small" type="info" style="cursor:pointer;">
                         ⚙️ {{ Object.keys(scope.row.customFields).length }}个扩展值
@@ -144,10 +180,18 @@
               </div>
             </template>
             <template #default="scope">
-              <div class="inline-edit-cell" @click="startCustomFieldEdit(scope.row, key, scope.row.customFields[key])">
-                <el-input v-if="scope.row.isEditingCustom === key" v-model="scope.row.customFields[key]" size="small"
-                  @blur="finishCustomFieldEdit(scope.row, key)" @keyup.enter="finishCustomFieldEdit(scope.row, key)"
-                  v-focus />
+              <div class="inline-edit-cell" @click.stop @dblclick.stop="startCustomFieldEdit(scope.row, key, scope.row.customFields[key])">
+                <el-input 
+                  key="edit-custom-input"
+                  v-if="editingCustomField.taskId === scope.row.id && editingCustomField.key === key" 
+                  v-model="scope.row.customFields[key]" 
+                  size="small"
+                  @blur="finishCustomFieldEdit(scope.row, key)" 
+                  @keyup.enter="finishCustomFieldEdit(scope.row, key)"
+                  @click.stop
+                  @dblclick.stop
+                  v-focus 
+                />
                 <span v-else class="custom-field-text">
                   {{ scope.row.customFields?.[key] || '-' }}
                 </span>
@@ -241,6 +285,11 @@ const childTaskDialogVisible = ref(false)
 const selectedParentRow = ref(null)
 const selectedParentStageId = ref(null)
 const childTaskForm = ref({ title: '', assignee: '' })
+
+// 局部独立编辑态标识（解耦核心数据源，避免改变行属性引起整体重绘，保持折叠状态）
+const editingTitleTaskId = ref(null)
+const editingAssigneeTaskId = ref(null)
+const editingCustomField = ref({ taskId: null, key: null })
 
 // 自动聚焦指令
 const vFocus = {
@@ -464,8 +513,6 @@ const loadSubTasks = async (stageId) => {
   const flatTaskList = await getSubTasksApi(stageId)
 
   for (let task of flatTaskList) {
-    task.isEditingTitle = false
-    task.isEditingAssignee = false
     task.dateRange = (task.startDate && task.endDate) ? [task.startDate, task.endDate] : []
 
     if (!task.customFields) {
@@ -483,12 +530,12 @@ const loadSubTasks = async (stageId) => {
 // ----------------- 行内编辑 Excel 操作及脏值检测 -----------------
 
 const startTitleEdit = (row) => {
-  row.isEditingTitle = true
+  editingTitleTaskId.value = row.id // 局部记录当前正编辑的ID，不污染行属性
   originalValCache.value = row.title || ''
 }
 
 const finishTitleEdit = async (row) => {
-  row.isEditingTitle = false
+  editingTitleTaskId.value = null
   if (!row.title.trim()) {
     row.title = originalValCache.value
     return
@@ -500,12 +547,12 @@ const finishTitleEdit = async (row) => {
 }
 
 const startAssigneeEdit = (row) => {
-  row.isEditingAssignee = true
+  editingAssigneeTaskId.value = row.id // 局部记录当前正编辑的ID，不污染行属性
   originalValCache.value = row.assignee || ''
 }
 
 const finishAssigneeEdit = async (row) => {
-  row.isEditingAssignee = false
+  editingAssigneeTaskId.value = null
   const currentVal = row.assignee || ''
   if (currentVal === originalValCache.value) {
     return
@@ -514,12 +561,12 @@ const finishAssigneeEdit = async (row) => {
 }
 
 const startCustomFieldEdit = (row, colKey, currentVal) => {
-  row.isEditingCustom = colKey
+  editingCustomField.value = { taskId: row.id, key: colKey } // 局部记录当前正编辑的自定义位置，不污染行属性
   originalValCache.value = currentVal || ''
 }
 
 const finishCustomFieldEdit = async (row, colKey) => {
-  row.isEditingCustom = null
+  editingCustomField.value = { taskId: null, key: null }
   const currentVal = row.customFields?.[colKey] || ''
   if (currentVal === originalValCache.value) {
     return
@@ -728,17 +775,21 @@ const removeProperty = async (row, key) => {
 }
 
 onMounted(async () => {
-  // 核心优化：由于左侧菜单骨架现已统一，折叠状态和用户信息均由 MainLayout 统一接管，本页面只纯粹处理矩阵核心协同逻辑
+  // 1. 无论是否带参，先统一加载需求列表
+  await loadRequirements()
+
   const queryReqId = route.query.reqId
   if (queryReqId) {
-    // 获取由外部（如：需求管理列表）点击跳转过来的需求ID并载入
+    // 2. 此时 requirements.value 已有数据，可以正常检索
     const target = requirements.value.find(r => r.id === Number(queryReqId))
     if (target) {
       await switchRequirement(target)
+    } else if (requirements.value.length > 0) {
+      // 容错：如果传入了无效的 ID，降级加载第一个需求
+      await switchRequirement(requirements.value[0])
     }
   } else {
-    // 如果无传参直达，默认载入当前用户的第一个活跃需求表，防止页面空白
-    await loadRequirements()
+    // 3. 无传参时，默认载入第一个活跃需求表
     if (requirements.value.length > 0) {
       await switchRequirement(requirements.value[0])
     }
