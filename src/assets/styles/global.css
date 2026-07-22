@@ -1,7 +1,10 @@
+/* src/assets/styles/global.css */
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  width: 100%;
+  overflow: hidden; /* 核心修改：锁定全局视口，防止全局滚动条与空白出现 */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   background-color: #f5f7fa;
   color: #303133;
@@ -9,4 +12,6 @@ html, body {
 
 #app {
   height: 100%;
+  width: 100%;
+  overflow: hidden; /* 核心修改：锁定容器 */
 }

@@ -393,7 +393,7 @@ onMounted(async () => {
 /* 骨架与一级分栏配置 */
 .layout-wrapper {
   display: flex;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
 }
 .sidebar {

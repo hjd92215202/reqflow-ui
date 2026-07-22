@@ -104,7 +104,7 @@ const handleRegister = async () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
+  height: 100%; /* 核心修改：将 100vh 替换为 100% */
   background-color: #f0f2f5;
 }
 .login-card {

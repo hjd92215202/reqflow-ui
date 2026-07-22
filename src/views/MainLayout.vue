@@ -92,7 +92,8 @@ const logout = () => {
 <style scoped>
 .layout-wrapper {
   display: flex;
-  height: 100vh;
+  height: 100%; /* 核心修改：将 100vh 替换为 100% 确保高度继承稳定 */
+  width: 100%;
   overflow: hidden;
 }
 .sidebar {
