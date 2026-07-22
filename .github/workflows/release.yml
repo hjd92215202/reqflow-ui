@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         # 同时在 Mac 和 Windows 虚拟服务器上进行构建
-        platform: [macos-latest, windows-latest]
+        platform: [macos-13, macos-latest, windows-latest]
 
     runs-on: ${{ matrix.platform }}
     steps:
