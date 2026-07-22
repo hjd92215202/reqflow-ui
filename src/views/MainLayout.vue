@@ -6,7 +6,7 @@
         <span v-if="!isCollapsed" class="logo-text">🌊 ReqFlow</span>
         <!-- 菜单折叠切换按钮 -->
         <el-button 
-          type="text" 
+          link
           @click="isCollapsed = !isCollapsed" 
           class="collapse-toggle-btn"
         >

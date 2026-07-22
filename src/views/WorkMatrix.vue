@@ -9,13 +9,8 @@
         </div>
         <div class="top-action-bar">
           <!-- 执行阶段切换下拉选项 -->
-          <el-select 
-            v-model="activeStageId" 
-            placeholder="切换执行阶段" 
-            size="small" 
-            style="width: 180px;"
-            @change="handleStageChange"
-          >
+          <el-select v-model="activeStageId" placeholder="切换执行阶段" size="small" style="width: 180px;"
+            @change="handleStageChange">
             <el-option v-for="s in stages" :key="s.id" :label="s.title" :value="s.id" />
           </el-select>
           <el-button type="primary" size="small" @click="openCreateStageDialog">划分执行阶段</el-button>
@@ -24,11 +19,12 @@
 
       <!-- 树形 Excel 协同表格 -->
       <div v-if="activeStage" class="stage-table-block" style="margin-top: 20px;">
-        
+
         <div class="stage-block-header">
           <div class="stage-title-left">
             <span class="block-stage-name">📍 当前执行阶段：{{ activeStage.title }}</span>
-            <span class="block-stage-dates"> 排期：{{ activeStage.startDate || '未定' }} 至 {{ activeStage.endDate || '未定' }} </span>
+            <span class="block-stage-dates"> 排期：{{ activeStage.startDate || '未定' }} 至 {{ activeStage.endDate || '未定' }}
+            </span>
           </div>
           <div class="stage-title-right">
             <el-radio-group v-model="activeStage.status" size="small" @change="handleStageStatusChange(activeStage)">
@@ -36,42 +32,27 @@
               <el-radio-button value="IN_PROGRESS">进行中</el-radio-button>
               <el-radio-button value="DONE">已完成</el-radio-button>
             </el-radio-group>
-            <el-button type="danger" link size="small" @click="handleDeleteStage(activeStage.id)" style="margin-left: 20px;">移除阶段</el-button>
+            <el-button type="danger" link size="small" @click="handleDeleteStage(activeStage.id)"
+              style="margin-left: 20px;">移除阶段</el-button>
           </div>
         </div>
 
-        <el-table 
-          :data="getFilteredTasks(activeStage.id)" 
-          border 
-          row-key="id" 
-          default-expand-all
-          :tree-props="{ children: 'children' }"
-          :indent="28"
-          class="excel-table-style"
-          @filter-change="handleFilterChange"
-        >
+        <el-table :data="getFilteredTasks(activeStage.id)" border row-key="id" default-expand-all
+          :tree-props="{ children: 'children' }" :indent="28" class="excel-table-style"
+          @filter-change="handleFilterChange">
           <!-- 1. 子任务标题 -->
           <el-table-column label="任务与子项内容 (双击编辑 / 回车保存)" min-width="260">
             <template #default="scope">
-              <div class="inline-edit-cell" @dblclick="startTitleEdit(scope.row)">
-                <el-input 
-                  v-if="scope.row.isEditingTitle" 
-                  v-model="scope.row.title" 
-                  size="small" 
-                  @blur="finishTitleEdit(scope.row)"
-                  @keyup.enter="finishTitleEdit(scope.row)"
-                  v-focus
-                />
-                <span v-else :class="['cell-text', { 'completed-style': scope.row.status === 'DONE' }]">
+              <!-- 同时阻止单次点击与双击事件向上冒泡，彻底隔离单元格操作与行折叠行为 -->
+              <div class="inline-edit-cell" @click.stop @dblclick.stop="startTitleEdit(scope.row)">
+                <el-input key="edit-input" v-if="scope.row.isEditingTitle" v-model="scope.row.title" size="small"
+                  @blur="finishTitleEdit(scope.row)" @keyup.enter="finishTitleEdit(scope.row)" @click.stop
+                  @dblclick.stop v-focus />
+                <span key="read-text" v-else :class="['cell-text', { 'completed-style': scope.row.status === 'DONE' }]">
                   {{ scope.row.title }}
                 </span>
-                <el-button 
-                  class="add-sub-child-btn"
-                  size="small" 
-                  type="primary" 
-                  link 
-                  @click="openAddChildDialog(scope.row, activeStage.id)"
-                >
+                <el-button class="add-sub-child-btn" size="small" type="primary" link
+                  @click.stop="openAddChildDialog(scope.row, activeStage.id)">
                   + 拆解子项
                 </el-button>
               </div>
@@ -79,20 +60,10 @@
           </el-table-column>
 
           <!-- 2. 状态列 -->
-          <el-table-column 
-            label="状态" 
-            width="130" 
-            align="center"
-            column-key="status"
-            :filters="[{ text: '待处理', value: 'TODO' }, { text: '进行中', value: 'IN_PROGRESS' }, { text: '已完成', value: 'DONE' }]"
-          >
+          <el-table-column label="状态" width="130" align="center" column-key="status"
+            :filters="[{ text: '待处理', value: 'TODO' }, { text: '进行中', value: 'IN_PROGRESS' }, { text: '已完成', value: 'DONE' }]">
             <template #default="scope">
-              <el-select 
-                v-model="scope.row.status" 
-                size="small" 
-                @change="saveSubTask(scope.row)"
-                style="width: 100%;"
-              >
+              <el-select v-model="scope.row.status" size="small" @change="saveSubTask(scope.row)" style="width: 100%;">
                 <el-option label="待处理" value="TODO" />
                 <el-option label="进行中" value="IN_PROGRESS" />
                 <el-option label="已完成" value="DONE" />
@@ -101,23 +72,12 @@
           </el-table-column>
 
           <!-- 3. 负责人列 -->
-          <el-table-column 
-            label="负责人" 
-            width="135" 
-            align="center"
-            column-key="assignee"
-            :filters="getAssigneeFilters(activeStage.id)"
-          >
+          <el-table-column label="负责人" width="135" align="center" column-key="assignee"
+            :filters="getAssigneeFilters(activeStage.id)">
             <template #default="scope">
               <div class="inline-edit-cell" @click="startAssigneeEdit(scope.row)">
-                <el-input 
-                  v-if="scope.row.isEditingAssignee" 
-                  v-model="scope.row.assignee" 
-                  size="small" 
-                  @blur="finishAssigneeEdit(scope.row)"
-                  @keyup.enter="finishAssigneeEdit(scope.row)"
-                  v-focus
-                />
+                <el-input v-if="scope.row.isEditingAssignee" v-model="scope.row.assignee" size="small"
+                  @blur="finishAssigneeEdit(scope.row)" @keyup.enter="finishAssigneeEdit(scope.row)" v-focus />
                 <span v-else class="assignee-tag">👤 {{ scope.row.assignee || '未分配' }}</span>
               </div>
             </template>
@@ -126,29 +86,16 @@
           <!-- 4. 排期起止 -->
           <el-table-column label="起止排期" width="220" align="center">
             <template #default="scope">
-              <el-date-picker
-                v-model="scope.row.dateRange"
-                type="daterange"
-                range-separator="-"
-                start-placeholder="始"
-                end-placeholder="止"
-                size="small"
-                value-format="YYYY-MM-DD"
-                style="width: 100%;"
-                @change="handleSubTaskDateChange(scope.row)"
-              />
+              <el-date-picker v-model="scope.row.dateRange" type="daterange" range-separator="-" start-placeholder="始"
+                end-placeholder="止" size="small" value-format="YYYY-MM-DD" style="width: 100%;"
+                @change="handleSubTaskDateChange(scope.row)" />
             </template>
           </el-table-column>
 
           <!-- 5. 属性标签列 -->
           <el-table-column label="🏷️ 属性标签 (点击可原地扩展任意键值)" width="180" align="center">
             <template #default="scope">
-              <el-popover
-                placement="top"
-                :width="320"
-                trigger="click"
-                @show="initPropertyForm"
-              >
+              <el-popover placement="top" :width="320" trigger="click" @show="initPropertyForm">
                 <template #reference>
                   <div class="properties-preview-box">
                     <template v-if="hasProperties(scope.row.customFields)">
@@ -159,24 +106,15 @@
                     <span v-else class="properties-placeholder">+ 属性扩展</span>
                   </div>
                 </template>
-                
+
                 <!-- 原地属性标签卡片面板 -->
                 <div class="property-inspector">
                   <h4 class="inspector-title">📌 属性配置看板</h4>
-                  
+
                   <div class="existing-properties">
-                    <div 
-                      v-for="(val, key) in scope.row.customFields" 
-                      :key="key" 
-                      class="property-item-row"
-                    >
+                    <div v-for="(val, key) in scope.row.customFields" :key="key" class="property-item-row">
                       <span class="prop-badge"><strong>{{ key }}</strong>: {{ val }}</span>
-                      <el-button 
-                        type="danger" 
-                        link 
-                        size="small" 
-                        @click="removeProperty(scope.row, key)"
-                      >
+                      <el-button type="danger" link size="small" @click="removeProperty(scope.row, key)">
                         移除
                       </el-button>
                     </div>
@@ -184,20 +122,12 @@
                       暂无独立标签属性，可在下方追加
                     </div>
                   </div>
-                  
+
                   <div class="add-property-form">
-                    <el-input 
-                      v-model="newPropForm.key" 
-                      placeholder="属性名(如: Bug数)" 
-                      size="small" 
-                      style="flex: 1.2; margin-right: 6px;"
-                    />
-                    <el-input 
-                      v-model="newPropForm.value" 
-                      placeholder="属性值(如: 3个)" 
-                      size="small" 
-                      style="flex: 1.5; margin-right: 6px;"
-                    />
+                    <el-input v-model="newPropForm.key" placeholder="属性名(如: Bug数)" size="small"
+                      style="flex: 1.2; margin-right: 6px;" />
+                    <el-input v-model="newPropForm.value" placeholder="属性值(如: 3个)" size="small"
+                      style="flex: 1.5; margin-right: 6px;" />
                     <el-button type="primary" size="small" @click="addProperty(scope.row)">添加</el-button>
                   </div>
                 </div>
@@ -206,13 +136,8 @@
           </el-table-column>
 
           <!-- 6. 自动扫描渲染列 -->
-          <el-table-column 
-            v-for="key in detectedColumnKeys[activeStage.id] || []" 
-            :key="key" 
-            :column-key="key"
-            min-width="140"
-            :filters="getCustomColumnFilters(key, activeStage.id)"
-          >
+          <el-table-column v-for="key in detectedColumnKeys[activeStage.id] || []" :key="key" :column-key="key"
+            min-width="140" :filters="getCustomColumnFilters(key, activeStage.id)">
             <template #header>
               <div class="custom-header-wrapper">
                 <span>{{ key }}</span>
@@ -220,14 +145,9 @@
             </template>
             <template #default="scope">
               <div class="inline-edit-cell" @click="startCustomFieldEdit(scope.row, key, scope.row.customFields[key])">
-                <el-input 
-                  v-if="scope.row.isEditingCustom === key" 
-                  v-model="scope.row.customFields[key]" 
-                  size="small" 
-                  @blur="finishCustomFieldEdit(scope.row, key)"
-                  @keyup.enter="finishCustomFieldEdit(scope.row, key)"
-                  v-focus
-                />
+                <el-input v-if="scope.row.isEditingCustom === key" v-model="scope.row.customFields[key]" size="small"
+                  @blur="finishCustomFieldEdit(scope.row, key)" @keyup.enter="finishCustomFieldEdit(scope.row, key)"
+                  v-focus />
                 <span v-else class="custom-field-text">
                   {{ scope.row.customFields?.[key] || '-' }}
                 </span>
@@ -238,7 +158,8 @@
           <!-- 7. 操作 -->
           <el-table-column label="操作" width="70" align="center">
             <template #default="scope">
-              <el-button type="danger" link size="small" @click="handleDeleteSubTask(scope.row.id, activeStage.id)">删除</el-button>
+              <el-button type="danger" link size="small"
+                @click="handleDeleteSubTask(scope.row.id, activeStage.id)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -246,19 +167,12 @@
         <!-- 快速添加行 -->
         <div class="excel-quick-append-row">
           <span class="append-tag">➕ 添加行</span>
-          <el-input 
-            v-model="stageAddForms[activeStage.id].title" 
-            placeholder="添加一级子任务..." 
-            size="small" 
-            style="flex: 3 !important; margin-right: 12px; width: auto !important;" 
-          />
-          <el-input 
-            v-model="stageAddForms[activeStage.id].assignee" 
-            placeholder="负责人" 
-            size="small" 
-            style="flex: 1 !important; margin-right: 12px; width: auto !important;" 
-          />
-          <el-button type="primary" size="small" style="flex-shrink: 0;" @click="handleQuickAddSubTask(activeStage.id)">确定添加</el-button>
+          <el-input v-model="stageAddForms[activeStage.id].title" placeholder="添加一级子任务..." size="small"
+            style="flex: 3 !important; margin-right: 12px; width: auto !important;" />
+          <el-input v-model="stageAddForms[activeStage.id].assignee" placeholder="负责人" size="small"
+            style="flex: 1 !important; margin-right: 12px; width: auto !important;" />
+          <el-button type="primary" size="small" style="flex-shrink: 0;"
+            @click="handleQuickAddSubTask(activeStage.id)">确定添加</el-button>
         </div>
       </div>
 
@@ -406,20 +320,20 @@ const filterTreeData = (nodes, allowedStatuses, currentFilters) => {
   const result = []
   for (const node of nodes) {
     const clonedNode = { ...node, children: [] }
-    
+
     // 1. 递归优先过滤子项
     if (node.children && node.children.length > 0) {
       clonedNode.children = filterTreeData(node.children, allowedStatuses, currentFilters)
     }
-    
+
     // 2. 判断当前节点是否符合“表格状态头过滤器配置”
     const isStatusMatch = allowedStatuses.length === 0 || allowedStatuses.includes(node.status)
-    
+
     // 3. 判断当前节点是否符合“各表头自选列独立过滤器”
     let isHeaderFiltersMatch = true
     for (const key in currentFilters) {
       if (key === 'status') continue
-      
+
       const selectedVals = currentFilters[key]
       if (selectedVals && selectedVals.length > 0) {
         let nodeVal = ''
@@ -434,10 +348,10 @@ const filterTreeData = (nodes, allowedStatuses, currentFilters) => {
         }
       }
     }
-    
+
     const isCurrentMatch = isStatusMatch && isHeaderFiltersMatch
     const hasMatchingChildren = clonedNode.children.length > 0
-    
+
     if (isCurrentMatch || hasMatchingChildren) {
       result.push(clonedNode)
     }
@@ -450,9 +364,9 @@ const filteredTasksMap = computed(() => {
   const map = {}
   stages.value.forEach(stage => {
     const originalTree = stageSubTasks.value[stage.id] || []
-    
-    const allowedStatuses = activeFilters.value['status'] && activeFilters.value['status'].length > 0 
-      ? activeFilters.value['status'] 
+
+    const allowedStatuses = activeFilters.value['status'] && activeFilters.value['status'].length > 0
+      ? activeFilters.value['status']
       : ['TODO', 'IN_PROGRESS', 'DONE']
 
     const hasActiveFilters = Object.keys(activeFilters.value).some(key => {
@@ -478,7 +392,7 @@ const getFilteredTasks = (stageId) => {
 const getAssigneeFilters = (stageId) => {
   const tasks = stageSubTasks.value[stageId] || []
   const uniqueValues = new Set()
-  
+
   const collect = (list) => {
     list.forEach(t => {
       uniqueValues.add(t.assignee ? t.assignee.trim() : '未分配')
@@ -492,7 +406,7 @@ const getAssigneeFilters = (stageId) => {
 const getCustomColumnFilters = (columnKey, stageId) => {
   const tasks = stageSubTasks.value[stageId] || []
   const uniqueValues = new Set()
-  
+
   const collect = (list) => {
     list.forEach(t => {
       const val = t.customFields?.[columnKey]
@@ -515,7 +429,7 @@ const handleFilterChange = (filters) => {
 const loadRequirements = async () => {
   try {
     requirements.value = await getRequirementsListApi()
-  } catch (error) {}
+  } catch (error) { }
 }
 
 const switchRequirement = async (req) => {
@@ -529,14 +443,14 @@ const loadStages = async (reqId) => {
   try {
     const stageList = await getStagesApi(reqId)
     stages.value = stageList
-    
+
     if (stageList.length > 0) {
       activeStageId.value = stageList[0].id
       await handleStageChange(stageList[0].id)
     } else {
       activeStageId.value = null
     }
-  } catch (error) {}
+  } catch (error) { }
 }
 
 const handleStageChange = async (stageId) => {
@@ -548,12 +462,12 @@ const handleStageChange = async (stageId) => {
 
 const loadSubTasks = async (stageId) => {
   const flatTaskList = await getSubTasksApi(stageId)
-  
+
   for (let task of flatTaskList) {
     task.isEditingTitle = false
     task.isEditingAssignee = false
     task.dateRange = (task.startDate && task.endDate) ? [task.startDate, task.endDate] : []
-    
+
     if (!task.customFields) {
       task.customFields = {}
     }
@@ -643,7 +557,7 @@ const saveSubTask = async (row) => {
       endDate: row.endDate,
       customFields: row.customFields
     }
-    
+
     await updateSubTaskApi(row.id, updatePayload)
     ElMessage.success('保存成功')
   } catch (error) {
@@ -677,7 +591,7 @@ const submitChildTask = async () => {
     ElMessage.success('子项拆解成功')
     childTaskDialogVisible.value = false
     await loadSubTasks(selectedParentStageId.value)
-  } catch (error) {}
+  } catch (error) { }
 }
 
 // ----------------- 日志时间轴跟进 -----------------
@@ -701,7 +615,7 @@ const submitQuickLog = async (row) => {
     quickLogs.value[row.id] = ''
     await loadTimelineForTask(row.id)
     row.latestLog = text
-  } catch (error) {}
+  } catch (error) { }
 }
 
 // ----------------- 快速新任务追加 -----------------
@@ -722,7 +636,7 @@ const handleQuickAddSubTask = async (stageId) => {
     ElMessage.success('任务录入完成')
     stageAddForms.value[stageId] = { title: '', assignee: '' }
     await loadSubTasks(stageId)
-  } catch (error) {}
+  } catch (error) { }
 }
 
 const handleDeleteSubTask = (id, stageId) => {
@@ -732,7 +646,7 @@ const handleDeleteSubTask = (id, stageId) => {
     await deleteSubTaskApi(id)
     ElMessage.success('删除成功')
     await loadSubTasks(stageId)
-  }).catch(() => {})
+  }).catch(() => { })
 }
 
 // ----------------- 阶段状态及添加 -----------------
@@ -741,7 +655,7 @@ const handleStageStatusChange = async (stage) => {
   try {
     await updateStageApi(stage.id, stage)
     ElMessage.success(`阶段状态已更新: ${stage.status}`)
-  } catch (error) {}
+  } catch (error) { }
 }
 
 const openCreateStageDialog = () => {
@@ -766,7 +680,7 @@ const submitStageForm = async () => {
     ElMessage.success('阶段划分成功')
     stageDialogVisible.value = false
     await loadStages(selectedRequirement.value.id)
-  } catch (error) {}
+  } catch (error) { }
 }
 
 const handleDeleteStage = (id) => {
@@ -778,7 +692,7 @@ const handleDeleteStage = (id) => {
     await deleteStageApi(id)
     ElMessage.success('阶段已被移除')
     await loadStages(selectedRequirement.value.id)
-  }).catch(() => {})
+  }).catch(() => { })
 }
 
 // ----------------- 高级 Notion 属性卡片业务逻辑 -----------------
@@ -845,23 +759,27 @@ onMounted(async () => {
   background-color: #ffffff;
   border-radius: 4px;
   padding: 24px;
-  box-shadow: 0 1px 4px rgba(0,21,41,.08);
+  box-shadow: 0 1px 4px rgba(0, 21, 41, .08);
 }
+
 .board-top-info {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
+
 .board-header-title {
   margin: 0;
   font-size: 16px;
   color: #303133;
 }
+
 .board-header-desc {
   margin: 6px 0 0 0;
   font-size: 12px;
   color: #909399;
 }
+
 .top-action-bar {
   display: flex;
   gap: 10px;
@@ -877,6 +795,7 @@ onMounted(async () => {
   align-items: center;
   border: 1px dashed #e4e7ed;
 }
+
 .filter-label {
   font-size: 13px;
   font-weight: bold;
@@ -889,6 +808,7 @@ onMounted(async () => {
   border-radius: 6px;
   overflow: hidden;
 }
+
 .stage-block-header {
   height: 48px;
   background-color: #f5f7fa;
@@ -898,16 +818,19 @@ onMounted(async () => {
   align-items: center;
   padding: 0 16px;
 }
+
 .block-stage-name {
   font-size: 14px;
   font-weight: bold;
   color: #303133;
 }
+
 .block-stage-dates {
   font-size: 12px;
   color: #909399;
   margin-left: 12px;
 }
+
 .stage-title-right {
   display: flex;
   align-items: center;
@@ -916,6 +839,7 @@ onMounted(async () => {
 .excel-table-style :deep(.el-table__row) {
   cursor: cell;
 }
+
 .excel-table-style :deep(.cell) {
   padding: 0 10px;
 }
@@ -940,6 +864,7 @@ onMounted(async () => {
   border-radius: 4px;
   transition: all 0.15s ease-in-out;
 }
+
 .inline-edit-cell:hover {
   border-color: #c0c4cc;
   background-color: #fafafa;
@@ -950,18 +875,23 @@ onMounted(async () => {
   font-size: 11px;
   margin-left: 10px;
 }
+
 .inline-edit-cell:hover .add-sub-child-btn {
   visibility: visible;
 }
+
 .cell-text {
   font-size: 13px;
   color: #303133;
   width: 100%;
+  user-select: none;
 }
+
 .completed-style {
   text-decoration: line-through;
   color: #c0c4cc;
 }
+
 .assignee-tag {
   font-size: 12px;
   background-color: #f4f4f5;
@@ -985,6 +915,7 @@ onMounted(async () => {
 .popover-timeline-container {
   padding: 5px;
 }
+
 .popover-timeline-title {
   margin: 0 0 10px 0;
   font-size: 13px;
@@ -992,17 +923,20 @@ onMounted(async () => {
   border-bottom: 1.5px solid #ebeef5;
   padding-bottom: 6px;
 }
+
 .popover-scroll-area {
   max-height: 180px;
   overflow-y: auto;
   padding-right: 5px;
   margin-bottom: 12px;
 }
+
 .timeline-pop-text {
   margin: 0;
   font-size: 11px;
   line-height: 1.5;
 }
+
 .timeline-pop-author {
   display: block;
   font-size: 10px;
@@ -1010,6 +944,7 @@ onMounted(async () => {
   text-align: right;
   margin-top: 3px;
 }
+
 .quick-post-row {
   display: flex;
   border-top: 1px solid #ebeef5;
@@ -1029,16 +964,20 @@ onMounted(async () => {
   padding: 0 16px;
   box-sizing: border-box;
 }
+
 .excel-quick-append-row :deep(.el-input__wrapper) {
   background-color: #ffffff !important;
   box-shadow: 0 0 0 1px #dcdfe6 inset !important;
 }
+
 .excel-quick-append-row :deep(.el-input__wrapper:hover) {
   box-shadow: 0 0 0 1px #c0c4cc inset !important;
 }
+
 .excel-quick-append-row :deep(.el-input__wrapper.is-focus) {
   box-shadow: 0 0 0 1px #409eff inset !important;
 }
+
 .append-tag {
   font-size: 12px;
   color: #409eff;
@@ -1054,24 +993,26 @@ onMounted(async () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  box-shadow: 0 1px 4px rgba(0,21,41,.08);
+  box-shadow: 0 1px 4px rgba(0, 21, 41, .08);
 }
 
 /* 1. 强力保证：树形表格每一级子节点的缩进间距 */
 .excel-table-style :deep(.el-table__row--level-1) .el-table__indent {
-  padding-left: 32px !important; 
+  padding-left: 32px !important;
 }
+
 .excel-table-style :deep(.el-table__row--level-2) .el-table__indent {
-  padding-left: 64px !important; 
+  padding-left: 64px !important;
 }
 
 /* 2. 视觉降级：让二级子项的文字颜色和大小稍微柔和，突出层级关系 */
 .excel-table-style :deep(.el-table__row--level-1) .cell-text {
-  color: #606266 !important; 
+  color: #606266 !important;
   font-size: 12.5px;
 }
+
 .excel-table-style :deep(.el-table__row--level-1) .assignee-tag {
-  opacity: 0.85; 
+  opacity: 0.85;
 }
 
 /* 定制表格 Row 悬浮背景色为莫兰迪系柔和浅蓝色，防疲劳 */
@@ -1092,10 +1033,12 @@ onMounted(async () => {
   border-radius: 4px;
   transition: all 0.15s ease-in-out;
 }
+
 .properties-preview-box:hover {
   border-color: #c0c4cc;
   background-color: #fafafa;
 }
+
 .properties-placeholder {
   font-size: 11px;
   color: #c0c4cc;
@@ -1107,6 +1050,7 @@ onMounted(async () => {
 .property-inspector {
   padding: 5px;
 }
+
 .inspector-title {
   margin: 0 0 10px 0;
   font-size: 13px;
@@ -1114,11 +1058,13 @@ onMounted(async () => {
   border-bottom: 1.5px solid #ebeef5;
   padding-bottom: 6px;
 }
+
 .existing-properties {
   max-height: 150px;
   overflow-y: auto;
   margin-bottom: 12px;
 }
+
 .property-item-row {
   display: flex;
   justify-content: space-between;
@@ -1126,19 +1072,23 @@ onMounted(async () => {
   padding: 4px 0;
   border-bottom: 1px dashed #f0f0f0;
 }
+
 .property-item-row:last-child {
   border-bottom: none;
 }
+
 .prop-badge {
   font-size: 12px;
   color: #606266;
 }
+
 .no-props-placeholder {
   font-size: 11px;
   color: #c0c4cc;
   text-align: center;
   padding: 10px 0;
 }
+
 .add-property-form {
   display: flex;
   border-top: 1px solid #ebeef5;
