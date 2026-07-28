@@ -1,28 +1,26 @@
 <template>
   <div class="layout-wrapper">
-    <!-- 统一全局左侧侧边栏 (支持动态折叠与过渡动画) -->
+    <!-- 统一全局左侧侧边栏 -->
     <aside class="sidebar">
-      <div class="brand" :class="{ 'collapsed': isCollapsed }">
-        <span v-if="!isCollapsed" class="logo-text">🌊 ReqFlow</span>
-        <!-- 菜单折叠切换按钮 -->
-        <el-button 
-          link
-          @click="isCollapsed = !isCollapsed" 
-          class="collapse-toggle-btn"
-        >
-          <el-icon>
-            <Expand v-if="isCollapsed" />
-            <Fold v-else />
-          </el-icon>
-        </el-button>
-      </div>
+      <!-- 悬浮伸缩按钮：绝对定位，不再独占一行 -->
+      <el-button 
+        link
+        @click="isCollapsed = !isCollapsed" 
+        class="collapse-toggle-btn"
+        :class="{ 'collapsed': isCollapsed }"
+      >
+        <el-icon>
+          <Expand v-if="isCollapsed" />
+          <Fold v-else />
+        </el-icon>
+      </el-button>
       
       <el-menu
         :default-active="activeMenu"
         class="sidebar-menu"
-        background-color="#001529"
-        text-color="#a6adb4"
-        active-text-color="#ffffff"
+        background-color="#fbfbfa"
+        text-color="#5f5e5b"
+        active-text-color="#37352f"
         :collapse="isCollapsed"
         :collapse-transition="false"
         router
@@ -90,82 +88,137 @@ const logout = () => {
 </script>
 
 <style scoped>
+/* 1. 一级分栏配置 */
 .layout-wrapper {
   display: flex;
-  height: 100%; /* 核心修改：将 100vh 替换为 100% 确保高度继承稳定 */
+  height: 100%; 
   width: 100%;
   overflow: hidden;
 }
+
 .sidebar {
   width: v-bind(sidebarWidth);
   transition: width 0.2s ease-in-out;
-  background-color: #001529;
+  background-color: #fbfbfa;
+  border-right: 1px solid rgba(55, 53, 47, 0.09);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  position: relative; /* 核心：作为绝对定位按钮的容器基准 */
 }
-.brand {
-  height: 60px;
+
+/* 2. 悬浮按钮：不占位，轻量化悬浮在右上角 */
+.collapse-toggle-btn {
+  position: absolute;
+  top: 10px;
+  right: 14px; /* 展开时贴在右上角 */
+  z-index: 10;
+  color: #5f5e5b;
+  font-size: 16px;
+  width: 32px; /* 调整为更精致的 32px 规格，符合 Notion 悬浮控件质感 */
+  height: 32px;
+  padding: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  background-color: #002140;
-  overflow: hidden;
-  flex-shrink: 0;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.15s ease-in-out;
 }
-.logo-text {
-  font-size: 18px;
-  font-weight: bold;
-  color: #ffffff;
-  white-space: nowrap;
-  overflow: hidden;
+
+.collapse-toggle-btn:hover {
+  background-color: rgba(55, 53, 47, 0.08);
+  color: #37352f;
 }
-.collapse-toggle-btn {
-  color: #ffffff;
-  font-size: 16px;
-  padding: 0;
+
+/* 折叠态定位：在 64px 侧边栏内精确居中 (64px - 32px) / 2 = 16px */
+.collapse-toggle-btn.collapsed {
+  right: 16px; 
 }
+
+/* 3. 菜单样式：预留顶部空白，创造呼吸感 */
 .sidebar-menu {
   border-right: none;
   flex: 1;
+  padding-top: 48px; /* 预留出悬浮按钮的垂直空间，避免首个菜单项被遮挡 */
 }
 
-/* 统一底部用户信息区 */
+:deep(.el-menu-item) {
+  height: 40px;
+  line-height: 40px;
+  margin: 4px 8px;
+  border-radius: 4px;
+}
+
+:deep(.el-menu-item.is-active) {
+  background-color: rgba(55, 53, 47, 0.06) !important;
+  color: #37352f !important;
+  font-weight: 500;
+}
+
+/* 强制重写 Element Plus 折叠态下的菜单样式 */
+:deep(.el-menu--collapse) {
+  width: 64px !important;
+}
+
+:deep(.el-menu--collapse .el-menu-item) {
+  margin: 4px 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+}
+
+:deep(.el-menu--collapse .el-menu-item .el-icon) {
+  margin: 0 !important;
+  font-size: 18px;
+}
+
+/* 4. 底部用户信息区 */
 .sidebar-user-footer {
-  border-top: 1px solid #002140;
+  border-top: 1px solid rgba(55, 53, 47, 0.09);
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background-color: #001529;
+  background-color: #fbfbfa;
   overflow: hidden;
   flex-shrink: 0;
   transition: all 0.2s ease-in-out;
+  box-sizing: border-box;
 }
+
 .sidebar-user-footer.collapsed {
-  align-items: center;
+  width: 64px;
   padding: 16px 0;
+  align-items: center;
+  gap: 16px;
 }
-.sidebar-user-footer.collapsed .user-info-text {
-  justify-content: center;
-}
-.sidebar-user-footer.collapsed .logout-btn {
-  justify-content: center;
-  padding-left: 0;
-  width: 100%;
-}
+
 .user-info-text {
   display: flex;
   align-items: center;
-  color: #ffffff;
+  color: #37352f;
   font-size: 13px;
   white-space: nowrap;
 }
+
+.sidebar-user-footer.collapsed .user-info-text {
+  width: 40px;
+  height: 40px;
+  justify-content: center;
+  margin: 0 auto;
+}
+
 .user-avatar {
-  font-size: 16px;
+  font-size: 18px;
   margin-right: 8px;
 }
+
+.sidebar-user-footer.collapsed .user-avatar {
+  margin-right: 0 !important;
+}
+
 .user-name, .logout-btn span {
   font-weight: bold;
   overflow: hidden;
@@ -173,17 +226,34 @@ const logout = () => {
   white-space: nowrap;
   transition: opacity 0.15s ease-in-out;
 }
+
 .logout-btn {
   justify-content: flex-start;
   padding-left: 0;
   color: #f56c6c;
 }
 
+.sidebar-user-footer.collapsed .logout-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  border-radius: 4px;
+}
+
+.sidebar-user-footer.collapsed .logout-btn:hover {
+  background-color: #fef0f0;
+}
+
+/* 5. 右侧容器 */
 .main-container {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: #f0f2f5;
+  background-color: #ffffff; 
   overflow: hidden;
 }
 </style>

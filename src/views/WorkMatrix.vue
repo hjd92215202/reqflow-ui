@@ -96,7 +96,7 @@
           </el-table-column>
 
           <!-- 5. 属性标签列 -->
-          <el-table-column label="🏷️ 属性标签 (点击可原地扩展任意键值)" width="180" align="center">
+          <el-table-column label="🏷️ 扩展属性标签" width="180" align="center">
             <template #default="scope">
               <el-popover placement="top" :width="320" trigger="click" @show="initPropertyForm">
                 <template #reference>
@@ -116,7 +116,7 @@
 
                   <div class="existing-properties">
                     <div v-for="(val, key) in scope.row.customFields" :key="key" class="property-item-row">
-                      <span class="prop-badge"><strong>{{ key }}</strong>: {{ val }}</span>
+                      <span class="prop-badge"><strong>{{ key }}</strong></span>
                       <el-button type="danger" link size="small" @click="removeProperty(scope.row, key)">
                         移除
                       </el-button>
@@ -130,7 +130,7 @@
                     <el-input v-model="newPropForm.key" placeholder="属性名(如: Bug数)" size="small"
                       style="flex: 1.2; margin-right: 6px;" />
                     <el-input v-model="newPropForm.value" placeholder="属性值(如: 3个)" size="small"
-                      style="flex: 1.5; margin-right: 6px;" />
+                      style="flex: 1.5; margin-right: 6px;" @keyup.enter="addProperty(scope.row)" />
                     <el-button type="primary" size="small" @click="addProperty(scope.row)">添加</el-button>
                   </div>
                 </div>
@@ -150,9 +150,9 @@
               <div class="inline-edit-cell" @click.stop
                 @dblclick.stop="startCustomFieldEdit(scope.row, key, scope.row.customFields[key])">
                 <el-input key="edit-custom-input"
-                  v-if="editingCustomField.taskId === scope.row.id && editingCustomField.key === key"
-                  v-model="scope.row.customFields[key]" size="small" @blur="finishCustomFieldEdit(scope.row, key)"
-                  @keyup.enter="finishCustomFieldEdit(scope.row, key)" @click.stop @dblclick.stop v-focus />
+  v-if="editingCustomField.taskId === scope.row.id && editingCustomField.key === key" type="textarea"
+  :autosize="{ minRows: 1 }" v-model="scope.row.customFields[key]" size="small"
+  @blur="finishCustomFieldEdit(scope.row, key)" @click.stop @dblclick.stop v-focus />
                 <span v-else class="custom-field-text">
                   {{ scope.row.customFields?.[key] || '-' }}
                 </span>
@@ -287,8 +287,8 @@ const editingCustomField = ref({ taskId: null, key: null })
 // 自动聚焦指令
 const vFocus = {
   mounted: (el) => {
-    const input = el.querySelector('input')
-    if (input) input.focus()
+    const target = el.querySelector('input, textarea')
+    if (target) target.focus()
   }
 }
 
@@ -448,15 +448,31 @@ const getAssigneeFilters = (stageId) => {
 const getCustomColumnFilters = (columnKey, stageId) => {
   const tasks = stageSubTasks.value[stageId] || []
   const uniqueValues = new Set()
+  let hasTooLongText = false // 增加标识：检测是否包含超长文本或多行文本
 
   const collect = (list) => {
     list.forEach(t => {
       const val = t.customFields?.[columnKey]
-      uniqueValues.add(val && String(val).trim() !== '' ? String(val).trim() : '空')
+      if (val && String(val).trim() !== '') {
+        const strVal = String(val).trim()
+        // 核心规则：如果某条内容长度超过 25 个字，或者含有回车换行符，说明该列为长描述列，不应该支持筛选
+        if (strVal.length > 25 || strVal.includes('\n')) {
+          hasTooLongText = true
+        }
+        uniqueValues.add(strVal)
+      } else {
+        uniqueValues.add('空')
+      }
       if (t.children && t.children.length > 0) collect(t.children)
     })
   }
   collect(tasks)
+
+  // 如果检测到包含长描述文本，直接返回 undefined（Element Plus 会自动隐藏并关闭该列的筛选功能）
+  if (hasTooLongText) {
+    return undefined
+  }
+
   return Array.from(uniqueValues).map(val => ({ text: val, value: val }))
 }
 
@@ -791,7 +807,16 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* ================= Notion 级全局设计变量层 ================= */
 .workbench-workspace {
+  --notion-text: #37352f;
+  --notion-bg: #ffffff;
+  --notion-border: rgba(55, 53, 47, 0.09);
+  --notion-border-light: rgba(55, 53, 47, 0.05);
+  --notion-hover: rgba(55, 53, 47, 0.03);
+  --el-color-primary: #2383e2; 
+  --el-border-radius-base: 4px;
+
   flex: 1;
   padding: 24px;
   overflow-y: auto;
@@ -799,11 +824,13 @@ onMounted(async () => {
   flex-direction: column;
 }
 
+/* ================= 主面板与顶部导航 ================= */
 .matrix-board {
-  background-color: #ffffff;
-  border-radius: 4px;
+  background-color: var(--notion-bg);
+  border-radius: 6px;
   padding: 24px;
-  box-shadow: 0 1px 4px rgba(0, 21, 41, .08);
+  border: 1px solid var(--notion-border);
+  box-shadow: 0 1px 2px rgba(15, 15, 15, 0.04);
 }
 
 .board-top-info {
@@ -815,13 +842,14 @@ onMounted(async () => {
 .board-header-title {
   margin: 0;
   font-size: 16px;
-  color: #303133;
+  font-weight: 600;
+  color: var(--notion-text);
 }
 
 .board-header-desc {
   margin: 6px 0 0 0;
   font-size: 12px;
-  color: #909399;
+  color: rgba(55, 53, 47, 0.6);
 }
 
 .top-action-bar {
@@ -829,34 +857,35 @@ onMounted(async () => {
   gap: 10px;
 }
 
-/* 过滤状态控制行，保持精致虚线排版 */
+/* 精致虚线过滤排版 */
 .matrix-filter-row {
   margin-top: 15px;
-  background-color: #f8f9fa;
+  background-color: #f7f7f5;
   padding: 10px 16px;
   border-radius: 4px;
   display: flex;
   align-items: center;
-  border: 1px dashed #e4e7ed;
+  border: 1px dashed rgba(55, 53, 47, 0.15);
 }
 
 .filter-label {
-  font-size: 13px;
-  font-weight: bold;
-  color: #606266;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--notion-text);
 }
 
+/* ================= Notion 树形电子表格 ================= */
 .stage-table-block {
   margin-top: 25px;
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--notion-border);
   border-radius: 6px;
   overflow: hidden;
 }
 
 .stage-block-header {
   height: 48px;
-  background-color: #f5f7fa;
-  border-bottom: 1px solid #ebeef5;
+  background-color: #f7f7f5;
+  border-bottom: 1px solid var(--notion-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -864,14 +893,14 @@ onMounted(async () => {
 }
 
 .block-stage-name {
-  font-size: 14px;
-  font-weight: bold;
-  color: #303133;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--notion-text);
 }
 
 .block-stage-dates {
-  font-size: 12px;
-  color: #909399;
+  font-size: 11px;
+  color: rgba(55, 53, 47, 0.5);
   margin-left: 12px;
 }
 
@@ -880,75 +909,192 @@ onMounted(async () => {
   align-items: center;
 }
 
+/* ================= 深度定制 Element 表格样式 ================= */
+.excel-table-style {
+  --el-table-border-color: var(--notion-border-light) !important;
+  --el-table-header-bg-color: #f7f7f5 !important;
+}
+
 .excel-table-style :deep(.el-table__row) {
   cursor: cell;
+  height: auto !important;
+}
+
+/* 表头文字规范化为轻量多维视图样式 */
+.excel-table-style :deep(th.el-table__cell) {
+  background-color: #f7f7f5 !important;
+  color: rgba(55, 53, 47, 0.6) !important;
+  font-weight: 500 !important;
+  font-size: 12px;
+  letter-spacing: 0.3px;
 }
 
 .excel-table-style :deep(.cell) {
-  padding: 0 10px;
+  padding: 8px 10px !important;
 }
 
-/* 强力保证：防止树形首列的单元格内容换行，保证排期、缩进与文字在同一水平线上 */
+/* 保证缩进与树形节点不换行对齐 */
 .excel-table-style :deep(.el-table__row) td:first-child .cell {
   display: flex !important;
   align-items: center !important;
   flex-wrap: nowrap !important;
 }
 
-/* 高亮电子表格行内悬浮编辑边框指示器 */
+/* 核心重构：保证表头文字与筛选/排序小三角永远在单行内水平对齐，绝对不换行折叠 */
+.excel-table-style :deep(th.el-table__cell > .cell) {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important; /* 针对居中对齐列 */
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;     /* 强制文字与小三角绝不折行 */
+  overflow: visible !important;
+}
+
+/* 自适应继承列原生的水平对齐属性（保障标题列依然完美左对齐） */
+.excel-table-style :deep(th.is-left > .cell) {
+  justify-content: flex-start !important;
+}
+.excel-table-style :deep(th.is-right > .cell) {
+  justify-content: flex-end !important;
+}
+
+/* 优化表头筛选小三角与文字之间的间距 */
+.excel-table-style :deep(.el-table__column-filter-trigger) {
+  margin-left: 4px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  vertical-align: middle !important;
+}
+
+/* 柔和莫兰迪蓝 hover 态（防眼部疲劳） */
+.excel-table-style :deep(.el-table__row:hover > td.el-table__cell) {
+  background-color: #f2f7fc !important;
+}
+
+/* ================= 极简行内即时编辑 ================= */
 .inline-edit-cell {
+  border: 1px dashed transparent;
+  padding: 2px 6px;
+  border-radius: 3px;
   min-height: 28px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex: 1;
-  overflow: hidden;
-  padding: 0 6px;
-  border: 1px transparent dashed;
-  border-radius: 4px;
-  transition: all 0.15s ease-in-out;
+  /* overflow: hidden; */    /* 移除外层裁剪，允许自适应文本域向下优雅延伸，不被硬性切边 */
+  transition: all 0.12s ease-in-out;
 }
 
 .inline-edit-cell:hover {
-  border-color: #c0c4cc;
-  background-color: #fafafa;
+  border-color: rgba(55, 53, 47, 0.16);
+  background-color: var(--notion-hover);
 }
 
 .add-sub-child-btn {
   visibility: hidden;
   font-size: 11px;
   margin-left: 10px;
+  color: var(--el-color-primary);
 }
 
 .inline-edit-cell:hover .add-sub-child-btn {
   visibility: visible;
 }
 
+/* 强力保证：编辑激活时，输入框与文本域强制撑满单元格全部宽度，确保每次点击都落在焦点捕获区 */
+.inline-edit-cell :deep(.el-input),
+.inline-edit-cell :deep(.el-textarea) {
+  width: 100% !important;
+  display: block !important;
+}
+
+/* 无框无感 Input */
+.inline-edit-cell :deep(.el-input__wrapper) {
+  box-shadow: none !important;
+  background-color: transparent !important;
+  padding: 0 !important;
+}
+
+.inline-edit-cell :deep(.el-input__inner) {
+  font-size: 13px;
+  color: var(--notion-text);
+  height: 28px;
+  border-bottom: 1.5px solid var(--el-color-primary);
+  border-radius: 0;
+}
+
+/* 多行无感编辑 Textarea 样式适配 */
+.inline-edit-cell :deep(.el-textarea__inner) {
+  box-shadow: none !important;
+  background-color: transparent !important;
+  font-size: 13px !important;
+  color: var(--notion-text);
+  line-height: 1.6 !important;
+  font-family: inherit !important;           /* 继承系统字体，保证行高计算与外部只读形态的汉字完全等高 */
+  border: none !important;
+  border-bottom: 1.5px solid var(--el-color-primary) !important;
+  border-radius: 0 !important;
+  resize: none;
+  min-height: 28px !important;
+  box-sizing: border-box !important;
+  
+  /* 调整 Padding 预留底部安全防遮挡距离 */
+  padding-top: 4px !important;
+  padding-bottom: 12px !important;          /* 将底部预留留白稍微加大至 12px，确保汉字底部的撇捺笔画彻底拉开，不贴着蓝色底线 */
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+
+  /* 隐藏原生滚动条 */
+  overflow-y: hidden !important;              
+  scrollbar-width: none !important;         
+  -ms-overflow-style: none !important;      
+}
+
+/* 彻底清除 Chrome/Safari 滚动条轨迹 */
+.inline-edit-cell :deep(.el-textarea__inner)::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* 多行排版保留换行 */
+.custom-field-text,
 .cell-text {
   font-size: 13px;
-  color: #303133;
+  color: var(--notion-text);
+  line-height: 1.6;
+  
+  white-space: pre-wrap;         
+  overflow-wrap: break-word;     
+  word-break: break-word;        
+  display: block;                
   width: 100%;
-  user-select: none;
+  text-align: left;
 }
 
 .completed-style {
   text-decoration: line-through;
-  color: #c0c4cc;
+  color: rgba(55, 53, 47, 0.35);
 }
 
+/* 优化后的负责人标签 */
 .assignee-tag {
-  font-size: 12px;
-  background-color: #f4f4f5;
-  border: 1px solid #e9e9eb;
-  padding: 2px 8px;
-  border-radius: 12px;
-  color: #909399;
+  font-size: 11px;
+  background-color: rgba(55, 53, 47, 0.05);
+  border: none;
+  padding: 3px 8px;
+  border-radius: 3px;
+  color: var(--notion-text);
+  display: inline-flex;
+  align-items: center;
+  font-weight: 500;
 }
 
+/* ================= 弹出反馈日志时间轴 ================= */
 .log-preview-text {
   cursor: help;
   font-size: 12px;
-  color: #606266;
+  color: rgba(55, 53, 47, 0.7);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -963,9 +1109,10 @@ onMounted(async () => {
 .popover-timeline-title {
   margin: 0 0 10px 0;
   font-size: 13px;
-  color: #333;
-  border-bottom: 1.5px solid #ebeef5;
+  color: var(--notion-text);
+  border-bottom: 1px solid var(--notion-border-light);
   padding-bottom: 6px;
+  font-weight: 600;
 }
 
 .popover-scroll-area {
@@ -984,22 +1131,22 @@ onMounted(async () => {
 .timeline-pop-author {
   display: block;
   font-size: 10px;
-  color: #909399;
+  color: rgba(55, 53, 47, 0.4);
   text-align: right;
   margin-top: 3px;
 }
 
 .quick-post-row {
   display: flex;
-  border-top: 1px solid #ebeef5;
+  border-top: 1px solid var(--notion-border-light);
   padding-top: 10px;
 }
 
-/* 表格底部快速录入：高度与表格底边框圆角、背景深度融合 */
+/* ================= 底部追加新行区域 ================= */
 .excel-quick-append-row {
   height: 48px !important;
   background-color: #fafafa;
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--notion-border);
   border-top: none;
   border-radius: 0 0 6px 6px;
   display: flex !important;
@@ -1011,36 +1158,36 @@ onMounted(async () => {
 
 .excel-quick-append-row :deep(.el-input__wrapper) {
   background-color: #ffffff !important;
-  box-shadow: 0 0 0 1px #dcdfe6 inset !important;
+  box-shadow: 0 0 0 1px var(--notion-border) inset !important;
 }
 
 .excel-quick-append-row :deep(.el-input__wrapper:hover) {
-  box-shadow: 0 0 0 1px #c0c4cc inset !important;
+  box-shadow: 0 0 0 1px rgba(55, 53, 47, 0.25) inset !important;
 }
 
 .excel-quick-append-row :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 1px #409eff inset !important;
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset !important;
 }
 
 .append-tag {
   font-size: 12px;
-  color: #409eff;
-  font-weight: bold;
+  color: var(--el-color-primary);
+  font-weight: 600;
   margin-right: 15px;
   flex-shrink: 0;
 }
 
 .empty-board-state {
   flex: 1;
-  background-color: #ffffff;
+  background-color: var(--notion-bg);
   border-radius: 4px;
   display: flex;
   justify-content: center;
   align-items: center;
-  box-shadow: 0 1px 4px rgba(0, 21, 41, .08);
+  box-shadow: 0 1px 2px rgba(15, 15, 15, 0.04);
 }
 
-/* 1. 强力保证：树形表格每一级子节点的缩进间距 */
+/* 树形表格多级缩进基准 */
 .excel-table-style :deep(.el-table__row--level-1) .el-table__indent {
   padding-left: 32px !important;
 }
@@ -1049,9 +1196,9 @@ onMounted(async () => {
   padding-left: 64px !important;
 }
 
-/* 2. 视觉降级：让二级子项的文字颜色和大小稍微柔和，突出层级关系 */
+/* 二级子任务视觉降级 */
 .excel-table-style :deep(.el-table__row--level-1) .cell-text {
-  color: #606266 !important;
+  color: rgba(55, 53, 47, 0.75) !important;
   font-size: 12.5px;
 }
 
@@ -1059,12 +1206,7 @@ onMounted(async () => {
   opacity: 0.85;
 }
 
-/* 定制表格 Row 悬浮背景色为莫兰迪系柔和浅蓝色，防疲劳 */
-.excel-table-style :deep(.el-table__row:hover > td.el-table__cell) {
-  background-color: #f2f7fc !important;
-}
-
-/* Notion 属性标签预览框美化 */
+/* ================= 属性标签面板与 Inspector ================= */
 .properties-preview-box {
   cursor: pointer;
   min-height: 28px;
@@ -1075,32 +1217,31 @@ onMounted(async () => {
   padding: 2px 0;
   border: 1px transparent dashed;
   border-radius: 4px;
-  transition: all 0.15s ease-in-out;
+  transition: all 0.12s ease-in-out;
 }
 
 .properties-preview-box:hover {
-  border-color: #c0c4cc;
-  background-color: #fafafa;
+  border-color: rgba(55, 53, 47, 0.16);
+  background-color: var(--notion-hover);
 }
 
 .properties-placeholder {
   font-size: 11px;
-  color: #c0c4cc;
-  font-style: italic;
+  color: rgba(55, 53, 47, 0.35);
   padding-left: 6px;
 }
 
-/* 弹出气泡属性编辑器 */
 .property-inspector {
   padding: 5px;
 }
 
 .inspector-title {
   margin: 0 0 10px 0;
-  font-size: 13px;
-  color: #333;
-  border-bottom: 1.5px solid #ebeef5;
+  font-size: 12px;
+  color: var(--notion-text);
+  border-bottom: 1px solid var(--notion-border-light);
   padding-bottom: 6px;
+  font-weight: 600;
 }
 
 .existing-properties {
@@ -1114,7 +1255,7 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   padding: 4px 0;
-  border-bottom: 1px dashed #f0f0f0;
+  border-bottom: 1px dashed var(--notion-border-light);
 }
 
 .property-item-row:last-child {
@@ -1122,20 +1263,57 @@ onMounted(async () => {
 }
 
 .prop-badge {
-  font-size: 12px;
-  color: #606266;
+  font-size: 11px;
+  color: rgba(55, 53, 47, 0.8);
 }
 
 .no-props-placeholder {
   font-size: 11px;
-  color: #c0c4cc;
+  color: rgba(55, 53, 47, 0.35);
   text-align: center;
   padding: 10px 0;
 }
 
 .add-property-form {
   display: flex;
-  border-top: 1px solid #ebeef5;
+  border-top: 1px solid var(--notion-border-light);
   padding-top: 10px;
+}
+
+/* ================= 深度定制 Notion 极简软色调 Tag ================= */
+:deep(.el-tag) {
+  border: none !important;
+  font-weight: 500;
+  border-radius: 3px !important;
+  padding: 0 8px !important;
+  height: 20px !important;
+  line-height: 20px !important;
+  font-size: 11px !important;
+  letter-spacing: 0.3px;
+}
+
+:deep(.el-tag--success) {
+  background-color: #e2f5ec !important;
+  color: #0d7c50 !important;
+}
+
+:deep(.el-tag--warning) {
+  background-color: #fdecc8 !important;
+  color: #b36b00 !important;
+}
+
+:deep(.el-tag--danger) {
+  background-color: #ffe2dd !important;
+  color: #df4331 !important;
+}
+
+:deep(.el-tag--info) {
+  background-color: #eeeeee !important;
+  color: #555555 !important;
+}
+
+:deep(.el-tag--primary) {
+  background-color: #e0f0ff !important;
+  color: #0f73da !important;
 }
 </style>

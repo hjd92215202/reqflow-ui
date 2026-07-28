@@ -24,7 +24,9 @@
         </el-table-column>
         <el-table-column prop="status" label="进展状态" width="100" align="center">
           <template #default="scope">
-            <el-tag :type="getStatusTag(scope.row.status)" effect="dark" size="small">{{ scope.row.status }}</el-tag>
+            <el-tag :type="getStatusTag(scope.row.status)" size="small">
+              {{ formatStatus(scope.row.status) }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作面板" width="220" align="center" fixed="right">
@@ -47,15 +49,8 @@
           <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入核心背景或业务价值..." />
         </el-form-item>
         <el-form-item label="计划起止">
-          <el-date-picker
-            v-model="requirementDateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始"
-            end-placeholder="截止"
-            value-format="YYYY-MM-DD"
-            style="width: 100%;"
-          />
+          <el-date-picker v-model="requirementDateRange" type="daterange" range-separator="至" start-placeholder="开始"
+            end-placeholder="截止" value-format="YYYY-MM-DD" style="width: 100%;" />
         </el-form-item>
         <el-form-item label="优先级">
           <el-radio-group v-model="form.priority">
@@ -85,11 +80,11 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { 
-  getRequirementsListApi, 
-  createRequirementApi, 
-  updateRequirementApi, 
-  deleteRequirementApi 
+import {
+  getRequirementsListApi,
+  createRequirementApi,
+  updateRequirementApi,
+  deleteRequirementApi
 } from '@/api/requirement'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -113,7 +108,7 @@ const form = ref({
 const loadRequirements = async () => {
   try {
     tableData.value = await getRequirementsListApi()
-  } catch (error) {}
+  } catch (error) { }
 }
 
 const goToWorkMatrix = (reqId) => {
@@ -160,7 +155,19 @@ const submitForm = async () => {
     }
     dialogVisible.value = false
     loadRequirements()
-  } catch (error) {}
+  } catch (error) { }
+}
+
+// 在 script 区域任意位置添加此函数即可
+const formatStatus = (status) => {
+  const statusMap = {
+    'TODO': '待处理',
+    'IN_PROGRESS': '进行中',
+    'TESTING': '测试中',
+    'DONE': '已完成',
+    'SUSPENDED': '已挂起'
+  }
+  return statusMap[status] || status
 }
 
 const handleDelete = (id) => {
@@ -171,8 +178,8 @@ const handleDelete = (id) => {
       await deleteRequirementApi(id)
       ElMessage.success('删除成功')
       loadRequirements()
-    } catch (error) {}
-  }).catch(() => {})
+    } catch (error) { }
+  }).catch(() => { })
 }
 
 const getPriorityTag = (p) => {
@@ -203,28 +210,77 @@ onMounted(() => {
   padding: 24px;
   overflow-y: auto;
 }
+
 .content-card {
   background-color: #ffffff;
   border-radius: 4px;
   padding: 24px;
-  box-shadow: 0 1px 4px rgba(0,21,41,.08);
+  box-shadow: 0 1px 4px rgba(0, 21, 41, .08);
 }
+
 .table-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
+
 .table-title {
   font-size: 16px;
   font-weight: bold;
 }
+
 .date-text {
   font-size: 13px;
   color: #606266;
 }
+
 .date-text-none {
   font-size: 13px;
   color: #c0c4cc;
   font-style: italic;
+}
+
+/* 1. 撑开表格单元格的纵向空间（增加上下内边距至 12px） */
+:deep(.el-table .el-table__cell) {
+  padding: 12px 0 !important;
+}
+
+
+/* 重写 Element Plus Tag 基础样式为 Notion 风格 */
+:deep(.el-tag) {
+  font-size: 11px !important;     /* 稍微降低字号以减少字符侵略感 */
+  height: 20px !important;        /* 固定标签高度 */
+  line-height: 20px !important;   /* 文字垂直居中 */
+  padding: 0 8px !important;      /* 左右内收，保持胶囊形状 */
+  border: none !important;
+  border-radius: 3px !important;
+  font-weight: 500;
+  letter-spacing: 0.3px;          /* 微调字间距提高易读性 */
+}
+
+/* 重新配置各类状态的淡色系调色板 */
+:deep(.el-tag--success) {
+  background-color: #e2f5ec !important;
+  color: #0d7c50 !important;
+}
+
+:deep(.el-tag--warning) {
+  background-color: #fdecc8 !important;
+  color: #b36b00 !important;
+}
+
+:deep(.el-tag--danger) {
+  background-color: #ffe2dd !important;
+  color: #df4331 !important;
+}
+
+:deep(.el-tag--info) {
+  background-color: #eeeeee !important;
+  color: #555555 !important;
+}
+
+:deep(.el-tag--primary) {
+  background-color: #e0f0ff !important;
+  color: #0f73da !important;
 }
 </style>
