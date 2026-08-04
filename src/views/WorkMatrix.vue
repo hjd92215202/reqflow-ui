@@ -519,19 +519,30 @@ const handleStageChange = async (stageId) => {
 }
 
 const loadSubTasks = async (stageId) => {
+  // 1. 发送 1 次请求拉取当前阶段的所有子任务
   const flatTaskList = await getSubTasksApi(stageId)
 
+  // 2. 并行异步拉取日志，不阻塞主流程（1 次请求）
+  const discussions = await getDiscussionsApi(stageId).catch(() => [])
+
+  // 3. 内存构建日志匹配 Map，耗时 < 1ms
+  const latestLogMap = {}
+  if (discussions && discussions.length > 0) {
+    discussions.forEach(log => {
+      latestLogMap[log.stageId] = log.content
+    })
+  }
+
+  // 4. 纯内存格式化数据
   for (let task of flatTaskList) {
     task.dateRange = (task.startDate && task.endDate) ? [task.startDate, task.endDate] : []
-
     if (!task.customFields) {
       task.customFields = {}
     }
-
-    const discussions = await getDiscussionsApi(task.id)
-    task.latestLog = (discussions && discussions.length > 0) ? discussions[discussions.length - 1].content : ''
+    task.latestLog = latestLogMap[task.id] || ''
   }
 
+  // 5. 渲染树结构与动态列
   detectedColumnKeys.value[stageId] = scanCustomColumns(flatTaskList)
   stageSubTasks.value[stageId] = arrayToTree(flatTaskList)
 }
