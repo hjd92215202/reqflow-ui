@@ -2,12 +2,35 @@
   <div class="workbench-workspace">
     <!-- 1. 主页面：项目/需求全局视图 & 阶段列表总览 (全局掌控) -->
     <div class="matrix-board" v-if="selectedRequirement">
-      <!-- 1.1 顶栏：项目全局概览 -->
+      <!-- 1.1 顶栏：项目全局概览 & 需求无缝切换器 -->
       <div class="board-top-info">
         <div>
           <div class="header-title-row">
-            <h3 class="board-header-title">📋 {{ selectedRequirement.title }}</h3>
-            <el-tag :type="getPriorityTag(selectedRequirement.priority)" size="small" style="margin-left: 10px;">
+            <span class="header-req-icon">📋</span>
+            <!-- 优化点：需求自由切换下拉框 -->
+            <el-select 
+              v-model="activeReqId" 
+              placeholder="请选择/切换需求项目" 
+              size="large" 
+              class="header-req-select"
+              @change="handleReqSelectChange"
+            >
+              <el-option 
+                v-for="req in requirements" 
+                :key="req.id" 
+                :label="req.title" 
+                :value="req.id"
+              >
+                <div class="req-option-item">
+                  <span class="req-option-title">{{ req.title }}</span>
+                  <el-tag :type="getPriorityTag(req.priority)" size="small" style="margin-left: 8px;">
+                    {{ req.priority }}
+                  </el-tag>
+                </div>
+              </el-option>
+            </el-select>
+
+            <el-tag :type="getPriorityTag(selectedRequirement.priority)" size="small" style="margin-left: 12px;">
               {{ selectedRequirement.priority }} 优先级
             </el-tag>
           </div>
@@ -74,9 +97,9 @@
       <el-empty v-else description="暂无执行阶段，点击右上角“划分新执行阶段”开始拆解" :image-size="100" />
     </div>
 
-    <!-- 未选择需求时的占位 -->
+    <!-- 未选择需求或没有需求时的占位 -->
     <div class="empty-board-state" v-else>
-      <el-empty description="选择上方一个工作协同表" :image-size="120" />
+      <el-empty description="暂无需求事项，请先在【需求事项管理】中录入需求" :image-size="120" />
     </div>
 
     <!-- 2. 大弹窗：阶段微观协同矩阵 (沉浸式聚焦体验) -->
@@ -643,12 +666,22 @@ const handleFilterChange = (filters) => {
   }
 }
 
-// ----------------- 数据加载业务 -----------------
+// ----------------- 数据加载与需求自由切换业务 -----------------
 
 const loadRequirements = async () => {
   try {
     requirements.value = await getRequirementsListApi()
   } catch (error) { }
+}
+
+// 核心优化：用户在顶栏下拉菜单中主动切换需求
+const handleReqSelectChange = async (reqId) => {
+  const target = requirements.value.find(r => r.id === reqId)
+  if (target) {
+    await switchRequirement(target)
+    // 同步更新 URL query，保持刷新页面后停留在此需求
+    router.replace({ path: '/matrix', query: { reqId } })
+  }
 }
 
 const switchRequirement = async (req) => {
@@ -663,7 +696,7 @@ const loadStages = async (reqId) => {
     const stageList = await getStagesApi(reqId)
     stages.value = stageList
 
-    // 预加载当前项目下所有阶段的子任务，使得列表能立即显示准确进度
+    // 预加载当前需求下所有阶段的子任务，使得列表能立即显示准确进度
     if (stageList.length > 0) {
       for (const s of stageList) {
         stageAddForms.value[s.id] = { title: '', assignee: '' }
@@ -1012,11 +1045,43 @@ onMounted(async () => {
   align-items: center;
 }
 
-.board-header-title {
-  margin: 0;
+.header-req-icon {
   font-size: 18px;
-  font-weight: 600;
+  margin-right: 8px;
+}
+
+/* 顶栏需求无缝选择器自定义样式 */
+.header-req-select {
+  width: 320px;
+}
+
+:deep(.header-req-select .el-input__wrapper) {
+  box-shadow: none !important;
+  background-color: transparent !important;
+  padding-left: 0 !important;
+}
+
+:deep(.header-req-select .el-input__inner) {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: var(--notion-text) !important;
+}
+
+.req-option-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.req-option-title {
+  font-size: 13px;
+  font-weight: 500;
   color: var(--notion-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
 }
 
 .board-header-desc {
