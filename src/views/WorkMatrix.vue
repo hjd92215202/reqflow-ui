@@ -1,30 +1,98 @@
 <template>
   <div class="workbench-workspace">
-    <!-- 核心协同矩阵板 -->
+    <!-- 1. 主页面：项目/需求全局视图 & 阶段列表总览 (全局掌控) -->
     <div class="matrix-board" v-if="selectedRequirement">
+      <!-- 1.1 顶栏：项目全局概览 -->
       <div class="board-top-info">
         <div>
-          <h3 class="board-header-title">📋 {{ selectedRequirement.title }} · 阶段协同矩阵表</h3>
+          <div class="header-title-row">
+            <h3 class="board-header-title">📋 {{ selectedRequirement.title }}</h3>
+            <el-tag :type="getPriorityTag(selectedRequirement.priority)" size="small" style="margin-left: 10px;">
+              {{ selectedRequirement.priority }} 优先级
+            </el-tag>
+          </div>
           <p class="board-header-desc" v-if="selectedRequirement.description">{{ selectedRequirement.description }}</p>
         </div>
         <div class="top-action-bar">
-          <!-- 执行阶段切换下拉选项 -->
-          <el-select v-model="activeStageId" placeholder="切换执行阶段" size="small" style="width: 180px;"
-            @change="handleStageChange">
-            <el-option v-for="s in stages" :key="s.id" :label="s.title" :value="s.id" />
-          </el-select>
-          <el-button type="primary" size="small" @click="openCreateStageDialog">划分执行阶段</el-button>
+          <el-button type="primary" size="default" @click="openCreateStageDialog">➕ 划分新执行阶段</el-button>
         </div>
       </div>
 
-      <!-- 树形 Excel 协同表格 -->
-      <div v-if="activeStage" class="stage-table-block" style="margin-top: 20px;">
+      <el-divider style="margin: 18px 0 20px 0;" />
 
+      <!-- 1.2 核心：所有执行阶段列表总览 (列表样式) -->
+      <div class="stages-list-view" v-if="stages.length > 0">
+        <div 
+          v-for="stage in stages" 
+          :key="stage.id" 
+          class="stage-list-item"
+          @click="openStageMatrixModal(stage)"
+        >
+          <!-- 阶段名称与排期信息 -->
+          <div class="stage-item-left">
+            <span class="stage-item-icon">📍</span>
+            <div class="stage-item-info">
+              <span class="stage-item-title">{{ stage.title }}</span>
+              <span class="stage-item-dates">📅 {{ stage.startDate || '未定' }} 至 {{ stage.endDate || '未定' }}</span>
+            </div>
+          </div>
+
+          <!-- 阶段状态快速切换 -->
+          <div class="stage-item-status" @click.stop>
+            <el-radio-group v-model="stage.status" size="small" @change="handleStageStatusChange(stage)">
+              <el-radio-button value="TODO">待处理</el-radio-button>
+              <el-radio-button value="IN_PROGRESS">进行中</el-radio-button>
+              <el-radio-button value="DONE">已完成</el-radio-button>
+            </el-radio-group>
+          </div>
+
+          <!-- 拆解任务完成度进度条 -->
+          <div class="stage-item-progress">
+            <span class="progress-count-text">
+              进度: {{ getStageTaskStats(stage.id).done }} / {{ getStageTaskStats(stage.id).total }} 项
+            </span>
+            <el-progress 
+              :percentage="getStageTaskStats(stage.id).percent" 
+              :status="getStageTaskStats(stage.id).percent === 100 ? 'success' : ''"
+              :stroke-width="6" 
+              style="width: 120px;"
+            />
+          </div>
+
+          <!-- 操作按键 -->
+          <div class="stage-item-actions" @click.stop>
+            <el-button type="primary" link size="small" @click="openStageMatrixModal(stage)">
+              进入协同矩阵 ➔
+            </el-button>
+            <el-button type="danger" link size="small" @click="handleDeleteStage(stage.id)">
+              移除
+            </el-button>
+          </div>
+        </div>
+      </div>
+
+      <el-empty v-else description="暂无执行阶段，点击右上角“划分新执行阶段”开始拆解" :image-size="100" />
+    </div>
+
+    <!-- 未选择需求时的占位 -->
+    <div class="empty-board-state" v-else>
+      <el-empty description="选择上方一个工作协同表" :image-size="120" />
+    </div>
+
+    <!-- 2. 大弹窗：阶段微观协同矩阵 (沉浸式聚焦体验) -->
+    <el-dialog
+      v-model="matrixModalVisible"
+      :title="activeStage ? `📍 协同矩阵 · ${activeStage.title}` : '阶段协同矩阵'"
+      width="92%"
+      top="3vh"
+      destroy-on-close
+      class="matrix-dialog-wrapper"
+    >
+      <div v-if="activeStage" class="stage-table-block" style="margin-top: 0;">
         <div class="stage-block-header">
           <div class="stage-title-left">
-            <span class="block-stage-name">📍 当前执行阶段：{{ activeStage.title }}</span>
-            <span class="block-stage-dates"> 排期：{{ activeStage.startDate || '未定' }} 至 {{ activeStage.endDate || '未定' }}
-            </span>
+            <span class="block-stage-name">📍 阶段：{{ activeStage.title }}</span>
+            <span class="block-stage-dates">排期：{{ activeStage.startDate || '未定' }} 至 {{ activeStage.endDate || '未定' }}</span>
           </div>
           <div class="stage-title-right">
             <el-radio-group v-model="activeStage.status" size="small" @change="handleStageStatusChange(activeStage)">
@@ -32,28 +100,52 @@
               <el-radio-button value="IN_PROGRESS">进行中</el-radio-button>
               <el-radio-button value="DONE">已完成</el-radio-button>
             </el-radio-group>
-            <el-button type="danger" link size="small" @click="handleDeleteStage(activeStage.id)"
-              style="margin-left: 20px;">移除阶段</el-button>
+            <el-button type="danger" link size="small" @click="handleDeleteStageInModal(activeStage.id)" style="margin-left: 20px;">
+              移除阶段
+            </el-button>
           </div>
         </div>
 
-        <el-table :data="getFilteredTasks(activeStage.id)" border row-key="id" default-expand-all
-          :tree-props="{ children: 'children' }" :indent="28" class="excel-table-style"
-          @filter-change="handleFilterChange">
-
+        <!-- 树形 Excel 协同表格 -->
+        <el-table 
+          :data="getFilteredTasks(activeStage.id)" 
+          border 
+          row-key="id" 
+          default-expand-all
+          :tree-props="{ children: 'children' }" 
+          :indent="28" 
+          class="excel-table-style"
+          @filter-change="handleFilterChange"
+        >
           <!-- 1. 子任务标题列 -->
           <el-table-column label="任务与子项内容 (双击编辑 / 回车保存)" min-width="260">
             <template #default="scope">
               <div class="inline-edit-cell" @click.stop @dblclick.stop="startTitleEdit(scope.row)">
-                <el-input key="edit-title-input" v-if="editingTitleTaskId === scope.row.id" v-model="scope.row.title"
-                  size="small" @blur="finishTitleEdit(scope.row)" @keyup.enter="finishTitleEdit(scope.row)" @click.stop
-                  @dblclick.stop v-focus />
-                <span key="read-title-text" v-else
-                  :class="['cell-text', { 'completed-style': scope.row.status === 'DONE' }]">
+                <el-input 
+                  key="edit-title-input" 
+                  v-if="editingTitleTaskId === scope.row.id" 
+                  v-model="scope.row.title"
+                  size="small" 
+                  @blur="finishTitleEdit(scope.row)" 
+                  @keyup.enter="finishTitleEdit(scope.row)" 
+                  @click.stop
+                  @dblclick.stop 
+                  v-focus 
+                />
+                <span 
+                  key="read-title-text" 
+                  v-else
+                  :class="['cell-text', { 'completed-style': scope.row.status === 'DONE' }]"
+                >
                   {{ scope.row.title }}
                 </span>
-                <el-button class="add-sub-child-btn" size="small" type="primary" link
-                  @click.stop="openAddChildDialog(scope.row, activeStage.id)">
+                <el-button 
+                  class="add-sub-child-btn" 
+                  size="small" 
+                  type="primary" 
+                  link
+                  @click.stop="handleInlineAddChild(scope.row, activeStage.id)"
+                >
                   + 拆解子项
                 </el-button>
               </div>
@@ -61,11 +153,21 @@
           </el-table-column>
 
           <!-- 2. 状态列 -->
-          <el-table-column label="状态" width="130" align="center" column-key="status"
-            :filters="[{ text: '待处理', value: 'TODO' }, { text: '进行中', value: 'IN_PROGRESS' }, { text: '已完成', value: 'DONE' }]">
+          <el-table-column 
+            label="状态" 
+            width="130" 
+            align="center" 
+            column-key="status"
+            :filters="[{ text: '待处理', value: 'TODO' }, { text: '进行中', value: 'IN_PROGRESS' }, { text: '已完成', value: 'DONE' }]"
+          >
             <template #default="scope">
-              <el-select v-model="scope.row.status" size="small" @change="saveSubTask(scope.row)" @click.stop
-                style="width: 100%;">
+              <el-select 
+                v-model="scope.row.status" 
+                size="small" 
+                @change="saveSubTask(scope.row)" 
+                @click.stop
+                style="width: 100%;"
+              >
                 <el-option label="待处理" value="TODO" />
                 <el-option label="进行中" value="IN_PROGRESS" />
                 <el-option label="已完成" value="DONE" />
@@ -74,28 +176,57 @@
           </el-table-column>
 
           <!-- 3. 负责人列 -->
-          <el-table-column label="负责人" width="135" align="center" column-key="assignee"
-            :filters="getAssigneeFilters(activeStage.id)">
+          <el-table-column 
+            label="负责人" 
+            width="135" 
+            align="center" 
+            column-key="assignee"
+            :filters="getAssigneeFilters(activeStage.id)"
+          >
             <template #default="scope">
               <div class="inline-edit-cell" @click.stop @dblclick.stop="startAssigneeEdit(scope.row)">
-                <el-input key="edit-assignee-input" v-if="editingAssigneeTaskId === scope.row.id"
-                  v-model="scope.row.assignee" size="small" @blur="finishAssigneeEdit(scope.row)"
-                  @keyup.enter="finishAssigneeEdit(scope.row)" @click.stop @dblclick.stop v-focus />
+                <el-input 
+                  key="edit-assignee-input" 
+                  v-if="editingAssigneeTaskId === scope.row.id"
+                  v-model="scope.row.assignee" 
+                  size="small" 
+                  @blur="finishAssigneeEdit(scope.row)"
+                  @keyup.enter="finishAssigneeEdit(scope.row)" 
+                  @click.stop 
+                  @dblclick.stop 
+                  v-focus 
+                />
                 <span v-else class="assignee-tag">👤 {{ scope.row.assignee || '未分配' }}</span>
               </div>
             </template>
           </el-table-column>
 
           <!-- 4. 排期起止 -->
-          <el-table-column label="起止排期" width="220" align="center">
+          <el-table-column label="起止排期" width="200" align="center">
             <template #default="scope">
-              <el-date-picker v-model="scope.row.dateRange" type="daterange" range-separator="-" start-placeholder="始"
-                end-placeholder="止" size="small" value-format="YYYY-MM-DD" style="width: 100%;" @click.stop
-                @change="handleSubTaskDateChange(scope.row)" />
+              <div class="inline-edit-cell date-cell" @click.stop @dblclick.stop="startDateEdit(scope.row)">
+                <el-date-picker
+                  v-if="editingDateTaskId === scope.row.id"
+                  v-model="scope.row.dateRange"
+                  type="daterange"
+                  range-separator="-"
+                  start-placeholder="始"
+                  end-placeholder="止"
+                  size="small"
+                  value-format="YYYY-MM-DD"
+                  style="width: 100%;"
+                  @change="finishDateEdit(scope.row)"
+                  @blur="editingDateTaskId = null"
+                  v-focus
+                />
+                <span v-else class="date-preview-text">
+                  📅 {{ formatDateRange(scope.row) }}
+                </span>
+              </div>
             </template>
           </el-table-column>
 
-          <!-- 5. 属性标签列 -->
+          <!-- 5. 扩展属性标签 -->
           <el-table-column label="🏷️ 扩展属性标签" width="180" align="center">
             <template #default="scope">
               <el-popover placement="top" :width="320" trigger="click" @show="initPropertyForm">
@@ -110,16 +241,12 @@
                   </div>
                 </template>
 
-                <!-- 原地属性标签卡片面板 -->
                 <div class="property-inspector">
                   <h4 class="inspector-title">📌 属性配置看板</h4>
-
                   <div class="existing-properties">
                     <div v-for="(val, key) in scope.row.customFields" :key="key" class="property-item-row">
                       <span class="prop-badge"><strong>{{ key }}</strong></span>
-                      <el-button type="danger" link size="small" @click="removeProperty(scope.row, key)">
-                        移除
-                      </el-button>
+                      <el-button type="danger" link size="small" @click="removeProperty(scope.row, key)">移除</el-button>
                     </div>
                     <div v-if="!hasProperties(scope.row.customFields)" class="no-props-placeholder">
                       暂无独立标签属性，可在下方追加
@@ -127,10 +254,8 @@
                   </div>
 
                   <div class="add-property-form">
-                    <el-input v-model="newPropForm.key" placeholder="属性名(如: Bug数)" size="small"
-                      style="flex: 1.2; margin-right: 6px;" />
-                    <el-input v-model="newPropForm.value" placeholder="属性值(如: 3个)" size="small"
-                      style="flex: 1.5; margin-right: 6px;" @keyup.enter="addProperty(scope.row)" />
+                    <el-input v-model="newPropForm.key" placeholder="属性名(如: Bug数)" size="small" style="flex: 1.2; margin-right: 6px;" />
+                    <el-input v-model="newPropForm.value" placeholder="属性值(如: 3个)" size="small" style="flex: 1.5; margin-right: 6px;" @keyup.enter="addProperty(scope.row)" />
                     <el-button type="primary" size="small" @click="addProperty(scope.row)">添加</el-button>
                   </div>
                 </div>
@@ -138,21 +263,37 @@
             </template>
           </el-table-column>
 
-          <!-- 6. 自动扫描渲染列 -->
-          <el-table-column v-for="key in detectedColumnKeys[activeStage.id] || []" :key="key" :column-key="key"
-            min-width="140" :filters="getCustomColumnFilters(key, activeStage.id)">
+          <!-- 6. 动态 JSONB 渲染列 -->
+          <el-table-column 
+            v-for="key in detectedColumnKeys[activeStage.id] || []" 
+            :key="key" 
+            :column-key="key"
+            min-width="140" 
+            :filters="getCustomColumnFilters(key, activeStage.id)"
+          >
             <template #header>
               <div class="custom-header-wrapper">
                 <span>{{ key }}</span>
               </div>
             </template>
             <template #default="scope">
-              <div class="inline-edit-cell" @click.stop
-                @dblclick.stop="startCustomFieldEdit(scope.row, key, scope.row.customFields[key])">
-                <el-input key="edit-custom-input"
-  v-if="editingCustomField.taskId === scope.row.id && editingCustomField.key === key" type="textarea"
-  :autosize="{ minRows: 1 }" v-model="scope.row.customFields[key]" size="small"
-  @blur="finishCustomFieldEdit(scope.row, key)" @click.stop @dblclick.stop v-focus />
+              <div 
+                class="inline-edit-cell" 
+                @click.stop
+                @dblclick.stop="startCustomFieldEdit(scope.row, key, scope.row.customFields[key])"
+              >
+                <el-input 
+                  key="edit-custom-input"
+                  v-if="editingCustomField.taskId === scope.row.id && editingCustomField.key === key" 
+                  type="textarea"
+                  :autosize="{ minRows: 1 }" 
+                  v-model="scope.row.customFields[key]" 
+                  size="small"
+                  @blur="finishCustomFieldEdit(scope.row, key)" 
+                  @click.stop 
+                  @dblclick.stop 
+                  v-focus 
+                />
                 <span v-else class="custom-field-text">
                   {{ scope.row.customFields?.[key] || '-' }}
                 </span>
@@ -160,43 +301,58 @@
             </template>
           </el-table-column>
 
-          <!-- 7. 操作 -->
+          <!-- 7. 操作列 -->
           <el-table-column label="操作" width="70" align="center">
             <template #default="scope">
-              <el-button type="danger" link size="small"
-                @click="handleDeleteSubTask(scope.row.id, activeStage.id)">删除</el-button>
+              <el-button type="danger" link size="small" @click="handleDeleteSubTask(scope.row.id, activeStage.id)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
 
         <!-- 快速添加行 -->
-        <div class="excel-quick-append-row">
+        <div class="excel-quick-append-row" v-if="stageAddForms[activeStage.id]">
           <span class="append-tag">➕ 添加行</span>
-          <el-input v-model="stageAddForms[activeStage.id].title" placeholder="添加一级子任务..." size="small"
-            style="flex: 3 !important; margin-right: 12px; width: auto !important;" />
-          <el-input v-model="stageAddForms[activeStage.id].assignee" placeholder="负责人" size="small"
-            style="flex: 1 !important; margin-right: 12px; width: auto !important;" />
-          <el-button type="primary" size="small" style="flex-shrink: 0;"
-            @click="handleQuickAddSubTask(activeStage.id)">确定添加</el-button>
+          <el-input 
+            v-model="stageAddForms[activeStage.id].title" 
+            placeholder="添加一级子任务..." 
+            size="small"
+            style="flex: 3 !important; margin-right: 12px; width: auto !important;" 
+          />
+          <el-input 
+            v-model="stageAddForms[activeStage.id].assignee" 
+            placeholder="负责人" 
+            size="small"
+            style="flex: 1 !important; margin-right: 12px; width: auto !important;" 
+          />
+          <el-button 
+            type="primary" 
+            size="small" 
+            style="flex-shrink: 0;"
+            @click="handleQuickAddSubTask(activeStage.id)"
+          >
+            确定添加
+          </el-button>
         </div>
       </div>
+    </el-dialog>
 
-      <el-empty v-if="stages.length === 0" description="请先添加阶段以开展工作协作" :image-size="80" />
-    </div>
-
-    <!-- 空白占位 -->
-    <div class="empty-board-state" v-else>
-      <el-empty description="选择上方一个工作协同表" :image-size="120" />
-    </div>
-    <!-- 1. 新建执行阶段微型弹窗 -->
+    <!-- 3. 新建执行阶段微型弹窗 -->
     <el-dialog v-model="stageDialogVisible" title="划分新执行阶段" width="400px" append-to-body>
       <el-form :model="stageForm" label-width="80px">
         <el-form-item label="阶段名称" required>
           <el-input v-model="stageForm.title" placeholder="如：研发编码期 / 业务测试期" />
         </el-form-item>
         <el-form-item label="起止排期">
-          <el-date-picker v-model="stageDateRange" type="daterange" range-separator="-" start-placeholder="开始"
-            end-placeholder="截止" value-format="YYYY-MM-DD" style="width: 100%;" size="small" />
+          <el-date-picker 
+            v-model="stageDateRange" 
+            type="daterange" 
+            range-separator="-" 
+            start-placeholder="开始"
+            end-placeholder="截止" 
+            value-format="YYYY-MM-DD" 
+            style="width: 100%;" 
+            size="small" 
+          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -204,27 +360,11 @@
         <el-button type="primary" @click="submitStageForm">确定添加</el-button>
       </template>
     </el-dialog>
-
-    <!-- 2. 拆解子项微型弹窗 -->
-    <el-dialog v-model="childTaskDialogVisible" title="拆解下级子项" width="400px" append-to-body>
-      <el-form :model="childTaskForm" label-width="80px">
-        <el-form-item label="子项内容" required>
-          <el-input v-model="childTaskForm.title" placeholder="请输入拆解的具体任务" />
-        </el-form-item>
-        <el-form-item label="负责人">
-          <el-input v-model="childTaskForm.assignee" placeholder="请输入负责人姓名" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="childTaskDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitChildTask">确定拆解</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { getRequirementsListApi } from '@/api/requirement'
@@ -243,19 +383,20 @@ const activeReqId = ref(null)
 const selectedRequirement = ref(null)
 const stages = ref([])
 
-// 阶段切换与菜单折叠状态
+// 大弹窗与沉浸式协同绑定
+const matrixModalVisible = ref(false)
 const activeStageId = ref(null)
+
+// 计算属性：当前大弹窗聚焦激活的阶段
+const activeStage = computed(() => {
+  return stages.value.find(s => s.id === activeStageId.value)
+})
 
 // 脏值检测原值缓存
 const originalValCache = ref('')
 
 // 响应式存储：每个阶段下扫描出的全部自定义属性 Key
 const detectedColumnKeys = ref({})
-
-// 计算属性：当前选中阶段（控制一屏只显示这一个大表）
-const activeStage = computed(() => {
-  return stages.value.find(s => s.id === activeStageId.value)
-})
 
 // 状态映射绑定
 const stageSubTasks = ref({})
@@ -269,19 +410,15 @@ const activeFilters = ref({})
 // 行内属性配置新表单
 const newPropForm = ref({ key: '', value: '' })
 
-// 阶段、子树弹窗
+// 阶段新建弹窗
 const stageDialogVisible = ref(false)
 const stageDateRange = ref([])
 const stageForm = ref({ title: '', startDate: null, endDate: null })
 
-const childTaskDialogVisible = ref(false)
-const selectedParentRow = ref(null)
-const selectedParentStageId = ref(null)
-const childTaskForm = ref({ title: '', assignee: '' })
-
-// 局部独立编辑态标识（解耦核心数据源，避免改变行属性引起整体重绘，保持折叠状态）
+// 局部独立编辑态标识
 const editingTitleTaskId = ref(null)
 const editingAssigneeTaskId = ref(null)
+const editingDateTaskId = ref(null)
 const editingCustomField = ref({ taskId: null, key: null })
 
 // 自动聚焦指令
@@ -290,6 +427,37 @@ const vFocus = {
     const target = el.querySelector('input, textarea')
     if (target) target.focus()
   }
+}
+
+// 标签与排期工具函数
+const getPriorityTag = (p) => {
+  if (p === 'HIGH') return 'danger'
+  if (p === 'MEDIUM') return 'warning'
+  return 'info'
+}
+
+const formatDateRange = (row) => {
+  if (row.startDate && row.endDate) {
+    return `${row.startDate} 至 ${row.endDate}`
+  }
+  return '暂无排期'
+}
+
+// 计算阶段完成进度统计（用于全局掌控列表展示）
+const getStageTaskStats = (stageId) => {
+  const tasks = stageSubTasks.value[stageId] || []
+  let total = 0
+  let done = 0
+  const countTasks = (list) => {
+    list.forEach(item => {
+      total++
+      if (item.status === 'DONE') done++
+      if (item.children && item.children.length > 0) countTasks(item.children)
+    })
+  }
+  countTasks(tasks)
+  const percent = total > 0 ? Math.round((done / total) * 100) : 0
+  return { total, done, percent }
 }
 
 // 自动扫描 JSONB 属性 Key 列表
@@ -363,15 +531,12 @@ const filterTreeData = (nodes, allowedStatuses, currentFilters) => {
   for (const node of nodes) {
     const clonedNode = { ...node, children: [] }
 
-    // 1. 递归优先过滤子项
     if (node.children && node.children.length > 0) {
       clonedNode.children = filterTreeData(node.children, allowedStatuses, currentFilters)
     }
 
-    // 2. 判断当前节点是否符合“表格状态头过滤器配置”
     const isStatusMatch = allowedStatuses.length === 0 || allowedStatuses.includes(node.status)
 
-    // 3. 判断当前节点是否符合“各表头自选列独立过滤器”
     let isHeaderFiltersMatch = true
     for (const key in currentFilters) {
       if (key === 'status') continue
@@ -401,7 +566,7 @@ const filterTreeData = (nodes, allowedStatuses, currentFilters) => {
   return result
 }
 
-// 核心优化（计算属性路由）：将高频递归过滤操作重写为依赖响应式自动调用的 Computed 缓存
+// 属性计算与缓存
 const filteredTasksMap = computed(() => {
   const map = {}
   stages.value.forEach(stage => {
@@ -424,13 +589,11 @@ const filteredTasksMap = computed(() => {
   return map
 })
 
-// 供表格绑定的简易计算返回（从缓存 Map 中直取）
 const getFilteredTasks = (stageId) => {
   return filteredTasksMap.value[stageId] || []
 }
 
-// ----------------- 列头过滤选项动态数据搜集 -----------------
-
+// 列头过滤数据
 const getAssigneeFilters = (stageId) => {
   const tasks = stageSubTasks.value[stageId] || []
   const uniqueValues = new Set()
@@ -448,14 +611,13 @@ const getAssigneeFilters = (stageId) => {
 const getCustomColumnFilters = (columnKey, stageId) => {
   const tasks = stageSubTasks.value[stageId] || []
   const uniqueValues = new Set()
-  let hasTooLongText = false // 增加标识：检测是否包含超长文本或多行文本
+  let hasTooLongText = false
 
   const collect = (list) => {
     list.forEach(t => {
       const val = t.customFields?.[columnKey]
       if (val && String(val).trim() !== '') {
         const strVal = String(val).trim()
-        // 核心规则：如果某条内容长度超过 25 个字，或者含有回车换行符，说明该列为长描述列，不应该支持筛选
         if (strVal.length > 25 || strVal.includes('\n')) {
           hasTooLongText = true
         }
@@ -468,7 +630,6 @@ const getCustomColumnFilters = (columnKey, stageId) => {
   }
   collect(tasks)
 
-  // 如果检测到包含长描述文本，直接返回 undefined（Element Plus 会自动隐藏并关闭该列的筛选功能）
   if (hasTooLongText) {
     return undefined
   }
@@ -502,11 +663,12 @@ const loadStages = async (reqId) => {
     const stageList = await getStagesApi(reqId)
     stages.value = stageList
 
+    // 预加载当前项目下所有阶段的子任务，使得列表能立即显示准确进度
     if (stageList.length > 0) {
-      activeStageId.value = stageList[0].id
-      await handleStageChange(stageList[0].id)
-    } else {
-      activeStageId.value = null
+      for (const s of stageList) {
+        stageAddForms.value[s.id] = { title: '', assignee: '' }
+        await loadSubTasks(s.id)
+      }
     }
   } catch (error) { }
 }
@@ -519,13 +681,10 @@ const handleStageChange = async (stageId) => {
 }
 
 const loadSubTasks = async (stageId) => {
-  // 1. 发送 1 次请求拉取当前阶段的所有子任务
-  const flatTaskList = await getSubTasksApi(stageId)
+  const flatTaskList = await getSubTasksApi(stageId).catch(() => [])
 
-  // 2. 并行异步拉取日志，不阻塞主流程（1 次请求）
   const discussions = await getDiscussionsApi(stageId).catch(() => [])
 
-  // 3. 内存构建日志匹配 Map，耗时 < 1ms
   const latestLogMap = {}
   if (discussions && discussions.length > 0) {
     discussions.forEach(log => {
@@ -533,7 +692,6 @@ const loadSubTasks = async (stageId) => {
     })
   }
 
-  // 4. 纯内存格式化数据
   for (let task of flatTaskList) {
     task.dateRange = (task.startDate && task.endDate) ? [task.startDate, task.endDate] : []
     if (!task.customFields) {
@@ -542,15 +700,21 @@ const loadSubTasks = async (stageId) => {
     task.latestLog = latestLogMap[task.id] || ''
   }
 
-  // 5. 渲染树结构与动态列
   detectedColumnKeys.value[stageId] = scanCustomColumns(flatTaskList)
   stageSubTasks.value[stageId] = arrayToTree(flatTaskList)
 }
 
-// ----------------- 行内编辑 Excel 操作及脏值检测 -----------------
+// 点击阶段列表项，唤醒沉浸式协同大弹窗
+const openStageMatrixModal = async (stage) => {
+  activeStageId.value = stage.id
+  await handleStageChange(stage.id)
+  matrixModalVisible.value = true
+}
+
+// ----------------- 行内编辑与保存 -----------------
 
 const startTitleEdit = (row) => {
-  editingTitleTaskId.value = row.id // 局部记录当前正编辑的ID，不污染行属性
+  editingTitleTaskId.value = row.id
   originalValCache.value = row.title || ''
 }
 
@@ -567,7 +731,7 @@ const finishTitleEdit = async (row) => {
 }
 
 const startAssigneeEdit = (row) => {
-  editingAssigneeTaskId.value = row.id // 局部记录当前正编辑的ID，不污染行属性
+  editingAssigneeTaskId.value = row.id
   originalValCache.value = row.assignee || ''
 }
 
@@ -580,8 +744,24 @@ const finishAssigneeEdit = async (row) => {
   await saveSubTask(row)
 }
 
+const startDateEdit = (row) => {
+  editingDateTaskId.value = row.id
+}
+
+const finishDateEdit = async (row) => {
+  editingDateTaskId.value = null
+  if (row.dateRange && row.dateRange.length === 2) {
+    row.startDate = row.dateRange[0]
+    row.endDate = row.dateRange[1]
+  } else {
+    row.startDate = null
+    row.endDate = null
+  }
+  await saveSubTask(row)
+}
+
 const startCustomFieldEdit = (row, colKey, currentVal) => {
-  editingCustomField.value = { taskId: row.id, key: colKey } // 局部记录当前正编辑的自定义位置，不污染行属性
+  editingCustomField.value = { taskId: row.id, key: colKey }
   originalValCache.value = currentVal || ''
 }
 
@@ -590,17 +770,6 @@ const finishCustomFieldEdit = async (row, colKey) => {
   const currentVal = row.customFields?.[colKey] || ''
   if (currentVal === originalValCache.value) {
     return
-  }
-  await saveSubTask(row)
-}
-
-const handleSubTaskDateChange = async (row) => {
-  if (row.dateRange && row.dateRange.length === 2) {
-    row.startDate = row.dateRange[0]
-    row.endDate = row.dateRange[1]
-  } else {
-    row.startDate = null
-    row.endDate = null
   }
   await saveSubTask(row)
 }
@@ -632,36 +801,25 @@ const saveSubTask = async (row) => {
   }
 }
 
-// ----------------- 原地极速追加微观子项 -----------------
+// ----------------- 原地极速拆解子项与行录入 -----------------
 
-const openAddChildDialog = (row, stageId) => {
-  selectedParentRow.value = row
-  selectedParentStageId.value = stageId
-  childTaskForm.value = { title: '', assignee: '' }
-  childTaskDialogVisible.value = true
-}
-
-const submitChildTask = async () => {
-  if (!childTaskForm.value.title.trim()) {
-    ElMessage.warning('子项内容不可为空')
-    return
-  }
+const handleInlineAddChild = async (parentRow, stageId) => {
   try {
-    await createSubTaskApi({
-      stageId: selectedParentStageId.value,
-      parentId: selectedParentRow.value.id,
-      parent_id: selectedParentRow.value.id,
-      title: childTaskForm.value.title,
-      assignee: childTaskForm.value.assignee,
+    const newChild = await createSubTaskApi({
+      stageId: stageId,
+      parentId: parentRow.id,
+      parent_id: parentRow.id,
+      title: '新拆解子项',
+      assignee: parentRow.assignee || '',
       status: 'TODO'
     })
-    ElMessage.success('子项拆解成功')
-    childTaskDialogVisible.value = false
-    await loadSubTasks(selectedParentStageId.value)
+    ElMessage.success('已新建子项，双击可改名')
+    await loadSubTasks(stageId)
+    nextTick(() => {
+      startTitleEdit(newChild)
+    })
   } catch (error) { }
 }
-
-// ----------------- 日志时间轴跟进 -----------------
 
 const loadTimelineForTask = async (taskId) => {
   taskTimelines.value[taskId] = await getDiscussionsApi(taskId)
@@ -684,8 +842,6 @@ const submitQuickLog = async (row) => {
     row.latestLog = text
   } catch (error) { }
 }
-
-// ----------------- 快速新任务追加 -----------------
 
 const handleQuickAddSubTask = async (stageId) => {
   const addForm = stageAddForms.value[stageId]
@@ -716,7 +872,7 @@ const handleDeleteSubTask = (id, stageId) => {
   }).catch(() => { })
 }
 
-// ----------------- 阶段状态及添加 -----------------
+// ----------------- 阶段增删改与状态 -----------------
 
 const handleStageStatusChange = async (stage) => {
   try {
@@ -762,6 +918,11 @@ const handleDeleteStage = (id) => {
   }).catch(() => { })
 }
 
+const handleDeleteStageInModal = async (id) => {
+  await handleDeleteStage(id)
+  matrixModalVisible.value = false
+}
+
 // ----------------- 高级 Notion 属性卡片业务逻辑 -----------------
 
 const initPropertyForm = () => {
@@ -795,21 +956,17 @@ const removeProperty = async (row, key) => {
 }
 
 onMounted(async () => {
-  // 1. 无论是否带参，先统一加载需求列表
   await loadRequirements()
 
   const queryReqId = route.query.reqId
   if (queryReqId) {
-    // 2. 此时 requirements.value 已有数据，可以正常检索
     const target = requirements.value.find(r => r.id === Number(queryReqId))
     if (target) {
       await switchRequirement(target)
     } else if (requirements.value.length > 0) {
-      // 容错：如果传入了无效的 ID，降级加载第一个需求
       await switchRequirement(requirements.value[0])
     }
   } else {
-    // 3. 无传参时，默认载入第一个活跃需求表
     if (requirements.value.length > 0) {
       await switchRequirement(requirements.value[0])
     }
@@ -835,7 +992,7 @@ onMounted(async () => {
   flex-direction: column;
 }
 
-/* ================= 主面板与顶部导航 ================= */
+/* ================= 主面板与全局项目视图 ================= */
 .matrix-board {
   background-color: var(--notion-bg);
   border-radius: 6px;
@@ -847,19 +1004,24 @@ onMounted(async () => {
 .board-top-info {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
+}
+
+.header-title-row {
+  display: flex;
   align-items: center;
 }
 
 .board-header-title {
   margin: 0;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--notion-text);
 }
 
 .board-header-desc {
-  margin: 6px 0 0 0;
-  font-size: 12px;
+  margin: 8px 0 0 0;
+  font-size: 13px;
   color: rgba(55, 53, 47, 0.6);
 }
 
@@ -868,26 +1030,89 @@ onMounted(async () => {
   gap: 10px;
 }
 
-/* 精致虚线过滤排版 */
-.matrix-filter-row {
-  margin-top: 15px;
-  background-color: #f7f7f5;
-  padding: 10px 16px;
-  border-radius: 4px;
+/* ================= 阶段列表视图 (List View Style) ================= */
+.stages-list-view {
   display: flex;
-  align-items: center;
-  border: 1px dashed rgba(55, 53, 47, 0.15);
+  flex-direction: column;
+  gap: 10px;
 }
 
-.filter-label {
-  font-size: 12px;
+.stage-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border: 1px solid var(--notion-border);
+  border-radius: 6px;
+  background-color: #ffffff;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+}
+
+.stage-list-item:hover {
+  border-color: var(--el-color-primary);
+  background-color: #fafdff;
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.stage-item-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 260px;
+}
+
+.stage-item-icon {
+  font-size: 16px;
+}
+
+.stage-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.stage-item-title {
+  font-size: 14px;
   font-weight: 600;
   color: var(--notion-text);
 }
 
-/* ================= Notion 树形电子表格 ================= */
+.stage-item-dates {
+  font-size: 11px;
+  color: rgba(55, 53, 47, 0.5);
+}
+
+.stage-item-status {
+  display: flex;
+  align-items: center;
+}
+
+.stage-item-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: #f7f7f5;
+  padding: 6px 12px;
+  border-radius: 4px;
+}
+
+.progress-count-text {
+  font-size: 11px;
+  color: rgba(55, 53, 47, 0.65);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.stage-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ================= 沉浸式弹窗与表格样式 ================= */
 .stage-table-block {
-  margin-top: 25px;
   border: 1px solid var(--notion-border);
   border-radius: 6px;
   overflow: hidden;
@@ -931,7 +1156,6 @@ onMounted(async () => {
   height: auto !important;
 }
 
-/* 表头文字规范化为轻量多维视图样式 */
 .excel-table-style :deep(th.el-table__cell) {
   background-color: #f7f7f5 !important;
   color: rgba(55, 53, 47, 0.6) !important;
@@ -944,24 +1168,21 @@ onMounted(async () => {
   padding: 8px 10px !important;
 }
 
-/* 保证缩进与树形节点不换行对齐 */
 .excel-table-style :deep(.el-table__row) td:first-child .cell {
   display: flex !important;
   align-items: center !important;
   flex-wrap: nowrap !important;
 }
 
-/* 核心重构：保证表头文字与筛选/排序小三角永远在单行内水平对齐，绝对不换行折叠 */
 .excel-table-style :deep(th.el-table__cell > .cell) {
   display: inline-flex !important;
   align-items: center !important;
-  justify-content: center !important; /* 针对居中对齐列 */
+  justify-content: center !important;
   flex-wrap: nowrap !important;
-  white-space: nowrap !important;     /* 强制文字与小三角绝不折行 */
+  white-space: nowrap !important;
   overflow: visible !important;
 }
 
-/* 自适应继承列原生的水平对齐属性（保障标题列依然完美左对齐） */
 .excel-table-style :deep(th.is-left > .cell) {
   justify-content: flex-start !important;
 }
@@ -969,7 +1190,6 @@ onMounted(async () => {
   justify-content: flex-end !important;
 }
 
-/* 优化表头筛选小三角与文字之间的间距 */
 .excel-table-style :deep(.el-table__column-filter-trigger) {
   margin-left: 4px !important;
   display: inline-flex !important;
@@ -977,7 +1197,6 @@ onMounted(async () => {
   vertical-align: middle !important;
 }
 
-/* 柔和莫兰迪蓝 hover 态（防眼部疲劳） */
 .excel-table-style :deep(.el-table__row:hover > td.el-table__cell) {
   background-color: #f2f7fc !important;
 }
@@ -992,7 +1211,6 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   flex: 1;
-  /* overflow: hidden; */    /* 移除外层裁剪，允许自适应文本域向下优雅延伸，不被硬性切边 */
   transition: all 0.12s ease-in-out;
 }
 
@@ -1012,14 +1230,12 @@ onMounted(async () => {
   visibility: visible;
 }
 
-/* 强力保证：编辑激活时，输入框与文本域强制撑满单元格全部宽度，确保每次点击都落在焦点捕获区 */
 .inline-edit-cell :deep(.el-input),
 .inline-edit-cell :deep(.el-textarea) {
   width: 100% !important;
   display: block !important;
 }
 
-/* 无框无感 Input */
 .inline-edit-cell :deep(.el-input__wrapper) {
   box-shadow: none !important;
   background-color: transparent !important;
@@ -1034,47 +1250,44 @@ onMounted(async () => {
   border-radius: 0;
 }
 
-/* 多行无感编辑 Textarea 样式适配 */
 .inline-edit-cell :deep(.el-textarea__inner) {
   box-shadow: none !important;
   background-color: transparent !important;
   font-size: 13px !important;
   color: var(--notion-text);
   line-height: 1.6 !important;
-  font-family: inherit !important;           /* 继承系统字体，保证行高计算与外部只读形态的汉字完全等高 */
+  font-family: inherit !important;
   border: none !important;
   border-bottom: 1.5px solid var(--el-color-primary) !important;
   border-radius: 0 !important;
   resize: none;
   min-height: 28px !important;
   box-sizing: border-box !important;
-  
-  /* 调整 Padding 预留底部安全防遮挡距离 */
   padding-top: 4px !important;
-  padding-bottom: 12px !important;          /* 将底部预留留白稍微加大至 12px，确保汉字底部的撇捺笔画彻底拉开，不贴着蓝色底线 */
+  padding-bottom: 12px !important;
   padding-left: 0 !important;
   padding-right: 0 !important;
-
-  /* 隐藏原生滚动条 */
   overflow-y: hidden !important;              
   scrollbar-width: none !important;         
   -ms-overflow-style: none !important;      
 }
 
-/* 彻底清除 Chrome/Safari 滚动条轨迹 */
 .inline-edit-cell :deep(.el-textarea__inner)::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
 }
 
-/* 多行排版保留换行 */
+.date-preview-text {
+  font-size: 12px;
+  color: rgba(55, 53, 47, 0.7);
+}
+
 .custom-field-text,
 .cell-text {
   font-size: 13px;
   color: var(--notion-text);
   line-height: 1.6;
-  
   white-space: pre-wrap;         
   overflow-wrap: break-word;     
   word-break: break-word;        
@@ -1088,7 +1301,6 @@ onMounted(async () => {
   color: rgba(55, 53, 47, 0.35);
 }
 
-/* 优化后的负责人标签 */
 .assignee-tag {
   font-size: 11px;
   background-color: rgba(55, 53, 47, 0.05);
@@ -1099,58 +1311,6 @@ onMounted(async () => {
   display: inline-flex;
   align-items: center;
   font-weight: 500;
-}
-
-/* ================= 弹出反馈日志时间轴 ================= */
-.log-preview-text {
-  cursor: help;
-  font-size: 12px;
-  color: rgba(55, 53, 47, 0.7);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  display: inline-block;
-}
-
-.popover-timeline-container {
-  padding: 5px;
-}
-
-.popover-timeline-title {
-  margin: 0 0 10px 0;
-  font-size: 13px;
-  color: var(--notion-text);
-  border-bottom: 1px solid var(--notion-border-light);
-  padding-bottom: 6px;
-  font-weight: 600;
-}
-
-.popover-scroll-area {
-  max-height: 180px;
-  overflow-y: auto;
-  padding-right: 5px;
-  margin-bottom: 12px;
-}
-
-.timeline-pop-text {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-.timeline-pop-author {
-  display: block;
-  font-size: 10px;
-  color: rgba(55, 53, 47, 0.4);
-  text-align: right;
-  margin-top: 3px;
-}
-
-.quick-post-row {
-  display: flex;
-  border-top: 1px solid var(--notion-border-light);
-  padding-top: 10px;
 }
 
 /* ================= 底部追加新行区域 ================= */
@@ -1198,7 +1358,7 @@ onMounted(async () => {
   box-shadow: 0 1px 2px rgba(15, 15, 15, 0.04);
 }
 
-/* 树形表格多级缩进基准 */
+/* 树形缩进控制 */
 .excel-table-style :deep(.el-table__row--level-1) .el-table__indent {
   padding-left: 32px !important;
 }
@@ -1207,7 +1367,6 @@ onMounted(async () => {
   padding-left: 64px !important;
 }
 
-/* 二级子任务视觉降级 */
 .excel-table-style :deep(.el-table__row--level-1) .cell-text {
   color: rgba(55, 53, 47, 0.75) !important;
   font-size: 12.5px;
@@ -1291,7 +1450,7 @@ onMounted(async () => {
   padding-top: 10px;
 }
 
-/* ================= 深度定制 Notion 极简软色调 Tag ================= */
+/* ================= Notion 软色调 Tag ================= */
 :deep(.el-tag) {
   border: none !important;
   font-weight: 500;
