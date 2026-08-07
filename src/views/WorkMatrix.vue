@@ -7,7 +7,7 @@
         <div>
           <div class="header-title-row">
             <span class="header-req-icon">📋</span>
-            <!-- 优化点：需求自由切换下拉框 -->
+            <!-- 需求自由切换下拉框 -->
             <el-select v-model="activeReqId" placeholder="请选择/切换需求项目" size="large" class="header-req-select"
               @change="handleReqSelectChange">
               <el-option v-for="req in requirements" :key="req.id" :label="req.title" :value="req.id">
@@ -33,9 +33,9 @@
 
       <el-divider style="margin: 18px 0 20px 0;" />
 
-      <!-- 1.2 核心：所有执行阶段列表总览 (列表样式) -->
+      <!-- 1.2 核心：执行阶段列表总览 (支持分页) -->
       <div class="stages-list-view" v-if="stages.length > 0">
-        <div v-for="stage in stages" :key="stage.id" class="stage-list-item" @click="openStageMatrixModal(stage)">
+        <div v-for="stage in paginatedStages" :key="stage.id" class="stage-list-item" @click="openStageMatrixModal(stage)">
           <!-- 阶段名称与排期信息 -->
           <div class="stage-item-left">
             <span class="stage-item-icon">📍</span>
@@ -74,6 +74,17 @@
             </el-button>
           </div>
         </div>
+
+        <!-- 阶段列表底部分页条 -->
+        <div class="pagination-wrapper" style="margin-top: 15px;">
+          <el-pagination
+            v-model:current-page="stageCurrentPage"
+            v-model:page-size="stagePageSize"
+            :page-sizes="[5, 10, 20]"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="stages.length"
+          />
+        </div>
       </div>
 
       <el-empty v-else description="暂无执行阶段，点击右上角“划分新执行阶段”开始拆解" :image-size="100" />
@@ -91,8 +102,7 @@
         <div class="stage-block-header">
           <div class="stage-title-left">
             <span class="block-stage-name">📍 阶段：{{ activeStage.title }}</span>
-            <span class="block-stage-dates">排期：{{ activeStage.startDate || '未定' }} 至 {{ activeStage.endDate || '未定'
-              }}</span>
+            <span class="block-stage-dates">排期：{{ activeStage.startDate || '未定' }} 至 {{ activeStage.endDate || '未定' }}</span>
           </div>
           <div class="stage-title-right">
             <el-radio-group v-model="activeStage.status" size="small" @change="handleStageStatusChange(activeStage)">
@@ -107,8 +117,8 @@
           </div>
         </div>
 
-        <!-- 树形 Excel 协同表格 -->
-        <el-table :data="getFilteredTasks(activeStage.id)" border row-key="id" default-expand-all
+        <!-- 树形 Excel 协同表格 (使用分页绑定的数据) -->
+        <el-table :data="getPaginatedTasks(activeStage.id)" border row-key="id" default-expand-all
           :tree-props="{ children: 'children' }" :indent="28" class="excel-table-style"
           @filter-change="handleFilterChange">
           <!-- 1. 子任务标题列 -->
@@ -251,6 +261,18 @@
             确定添加
           </el-button>
         </div>
+
+        <!-- 矩阵表格底部分页条 -->
+        <div class="pagination-wrapper" style="margin-top: 15px;">
+          <el-pagination
+            v-model:current-page="taskCurrentPage"
+            v-model:page-size="taskPageSize"
+            :page-sizes="[5, 10, 20, 50]"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="getFilteredTasks(activeStage.id).length"
+            @size-change="taskCurrentPage = 1"
+          />
+        </div>
       </div>
     </el-dialog>
 
@@ -292,6 +314,21 @@ const requirements = ref([])
 const activeReqId = ref(null)
 const selectedRequirement = ref(null)
 const stages = ref([])
+
+// 1. 阶段列表分页状态
+const stageCurrentPage = ref(1)
+const stagePageSize = ref(5)
+
+// 计算属性：当前页展现的阶段列表
+const paginatedStages = computed(() => {
+  const start = (stageCurrentPage.value - 1) * stagePageSize.value
+  const end = start + stagePageSize.value
+  return stages.value.slice(start, end)
+})
+
+// 2. 协同矩阵任务表格分页状态
+const taskCurrentPage = ref(1)
+const taskPageSize = ref(10)
 
 // 大弹窗与沉浸式协同绑定
 const matrixModalVisible = ref(false)
@@ -476,7 +513,7 @@ const filterTreeData = (nodes, allowedStatuses, currentFilters) => {
   return result
 }
 
-// 属性计算与缓存
+// 属性计算与缓存 (获取已筛选过滤的根节点列表)
 const filteredTasksMap = computed(() => {
   const map = {}
   stages.value.forEach(stage => {
@@ -501,6 +538,14 @@ const filteredTasksMap = computed(() => {
 
 const getFilteredTasks = (stageId) => {
   return filteredTasksMap.value[stageId] || []
+}
+
+// 获取当前页展示的协同矩阵一级子任务树
+const getPaginatedTasks = (stageId) => {
+  const allFiltered = getFilteredTasks(stageId)
+  const start = (taskCurrentPage.value - 1) * taskPageSize.value
+  const end = start + taskPageSize.value
+  return allFiltered.slice(start, end)
 }
 
 // 列头过滤数据
@@ -551,13 +596,13 @@ const handleFilterChange = (filters) => {
   for (const key in filters) {
     activeFilters.value[key] = filters[key]
   }
+  taskCurrentPage.value = 1 // 触发筛选时自动重置回第一页
 }
 
 // ----------------- 数据加载与需求自由切换业务 -----------------
 
 const loadRequirements = async () => {
   try {
-    // 传入较大 size，确保协同矩阵下拉选择框能拿到当前用户的所有需求
     const res = await getRequirementsListApi({ page: 0, size: 200 })
     requirements.value = res.content || []
   } catch (error) { }
@@ -568,7 +613,6 @@ const handleReqSelectChange = async (reqId) => {
   const target = requirements.value.find(r => r.id === reqId)
   if (target) {
     await switchRequirement(target)
-    // 同步更新 URL query，保持刷新页面后停留在此需求
     router.replace({ path: '/matrix', query: { reqId } })
   }
 }
@@ -577,6 +621,7 @@ const switchRequirement = async (req) => {
   selectedRequirement.value = req
   activeReqId.value = req.id
   activeFilters.value = {}
+  stageCurrentPage.value = 1 // 切换需求时重置阶段列表页码
   await loadStages(req.id)
 }
 
@@ -585,7 +630,6 @@ const loadStages = async (reqId) => {
     const stageList = await getStagesApi(reqId)
     stages.value = stageList
 
-    // 预加载当前需求下所有阶段的子任务，使得列表能立即显示准确进度
     if (stageList.length > 0) {
       for (const s of stageList) {
         stageAddForms.value[s.id] = { title: '', assignee: '' }
@@ -629,6 +673,7 @@ const loadSubTasks = async (stageId) => {
 // 点击阶段列表项，唤醒沉浸式协同大弹窗
 const openStageMatrixModal = async (stage) => {
   activeStageId.value = stage.id
+  taskCurrentPage.value = 1 // 打开协同矩阵弹窗时重置页码为第一页
   await handleStageChange(stage.id)
   matrixModalVisible.value = true
 }
@@ -740,28 +785,6 @@ const handleInlineAddChild = async (parentRow, stageId) => {
     nextTick(() => {
       startTitleEdit(newChild)
     })
-  } catch (error) { }
-}
-
-const loadTimelineForTask = async (taskId) => {
-  taskTimelines.value[taskId] = await getDiscussionsApi(taskId)
-  if (!quickLogs.value[taskId]) {
-    quickLogs.value[taskId] = ''
-  }
-}
-
-const submitQuickLog = async (row) => {
-  const text = quickLogs.value[row.id]
-  if (!text || !text.trim()) return
-  try {
-    await createDiscussionApi({
-      stageId: row.id,
-      content: text
-    })
-    ElMessage.success('进展提交成功')
-    quickLogs.value[row.id] = ''
-    await loadTimelineForTask(row.id)
-    row.latestLog = text
   } catch (error) { }
 }
 
@@ -914,6 +937,12 @@ onMounted(async () => {
   flex-direction: column;
 }
 
+/* 分页容器通用右对齐样式 */
+.pagination-wrapper {
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* ================= 主面板与全局项目视图 ================= */
 .matrix-board {
   background-color: var(--notion-bg);
@@ -939,7 +968,6 @@ onMounted(async () => {
   margin-right: 8px;
 }
 
-/* 顶栏需求无缝选择器自定义样式 */
 .header-req-select {
   width: 320px;
 }

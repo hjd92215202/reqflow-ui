@@ -1,6 +1,6 @@
 import request from './request'
 
-export function getRequirementsListApi() {
+export function getRequirementsListApi(params) {
   return request({
     url: '/api/requirements',
     method: 'get',
