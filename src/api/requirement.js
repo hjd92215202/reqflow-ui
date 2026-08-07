@@ -3,7 +3,8 @@ import request from './request'
 export function getRequirementsListApi() {
   return request({
     url: '/api/requirements',
-    method: 'get'
+    method: 'get',
+    params 
   })
 }
 

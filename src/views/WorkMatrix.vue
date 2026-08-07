@@ -8,19 +8,9 @@
           <div class="header-title-row">
             <span class="header-req-icon">📋</span>
             <!-- 优化点：需求自由切换下拉框 -->
-            <el-select 
-              v-model="activeReqId" 
-              placeholder="请选择/切换需求项目" 
-              size="large" 
-              class="header-req-select"
-              @change="handleReqSelectChange"
-            >
-              <el-option 
-                v-for="req in requirements" 
-                :key="req.id" 
-                :label="req.title" 
-                :value="req.id"
-              >
+            <el-select v-model="activeReqId" placeholder="请选择/切换需求项目" size="large" class="header-req-select"
+              @change="handleReqSelectChange">
+              <el-option v-for="req in requirements" :key="req.id" :label="req.title" :value="req.id">
                 <div class="req-option-item">
                   <span class="req-option-title">{{ req.title }}</span>
                   <el-tag :type="getPriorityTag(req.priority)" size="small" style="margin-left: 8px;">
@@ -45,12 +35,7 @@
 
       <!-- 1.2 核心：所有执行阶段列表总览 (列表样式) -->
       <div class="stages-list-view" v-if="stages.length > 0">
-        <div 
-          v-for="stage in stages" 
-          :key="stage.id" 
-          class="stage-list-item"
-          @click="openStageMatrixModal(stage)"
-        >
+        <div v-for="stage in stages" :key="stage.id" class="stage-list-item" @click="openStageMatrixModal(stage)">
           <!-- 阶段名称与排期信息 -->
           <div class="stage-item-left">
             <span class="stage-item-icon">📍</span>
@@ -74,12 +59,9 @@
             <span class="progress-count-text">
               进度: {{ getStageTaskStats(stage.id).done }} / {{ getStageTaskStats(stage.id).total }} 项
             </span>
-            <el-progress 
-              :percentage="getStageTaskStats(stage.id).percent" 
-              :status="getStageTaskStats(stage.id).percent === 100 ? 'success' : ''"
-              :stroke-width="6" 
-              style="width: 120px;"
-            />
+            <el-progress :percentage="getStageTaskStats(stage.id).percent"
+              :status="getStageTaskStats(stage.id).percent === 100 ? 'success' : ''" :stroke-width="6"
+              style="width: 120px;" />
           </div>
 
           <!-- 操作按键 -->
@@ -103,19 +85,14 @@
     </div>
 
     <!-- 2. 大弹窗：阶段微观协同矩阵 (沉浸式聚焦体验) -->
-    <el-dialog
-      v-model="matrixModalVisible"
-      :title="activeStage ? `📍 协同矩阵 · ${activeStage.title}` : '阶段协同矩阵'"
-      width="92%"
-      top="3vh"
-      destroy-on-close
-      class="matrix-dialog-wrapper"
-    >
+    <el-dialog v-model="matrixModalVisible" :title="activeStage ? `📍 协同矩阵 · ${activeStage.title}` : '阶段协同矩阵'"
+      width="92%" top="3vh" destroy-on-close class="matrix-dialog-wrapper">
       <div v-if="activeStage" class="stage-table-block" style="margin-top: 0;">
         <div class="stage-block-header">
           <div class="stage-title-left">
             <span class="block-stage-name">📍 阶段：{{ activeStage.title }}</span>
-            <span class="block-stage-dates">排期：{{ activeStage.startDate || '未定' }} 至 {{ activeStage.endDate || '未定' }}</span>
+            <span class="block-stage-dates">排期：{{ activeStage.startDate || '未定' }} 至 {{ activeStage.endDate || '未定'
+              }}</span>
           </div>
           <div class="stage-title-right">
             <el-radio-group v-model="activeStage.status" size="small" @change="handleStageStatusChange(activeStage)">
@@ -123,52 +100,30 @@
               <el-radio-button value="IN_PROGRESS">进行中</el-radio-button>
               <el-radio-button value="DONE">已完成</el-radio-button>
             </el-radio-group>
-            <el-button type="danger" link size="small" @click="handleDeleteStageInModal(activeStage.id)" style="margin-left: 20px;">
+            <el-button type="danger" link size="small" @click="handleDeleteStageInModal(activeStage.id)"
+              style="margin-left: 20px;">
               移除阶段
             </el-button>
           </div>
         </div>
 
         <!-- 树形 Excel 协同表格 -->
-        <el-table 
-          :data="getFilteredTasks(activeStage.id)" 
-          border 
-          row-key="id" 
-          default-expand-all
-          :tree-props="{ children: 'children' }" 
-          :indent="28" 
-          class="excel-table-style"
-          @filter-change="handleFilterChange"
-        >
+        <el-table :data="getFilteredTasks(activeStage.id)" border row-key="id" default-expand-all
+          :tree-props="{ children: 'children' }" :indent="28" class="excel-table-style"
+          @filter-change="handleFilterChange">
           <!-- 1. 子任务标题列 -->
           <el-table-column label="任务与子项内容 (双击编辑 / 回车保存)" min-width="260">
             <template #default="scope">
               <div class="inline-edit-cell" @click.stop @dblclick.stop="startTitleEdit(scope.row)">
-                <el-input 
-                  key="edit-title-input" 
-                  v-if="editingTitleTaskId === scope.row.id" 
-                  v-model="scope.row.title"
-                  size="small" 
-                  @blur="finishTitleEdit(scope.row)" 
-                  @keyup.enter="finishTitleEdit(scope.row)" 
-                  @click.stop
-                  @dblclick.stop 
-                  v-focus 
-                />
-                <span 
-                  key="read-title-text" 
-                  v-else
-                  :class="['cell-text', { 'completed-style': scope.row.status === 'DONE' }]"
-                >
+                <el-input key="edit-title-input" v-if="editingTitleTaskId === scope.row.id" v-model="scope.row.title"
+                  size="small" @blur="finishTitleEdit(scope.row)" @keyup.enter="finishTitleEdit(scope.row)" @click.stop
+                  @dblclick.stop v-focus />
+                <span key="read-title-text" v-else
+                  :class="['cell-text', { 'completed-style': scope.row.status === 'DONE' }]">
                   {{ scope.row.title }}
                 </span>
-                <el-button 
-                  class="add-sub-child-btn" 
-                  size="small" 
-                  type="primary" 
-                  link
-                  @click.stop="handleInlineAddChild(scope.row, activeStage.id)"
-                >
+                <el-button class="add-sub-child-btn" size="small" type="primary" link
+                  @click.stop="handleInlineAddChild(scope.row, activeStage.id)">
                   + 拆解子项
                 </el-button>
               </div>
@@ -176,21 +131,11 @@
           </el-table-column>
 
           <!-- 2. 状态列 -->
-          <el-table-column 
-            label="状态" 
-            width="130" 
-            align="center" 
-            column-key="status"
-            :filters="[{ text: '待处理', value: 'TODO' }, { text: '进行中', value: 'IN_PROGRESS' }, { text: '已完成', value: 'DONE' }]"
-          >
+          <el-table-column label="状态" width="130" align="center" column-key="status"
+            :filters="[{ text: '待处理', value: 'TODO' }, { text: '进行中', value: 'IN_PROGRESS' }, { text: '已完成', value: 'DONE' }]">
             <template #default="scope">
-              <el-select 
-                v-model="scope.row.status" 
-                size="small" 
-                @change="saveSubTask(scope.row)" 
-                @click.stop
-                style="width: 100%;"
-              >
+              <el-select v-model="scope.row.status" size="small" @change="saveSubTask(scope.row)" @click.stop
+                style="width: 100%;">
                 <el-option label="待处理" value="TODO" />
                 <el-option label="进行中" value="IN_PROGRESS" />
                 <el-option label="已完成" value="DONE" />
@@ -199,26 +144,13 @@
           </el-table-column>
 
           <!-- 3. 负责人列 -->
-          <el-table-column 
-            label="负责人" 
-            width="135" 
-            align="center" 
-            column-key="assignee"
-            :filters="getAssigneeFilters(activeStage.id)"
-          >
+          <el-table-column label="负责人" width="135" align="center" column-key="assignee"
+            :filters="getAssigneeFilters(activeStage.id)">
             <template #default="scope">
               <div class="inline-edit-cell" @click.stop @dblclick.stop="startAssigneeEdit(scope.row)">
-                <el-input 
-                  key="edit-assignee-input" 
-                  v-if="editingAssigneeTaskId === scope.row.id"
-                  v-model="scope.row.assignee" 
-                  size="small" 
-                  @blur="finishAssigneeEdit(scope.row)"
-                  @keyup.enter="finishAssigneeEdit(scope.row)" 
-                  @click.stop 
-                  @dblclick.stop 
-                  v-focus 
-                />
+                <el-input key="edit-assignee-input" v-if="editingAssigneeTaskId === scope.row.id"
+                  v-model="scope.row.assignee" size="small" @blur="finishAssigneeEdit(scope.row)"
+                  @keyup.enter="finishAssigneeEdit(scope.row)" @click.stop @dblclick.stop v-focus />
                 <span v-else class="assignee-tag">👤 {{ scope.row.assignee || '未分配' }}</span>
               </div>
             </template>
@@ -228,20 +160,9 @@
           <el-table-column label="起止排期" width="200" align="center">
             <template #default="scope">
               <div class="inline-edit-cell date-cell" @click.stop @dblclick.stop="startDateEdit(scope.row)">
-                <el-date-picker
-                  v-if="editingDateTaskId === scope.row.id"
-                  v-model="scope.row.dateRange"
-                  type="daterange"
-                  range-separator="-"
-                  start-placeholder="始"
-                  end-placeholder="止"
-                  size="small"
-                  value-format="YYYY-MM-DD"
-                  style="width: 100%;"
-                  @change="finishDateEdit(scope.row)"
-                  @blur="editingDateTaskId = null"
-                  v-focus
-                />
+                <el-date-picker v-if="editingDateTaskId === scope.row.id" v-model="scope.row.dateRange" type="daterange"
+                  range-separator="-" start-placeholder="始" end-placeholder="止" size="small" value-format="YYYY-MM-DD"
+                  style="width: 100%;" @change="finishDateEdit(scope.row)" @blur="editingDateTaskId = null" v-focus />
                 <span v-else class="date-preview-text">
                   📅 {{ formatDateRange(scope.row) }}
                 </span>
@@ -277,8 +198,10 @@
                   </div>
 
                   <div class="add-property-form">
-                    <el-input v-model="newPropForm.key" placeholder="属性名(如: Bug数)" size="small" style="flex: 1.2; margin-right: 6px;" />
-                    <el-input v-model="newPropForm.value" placeholder="属性值(如: 3个)" size="small" style="flex: 1.5; margin-right: 6px;" @keyup.enter="addProperty(scope.row)" />
+                    <el-input v-model="newPropForm.key" placeholder="属性名(如: Bug数)" size="small"
+                      style="flex: 1.2; margin-right: 6px;" />
+                    <el-input v-model="newPropForm.value" placeholder="属性值(如: 3个)" size="small"
+                      style="flex: 1.5; margin-right: 6px;" @keyup.enter="addProperty(scope.row)" />
                     <el-button type="primary" size="small" @click="addProperty(scope.row)">添加</el-button>
                   </div>
                 </div>
@@ -287,36 +210,20 @@
           </el-table-column>
 
           <!-- 6. 动态 JSONB 渲染列 -->
-          <el-table-column 
-            v-for="key in detectedColumnKeys[activeStage.id] || []" 
-            :key="key" 
-            :column-key="key"
-            min-width="140" 
-            :filters="getCustomColumnFilters(key, activeStage.id)"
-          >
+          <el-table-column v-for="key in detectedColumnKeys[activeStage.id] || []" :key="key" :column-key="key"
+            min-width="140" :filters="getCustomColumnFilters(key, activeStage.id)">
             <template #header>
               <div class="custom-header-wrapper">
                 <span>{{ key }}</span>
               </div>
             </template>
             <template #default="scope">
-              <div 
-                class="inline-edit-cell" 
-                @click.stop
-                @dblclick.stop="startCustomFieldEdit(scope.row, key, scope.row.customFields[key])"
-              >
-                <el-input 
-                  key="edit-custom-input"
-                  v-if="editingCustomField.taskId === scope.row.id && editingCustomField.key === key" 
-                  type="textarea"
-                  :autosize="{ minRows: 1 }" 
-                  v-model="scope.row.customFields[key]" 
-                  size="small"
-                  @blur="finishCustomFieldEdit(scope.row, key)" 
-                  @click.stop 
-                  @dblclick.stop 
-                  v-focus 
-                />
+              <div class="inline-edit-cell" @click.stop
+                @dblclick.stop="startCustomFieldEdit(scope.row, key, scope.row.customFields[key])">
+                <el-input key="edit-custom-input"
+                  v-if="editingCustomField.taskId === scope.row.id && editingCustomField.key === key" type="textarea"
+                  :autosize="{ minRows: 1 }" v-model="scope.row.customFields[key]" size="small"
+                  @blur="finishCustomFieldEdit(scope.row, key)" @click.stop @dblclick.stop v-focus />
                 <span v-else class="custom-field-text">
                   {{ scope.row.customFields?.[key] || '-' }}
                 </span>
@@ -327,7 +234,8 @@
           <!-- 7. 操作列 -->
           <el-table-column label="操作" width="70" align="center">
             <template #default="scope">
-              <el-button type="danger" link size="small" @click="handleDeleteSubTask(scope.row.id, activeStage.id)">删除</el-button>
+              <el-button type="danger" link size="small"
+                @click="handleDeleteSubTask(scope.row.id, activeStage.id)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -335,24 +243,11 @@
         <!-- 快速添加行 -->
         <div class="excel-quick-append-row" v-if="stageAddForms[activeStage.id]">
           <span class="append-tag">➕ 添加行</span>
-          <el-input 
-            v-model="stageAddForms[activeStage.id].title" 
-            placeholder="添加一级子任务..." 
-            size="small"
-            style="flex: 3 !important; margin-right: 12px; width: auto !important;" 
-          />
-          <el-input 
-            v-model="stageAddForms[activeStage.id].assignee" 
-            placeholder="负责人" 
-            size="small"
-            style="flex: 1 !important; margin-right: 12px; width: auto !important;" 
-          />
-          <el-button 
-            type="primary" 
-            size="small" 
-            style="flex-shrink: 0;"
-            @click="handleQuickAddSubTask(activeStage.id)"
-          >
+          <el-input v-model="stageAddForms[activeStage.id].title" placeholder="添加一级子任务..." size="small"
+            style="flex: 3 !important; margin-right: 12px; width: auto !important;" />
+          <el-input v-model="stageAddForms[activeStage.id].assignee" placeholder="负责人" size="small"
+            style="flex: 1 !important; margin-right: 12px; width: auto !important;" />
+          <el-button type="primary" size="small" style="flex-shrink: 0;" @click="handleQuickAddSubTask(activeStage.id)">
             确定添加
           </el-button>
         </div>
@@ -366,16 +261,8 @@
           <el-input v-model="stageForm.title" placeholder="如：研发编码期 / 业务测试期" />
         </el-form-item>
         <el-form-item label="起止排期">
-          <el-date-picker 
-            v-model="stageDateRange" 
-            type="daterange" 
-            range-separator="-" 
-            start-placeholder="开始"
-            end-placeholder="截止" 
-            value-format="YYYY-MM-DD" 
-            style="width: 100%;" 
-            size="small" 
-          />
+          <el-date-picker v-model="stageDateRange" type="daterange" range-separator="-" start-placeholder="开始"
+            end-placeholder="截止" value-format="YYYY-MM-DD" style="width: 100%;" size="small" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -670,7 +557,9 @@ const handleFilterChange = (filters) => {
 
 const loadRequirements = async () => {
   try {
-    requirements.value = await getRequirementsListApi()
+    // 传入较大 size，确保协同矩阵下拉选择框能拿到当前用户的所有需求
+    const res = await getRequirementsListApi({ page: 0, size: 200 })
+    requirements.value = res.content || []
   } catch (error) { }
 }
 
@@ -1015,7 +904,7 @@ onMounted(async () => {
   --notion-border: rgba(55, 53, 47, 0.09);
   --notion-border-light: rgba(55, 53, 47, 0.05);
   --notion-hover: rgba(55, 53, 47, 0.03);
-  --el-color-primary: #2383e2; 
+  --el-color-primary: #2383e2;
   --el-border-radius-base: 4px;
 
   flex: 1;
@@ -1251,6 +1140,7 @@ onMounted(async () => {
 .excel-table-style :deep(th.is-left > .cell) {
   justify-content: flex-start !important;
 }
+
 .excel-table-style :deep(th.is-right > .cell) {
   justify-content: flex-end !important;
 }
@@ -1332,9 +1222,9 @@ onMounted(async () => {
   padding-bottom: 12px !important;
   padding-left: 0 !important;
   padding-right: 0 !important;
-  overflow-y: hidden !important;              
-  scrollbar-width: none !important;         
-  -ms-overflow-style: none !important;      
+  overflow-y: hidden !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 .inline-edit-cell :deep(.el-textarea__inner)::-webkit-scrollbar {
@@ -1353,10 +1243,10 @@ onMounted(async () => {
   font-size: 13px;
   color: var(--notion-text);
   line-height: 1.6;
-  white-space: pre-wrap;         
-  overflow-wrap: break-word;     
-  word-break: break-word;        
-  display: block;                
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  display: block;
   width: 100%;
   text-align: left;
 }

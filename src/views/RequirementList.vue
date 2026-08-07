@@ -6,7 +6,7 @@
         <el-button type="primary" @click="openCreateDialog">录入新需求</el-button>
       </div>
 
-      <el-table :data="tableData" style="width: 100%; margin-top: 15px;" border stripe>
+      <el-table :data="tableData" style="width: 100%; margin-top: 15px;" border stripe v-loading="loading">
         <el-table-column prop="title" label="需求标题" min-width="150" show-overflow-tooltip />
         <el-table-column prop="description" label="核心描述" min-width="180" show-overflow-tooltip />
         <el-table-column label="排期起止" width="220">
@@ -37,6 +37,19 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- 分页组件 -->
+      <div class="pagination-wrapper">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="total"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
     </div>
 
     <!-- 需求新建/修改弹窗 -->
@@ -91,9 +104,15 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 const router = useRouter()
 
 const tableData = ref([])
+const loading = ref(false)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const requirementDateRange = ref([])
+
+// 分页状态
+const currentPage = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
 
 const form = ref({
   id: null,
@@ -106,9 +125,35 @@ const form = ref({
 })
 
 const loadRequirements = async () => {
+  loading.value = true
   try {
-    tableData.value = await getRequirementsListApi()
-  } catch (error) { }
+    const res = await getRequirementsListApi({
+      page: currentPage.value - 1, // Spring Data 页码从 0 开始
+      size: pageSize.value
+    })
+    // 兼容后端返回分页 Page 对象与普通 List 数组两种情况
+    if (res && res.content !== undefined) {
+      tableData.value = res.content
+      total.value = res.totalElements || 0
+    } else if (Array.isArray(res)) {
+      tableData.value = res
+      total.value = res.length
+    }
+  } catch (error) {
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleSizeChange = (val) => {
+  pageSize.value = val
+  currentPage.value = 1
+  loadRequirements()
+}
+
+const handleCurrentChange = (val) => {
+  currentPage.value = val
+  loadRequirements()
 }
 
 const goToWorkMatrix = (reqId) => {
@@ -158,7 +203,6 @@ const submitForm = async () => {
   } catch (error) { }
 }
 
-// 在 script 区域任意位置添加此函数即可
 const formatStatus = (status) => {
   const statusMap = {
     'TODO': '待处理',
@@ -240,11 +284,17 @@ onMounted(() => {
   font-style: italic;
 }
 
+/* 分页容器位置样式 */
+.pagination-wrapper {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* 1. 撑开表格单元格的纵向空间（增加上下内边距至 12px） */
 :deep(.el-table .el-table__cell) {
   padding: 12px 0 !important;
 }
-
 
 /* 重写 Element Plus Tag 基础样式为 Notion 风格 */
 :deep(.el-tag) {
