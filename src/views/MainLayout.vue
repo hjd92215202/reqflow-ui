@@ -3,34 +3,33 @@
     <!-- 统一全局左侧侧边栏 -->
     <aside class="sidebar">
       <!-- 悬浮伸缩按钮：绝对定位，不再独占一行 -->
-      <el-button 
-        link
-        @click="isCollapsed = !isCollapsed" 
-        class="collapse-toggle-btn"
-        :class="{ 'collapsed': isCollapsed }"
-      >
+      <el-button link @click="isCollapsed = !isCollapsed" class="collapse-toggle-btn"
+        :class="{ 'collapsed': isCollapsed }">
         <el-icon>
           <Expand v-if="isCollapsed" />
           <Fold v-else />
         </el-icon>
       </el-button>
-      
-      <el-menu
-        :default-active="activeMenu"
-        class="sidebar-menu"
-        background-color="#fbfbfa"
-        text-color="#5f5e5b"
-        active-text-color="#37352f"
-        :collapse="isCollapsed"
-        :collapse-transition="false"
-        router
-      >
+
+      <el-menu :default-active="activeMenu" class="sidebar-menu" background-color="#fbfbfa" text-color="#5f5e5b"
+        active-text-color="#37352f" :collapse="isCollapsed" :collapse-transition="false" router>
+
+        <el-menu-item index="/todos">
+          <el-icon>
+            <Finished />
+          </el-icon>
+          <span>我的待办中心</span>
+        </el-menu-item>
         <el-menu-item index="/requirements">
-          <el-icon><Menu /></el-icon>
+          <el-icon>
+            <Menu />
+          </el-icon>
           <span>需求事项管理</span>
         </el-menu-item>
         <el-menu-item index="/matrix">
-          <el-icon><Checked /></el-icon>
+          <el-icon>
+            <Checked />
+          </el-icon>
           <span>工作事项矩阵</span>
         </el-menu-item>
       </el-menu>
@@ -41,14 +40,10 @@
           <span class="user-avatar">👤</span>
           <span v-if="!isCollapsed" class="user-name">{{ userStore.nickname }}</span>
         </div>
-        <el-button 
-          type="danger" 
-          link 
-          size="small" 
-          @click="logout"
-          class="logout-btn"
-        >
-          <el-icon><SwitchButton /></el-icon>
+        <el-button type="danger" link size="small" @click="logout" class="logout-btn">
+          <el-icon>
+            <SwitchButton />
+          </el-icon>
           <span v-if="!isCollapsed" style="margin-left: 6px;">退出登录</span>
         </el-button>
       </div>
@@ -65,7 +60,7 @@
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
-import { Menu, Checked, SwitchButton, Expand, Fold } from '@element-plus/icons-vue'
+import { Menu, Checked, Finished, SwitchButton, Expand, Fold } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -91,7 +86,7 @@ const logout = () => {
 /* 1. 一级分栏配置 */
 .layout-wrapper {
   display: flex;
-  height: 100%; 
+  height: 100%;
   width: 100%;
   overflow: hidden;
 }
@@ -104,18 +99,21 @@ const logout = () => {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  position: relative; /* 核心：作为绝对定位按钮的容器基准 */
+  position: relative;
+  /* 核心：作为绝对定位按钮的容器基准 */
 }
 
 /* 2. 悬浮按钮：不占位，轻量化悬浮在右上角 */
 .collapse-toggle-btn {
   position: absolute;
   top: 10px;
-  right: 14px; /* 展开时贴在右上角 */
+  right: 14px;
+  /* 展开时贴在右上角 */
   z-index: 10;
   color: #5f5e5b;
   font-size: 16px;
-  width: 32px; /* 调整为更精致的 32px 规格，符合 Notion 悬浮控件质感 */
+  width: 32px;
+  /* 调整为更精致的 32px 规格，符合 Notion 悬浮控件质感 */
   height: 32px;
   padding: 0;
   display: flex;
@@ -132,14 +130,15 @@ const logout = () => {
 
 /* 折叠态定位：在 64px 侧边栏内精确居中 (64px - 32px) / 2 = 16px */
 .collapse-toggle-btn.collapsed {
-  right: 16px; 
+  right: 16px;
 }
 
 /* 3. 菜单样式：预留顶部空白，创造呼吸感 */
 .sidebar-menu {
   border-right: none;
   flex: 1;
-  padding-top: 48px; /* 预留出悬浮按钮的垂直空间，避免首个菜单项被遮挡 */
+  padding-top: 48px;
+  /* 预留出悬浮按钮的垂直空间，避免首个菜单项被遮挡 */
 }
 
 :deep(.el-menu-item) {
@@ -219,7 +218,8 @@ const logout = () => {
   margin-right: 0 !important;
 }
 
-.user-name, .logout-btn span {
+.user-name,
+.logout-btn span {
   font-weight: bold;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -253,7 +253,7 @@ const logout = () => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: #ffffff; 
+  background-color: #ffffff;
   overflow: hidden;
 }
 </style>
