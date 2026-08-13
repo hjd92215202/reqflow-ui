@@ -29,6 +29,25 @@
             </el-tag>
           </template>
         </el-table-column>
+
+        <!-- 新增：阶段完成度 (迷你进度条与阶段徽章) -->
+        <el-table-column label="阶段完成度" min-width="170" align="center">
+          <template #default="scope">
+            <div v-if="stageStatsMap[scope.row.id] && stageStatsMap[scope.row.id].total > 0" class="progress-cell">
+              <span class="progress-badge-text">
+                📍 {{ stageStatsMap[scope.row.id].done }} / {{ stageStatsMap[scope.row.id].total }} 阶段已完成
+              </span>
+              <el-progress
+                :percentage="stageStatsMap[scope.row.id].percent"
+                :status="stageStatsMap[scope.row.id].percent === 100 ? 'success' : ''"
+                :stroke-width="6"
+                :show-text="false"
+              />
+            </div>
+            <span v-else class="date-text-none">暂无阶段</span>
+          </template>
+        </el-table-column>
+
         <el-table-column label="操作面板" width="220" align="center" fixed="right">
           <template #default="scope">
             <el-button size="small" link type="success" @click="goToWorkMatrix(scope.row.id)">矩阵与跟进</el-button>
@@ -99,6 +118,7 @@ import {
   updateRequirementApi,
   deleteRequirementApi
 } from '@/api/requirement'
+import { getStagesApi } from '@/api/stage'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const router = useRouter()
@@ -108,6 +128,9 @@ const loading = ref(false)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const requirementDateRange = ref([])
+
+// 各需求下的阶段完成统计映射表 ({ [reqId]: { done, total, percent } })
+const stageStatsMap = ref({})
 
 // 分页状态
 const currentPage = ref(1)
@@ -139,10 +162,36 @@ const loadRequirements = async () => {
       tableData.value = res
       total.value = res.length
     }
+    // 异步计算并统计当前列表所有需求的阶段完成进度
+    await loadRequirementStats(tableData.value)
   } catch (error) {
   } finally {
     loading.value = false
   }
+}
+
+// 统计各需求的阶段完成进度
+const loadRequirementStats = async (reqs) => {
+  if (!reqs || reqs.length === 0) return
+  const stats = {}
+  await Promise.all(
+    reqs.map(async (req) => {
+      try {
+        const stages = await getStagesApi(req.id)
+        if (stages && stages.length > 0) {
+          const done = stages.filter(s => s.status === 'DONE').length
+          const total = stages.length
+          const percent = Math.round((done / total) * 100)
+          stats[req.id] = { total, done, percent }
+        } else {
+          stats[req.id] = { total: 0, done: 0, percent: 0 }
+        }
+      } catch (e) {
+        stats[req.id] = { total: 0, done: 0, percent: 0 }
+      }
+    })
+  )
+  stageStatsMap.value = stats
 }
 
 const handleSizeChange = (val) => {
@@ -282,6 +331,21 @@ onMounted(() => {
   font-size: 13px;
   color: #c0c4cc;
   font-style: italic;
+}
+
+/* 进度条单元格样式 */
+.progress-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 4px;
+}
+
+.progress-badge-text {
+  font-size: 11px;
+  color: #606266;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 /* 分页容器位置样式 */
