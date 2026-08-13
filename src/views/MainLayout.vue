@@ -1,57 +1,90 @@
 <template>
-  <div class="layout-wrapper">
-    <!-- 统一全局左侧侧边栏 -->
-    <aside class="sidebar">
-      <!-- 悬浮伸缩按钮：绝对定位，不再独占一行 -->
-      <el-button link @click="isCollapsed = !isCollapsed" class="collapse-toggle-btn"
-        :class="{ 'collapsed': isCollapsed }">
-        <el-icon>
-          <Expand v-if="isCollapsed" />
-          <Fold v-else />
-        </el-icon>
-      </el-button>
-
-      <el-menu :default-active="activeMenu" class="sidebar-menu" background-color="#fbfbfa" text-color="#5f5e5b"
-        active-text-color="#37352f" :collapse="isCollapsed" :collapse-transition="false" router>
-
-        <el-menu-item index="/todos">
-          <el-icon>
-            <Finished />
-          </el-icon>
-          <span>我的待办中心</span>
-        </el-menu-item>
-        <el-menu-item index="/requirements">
-          <el-icon>
-            <Menu />
-          </el-icon>
-          <span>需求事项管理</span>
-        </el-menu-item>
-        <el-menu-item index="/matrix">
-          <el-icon>
-            <Checked />
-          </el-icon>
-          <span>工作事项矩阵</span>
-        </el-menu-item>
-      </el-menu>
-
-      <!-- 统一底部用户信息及退出 (自适应折叠状态) -->
-      <div class="sidebar-user-footer" :class="{ 'collapsed': isCollapsed }">
-        <div class="user-info-text">
-          <span class="user-avatar">👤</span>
-          <span v-if="!isCollapsed" class="user-name">{{ userStore.nickname }}</span>
-        </div>
-        <el-button type="danger" link size="small" @click="logout" class="logout-btn">
-          <el-icon>
-            <SwitchButton />
-          </el-icon>
-          <span v-if="!isCollapsed" style="margin-left: 6px;">退出登录</span>
-        </el-button>
+  <div class="app-root">
+    <!-- 顶部极简 Notion/VSCode 风格自定义标题栏 -->
+    <div class="custom-titlebar" data-tauri-drag-region @mousedown="startDrag">
+      <div class="titlebar-brand" data-tauri-drag-region @mousedown="startDrag">
+        <span class="brand-logo">🌊</span>
+        <span class="brand-title">ReqFlow</span>
       </div>
-    </aside>
 
-    <!-- 右侧子页面统一渲染视口 -->
-    <div class="main-container">
-      <router-view />
+      <!-- 中间无缝拖拽区域 -->
+      <div class="titlebar-drag-space" data-tauri-drag-region @mousedown="startDrag"></div>
+
+      <!-- 右侧自定义控制按键 (@mousedown.stop 阻止冒泡避免误触发拖拽) -->
+      <div class="titlebar-controls" @mousedown.stop>
+        <button class="control-btn" @click.stop="minimizeWindow" title="最小化">
+          <svg width="10" height="10" viewBox="0 0 10 10">
+            <path fill="currentColor" d="M1 5h8v1H1z" />
+          </svg>
+        </button>
+        <button class="control-btn" @click.stop="toggleMaximizeWindow" title="最大化 / 还原">
+          <svg width="10" height="10" viewBox="0 0 10 10">
+            <path fill="none" stroke="currentColor" stroke-width="1" d="M1.5 1.5h7v7h-7z" />
+          </svg>
+        </button>
+        <button class="control-btn close-btn" @click.stop="closeWindow" title="关闭">
+          <svg width="10" height="10" viewBox="0 0 10 10">
+            <path fill="currentColor" d="M1.707 1 1 1.707 4.293 5 1 8.293 1.707 9 5 5.707 8.293 9 9 8.293 5.707 5 9 1.707 8.293 1 5 4.293z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 原全局骨架布局 -->
+    <div class="layout-wrapper">
+      <!-- 统一全局左侧侧边栏 -->
+      <aside class="sidebar">
+        <!-- 悬浮伸缩按钮：绝对定位，不再独占一行 -->
+        <el-button link @click="isCollapsed = !isCollapsed" class="collapse-toggle-btn"
+          :class="{ 'collapsed': isCollapsed }">
+          <el-icon>
+            <Expand v-if="isCollapsed" />
+            <Fold v-else />
+          </el-icon>
+        </el-button>
+
+        <el-menu :default-active="activeMenu" class="sidebar-menu" background-color="#fbfbfa" text-color="#5f5e5b"
+          active-text-color="#37352f" :collapse="isCollapsed" :collapse-transition="false" router>
+
+          <el-menu-item index="/todos">
+            <el-icon>
+              <Finished />
+            </el-icon>
+            <span>我的待办中心</span>
+          </el-menu-item>
+          <el-menu-item index="/requirements">
+            <el-icon>
+              <Menu />
+            </el-icon>
+            <span>需求事项管理</span>
+          </el-menu-item>
+          <el-menu-item index="/matrix">
+            <el-icon>
+              <Checked />
+            </el-icon>
+            <span>工作事项矩阵</span>
+          </el-menu-item>
+        </el-menu>
+
+        <!-- 统一底部用户信息及退出 (自适应折叠状态) -->
+        <div class="sidebar-user-footer" :class="{ 'collapsed': isCollapsed }">
+          <div class="user-info-text">
+            <span class="user-avatar">👤</span>
+            <span v-if="!isCollapsed" class="user-name">{{ userStore.nickname }}</span>
+          </div>
+          <el-button type="danger" link size="small" @click="logout" class="logout-btn">
+            <el-icon>
+              <SwitchButton />
+            </el-icon>
+            <span v-if="!isCollapsed" style="margin-left: 6px;">退出登录</span>
+          </el-button>
+        </div>
+      </aside>
+
+      <!-- 右侧子页面统一渲染视口 -->
+      <div class="main-container">
+        <router-view />
+      </div>
     </div>
   </div>
 </template>
@@ -61,6 +94,7 @@ import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { Menu, Checked, Finished, SwitchButton, Expand, Fold } from '@element-plus/icons-vue'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 
 const router = useRouter()
 const route = useRoute()
@@ -80,15 +114,123 @@ const logout = () => {
   userStore.clearUserInfo()
   router.push('/login')
 }
+
+// ----------------- Tauri 2.0 窗口控制与原生拖拽 -----------------
+const startDrag = async (e) => {
+  if (e.button === 0) { // 仅鼠标左键点击时触发窗口原生拖动
+    try {
+      const appWindow = getCurrentWindow()
+      await appWindow.startDragging()
+    } catch (err) {
+      // 浏览器环境静默忽略
+    }
+  }
+}
+
+const minimizeWindow = async () => {
+  try {
+    const appWindow = getCurrentWindow()
+    await appWindow.minimize()
+  } catch (err) {}
+}
+
+const toggleMaximizeWindow = async () => {
+  try {
+    const appWindow = getCurrentWindow()
+    await appWindow.toggleMaximize()
+  } catch (err) {}
+}
+
+const closeWindow = async () => {
+  try {
+    const appWindow = getCurrentWindow()
+    await appWindow.close()
+  } catch (err) {}
+}
 </script>
 
 <style scoped>
+/* 0. 根视图与自定义标题栏样式 */
+.app-root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background-color: #fbfbfa;
+}
+
+.custom-titlebar {
+  height: 32px;
+  background-color: #fbfbfa;
+  border-bottom: 1px solid rgba(55, 53, 47, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 0 12px;
+  user-select: none;
+  flex-shrink: 0;
+  cursor: default;
+}
+
+.titlebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #37352f;
+}
+
+.brand-logo {
+  font-size: 14px;
+}
+
+.brand-title {
+  letter-spacing: 0.5px;
+}
+
+.titlebar-drag-space {
+  flex: 1;
+  height: 100%;
+}
+
+.titlebar-controls {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.control-btn {
+  width: 42px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: #5f5e5b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.control-btn:hover {
+  background-color: rgba(55, 53, 47, 0.08);
+  color: #37352f;
+}
+
+.control-btn.close-btn:hover {
+  background-color: #e81123;
+  color: #ffffff;
+}
+
 /* 1. 一级分栏配置 */
 .layout-wrapper {
   display: flex;
-  height: 100%;
+  flex: 1;
   width: 100%;
   overflow: hidden;
+  min-height: 0;
 }
 
 .sidebar {
@@ -100,7 +242,6 @@ const logout = () => {
   flex-direction: column;
   flex-shrink: 0;
   position: relative;
-  /* 核心：作为绝对定位按钮的容器基准 */
 }
 
 /* 2. 悬浮按钮：不占位，轻量化悬浮在右上角 */
@@ -108,12 +249,10 @@ const logout = () => {
   position: absolute;
   top: 10px;
   right: 14px;
-  /* 展开时贴在右上角 */
   z-index: 10;
   color: #5f5e5b;
   font-size: 16px;
   width: 32px;
-  /* 调整为更精致的 32px 规格，符合 Notion 悬浮控件质感 */
   height: 32px;
   padding: 0;
   display: flex;
@@ -128,17 +267,15 @@ const logout = () => {
   color: #37352f;
 }
 
-/* 折叠态定位：在 64px 侧边栏内精确居中 (64px - 32px) / 2 = 16px */
 .collapse-toggle-btn.collapsed {
   right: 16px;
 }
 
-/* 3. 菜单样式：预留顶部空白，创造呼吸感 */
+/* 3. 菜单样式 */
 .sidebar-menu {
   border-right: none;
   flex: 1;
   padding-top: 48px;
-  /* 预留出悬浮按钮的垂直空间，避免首个菜单项被遮挡 */
 }
 
 :deep(.el-menu-item) {
@@ -154,7 +291,6 @@ const logout = () => {
   font-weight: 500;
 }
 
-/* 强制重写 Element Plus 折叠态下的菜单样式 */
 :deep(.el-menu--collapse) {
   width: 64px !important;
 }
