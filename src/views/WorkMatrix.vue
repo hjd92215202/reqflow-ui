@@ -180,64 +180,43 @@
             </template>
           </el-table-column>
 
-          <!-- 5. 扩展属性标签 -->
-          <el-table-column label="🏷️ 扩展属性标签" width="180" align="center">
-            <template #default="scope">
-              <el-popover placement="top" :width="320" trigger="click" @show="initPropertyForm">
-                <template #reference>
-                  <div class="properties-preview-box" @click.stop>
-                    <template v-if="hasProperties(scope.row.customFields)">
-                      <el-tag size="small" type="info" style="cursor:pointer;">
-                        ⚙️ {{ Object.keys(scope.row.customFields).length }}个扩展值
-                      </el-tag>
-                    </template>
-                    <span v-else class="properties-placeholder">+ 属性扩展</span>
-                  </div>
-                </template>
-
-                <div class="property-inspector">
-                  <h4 class="inspector-title">📌 属性配置看板</h4>
-                  <div class="existing-properties">
-                    <div v-for="(val, key) in scope.row.customFields" :key="key" class="property-item-row">
-                      <span class="prop-badge"><strong>{{ key }}</strong></span>
-                      <el-button type="danger" link size="small" @click="removeProperty(scope.row, key)">移除</el-button>
-                    </div>
-                    <div v-if="!hasProperties(scope.row.customFields)" class="no-props-placeholder">
-                      暂无独立标签属性，可在下方追加
-                    </div>
-                  </div>
-
-                  <div class="add-property-form">
-                    <el-input v-model="newPropForm.key" placeholder="属性名(如: Bug数)" size="small"
-                      style="flex: 1.2; margin-right: 6px;" />
-                    <el-input v-model="newPropForm.value" placeholder="属性值(如: 3个)" size="small"
-                      style="flex: 1.5; margin-right: 6px;" @keyup.enter="addProperty(scope.row)" />
-                    <el-button type="primary" size="small" @click="addProperty(scope.row)">添加</el-button>
-                  </div>
-                </div>
-              </el-popover>
-            </template>
-          </el-table-column>
-
-          <!-- 6. 动态 JSONB 渲染列 -->
-          <el-table-column v-for="key in detectedColumnKeys[activeStage.id] || []" :key="key" :column-key="key"
-            min-width="140" :filters="getCustomColumnFilters(key, activeStage.id)">
+          <!-- 5. 动态 JSONB 扩展列 (表头悬浮快捷显现 ✕ 删除按钮) -->
+          <el-table-column v-for="key in getStageColumns(activeStage.id)" :key="key" :column-key="key"
+            min-width="150" :filters="getCustomColumnFilters(key, activeStage.id)">
             <template #header>
-              <div class="custom-header-wrapper">
-                <span>{{ key }}</span>
+              <div class="custom-header-cell">
+                <span class="custom-header-title" :title="key">{{ key }}</span>
+                <el-tooltip content="删除此整列" placement="top" :show-after="200">
+                  <span class="header-delete-btn" @click.stop="handleDeleteColumn(key, activeStage.id)">✕</span>
+                </el-tooltip>
               </div>
             </template>
             <template #default="scope">
               <div class="inline-edit-cell" @click.stop
-                @dblclick.stop="startCustomFieldEdit(scope.row, key, scope.row.customFields[key])">
+                @dblclick.stop="startCustomFieldEdit(scope.row, key, scope.row.customFields?.[key])">
                 <el-input key="edit-custom-input"
-                  v-if="editingCustomField.taskId === scope.row.id && editingCustomField.key === key" type="textarea"
-                  :autosize="{ minRows: 1 }" v-model="scope.row.customFields[key]" size="small"
-                  @blur="finishCustomFieldEdit(scope.row, key)" @click.stop @dblclick.stop v-focus />
-                <span v-else class="custom-field-text">
-                  {{ scope.row.customFields?.[key] || '-' }}
+                  v-if="editingCustomField.taskId === scope.row.id && editingCustomField.key === key"
+                  v-model="scope.row.customFields[key]" size="small" placeholder="输入内容..."
+                  @blur="finishCustomFieldEdit(scope.row, key)"
+                  @keyup.enter="finishCustomFieldEdit(scope.row, key)"
+                  @keyup.esc="cancelCustomFieldEdit(scope.row, key)"
+                  @click.stop @dblclick.stop v-focus />
+                <span v-else :class="['custom-field-text', { 'is-empty': !scope.row.customFields?.[key] }]"
+                  @click="startCustomFieldEdit(scope.row, key, scope.row.customFields?.[key])">
+                  {{ scope.row.customFields?.[key] || '添加内容...' }}
                 </span>
               </div>
+            </template>
+          </el-table-column>
+
+          <!-- 6. 表头末尾 [+ 新增列] 触发行 -->
+          <el-table-column width="50" align="center" :resizable="false">
+            <template #header>
+              <el-tooltip content="点击向矩阵追加自定义属性列" placement="top" :show-after="300">
+                <div class="add-column-header-btn" @click="promptAddColumn(activeStage.id)">
+                  ➕
+                </div>
+              </el-tooltip>
             </template>
           </el-table-column>
 
@@ -302,7 +281,7 @@ import { useUserStore } from '@/store/user'
 import { getRequirementsListApi } from '@/api/requirement'
 import { getStagesApi, createStageApi, updateStageApi, deleteStageApi } from '@/api/stage'
 import { getSubTasksApi, createSubTaskApi, updateSubTaskApi, deleteSubTaskApi } from '@/api/subtask'
-import { getDiscussionsApi, createDiscussionApi } from '@/api/discussion'
+import { getDiscussionsApi } from '@/api/discussion'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const router = useRouter()
@@ -344,18 +323,15 @@ const originalValCache = ref('')
 
 // 响应式存储：每个阶段下扫描出的全部自定义属性 Key
 const detectedColumnKeys = ref({})
+// 用户手动追加的扩展列 Key 映射表 (按 stageId 隔离)
+const stageCustomColumns = ref({})
 
 // 状态映射绑定
 const stageSubTasks = ref({})
 const stageAddForms = ref({})
-const taskTimelines = ref({})
-const quickLogs = ref({})
 
 // 各列筛选器激活的状态（格式：{ [columnKey]: [selectedValues] }）
 const activeFilters = ref({})
-
-// 行内属性配置新表单
-const newPropForm = ref({ key: '', value: '' })
 
 // 阶段新建弹窗
 const stageDialogVisible = ref(false)
@@ -426,6 +402,94 @@ const scanCustomColumns = (list) => {
   }
   traverse(list)
   return Array.from(keys)
+}
+
+// 计算并获取当前阶段下所有的列 (合并自动扫描出的列与手动追加的空列)
+const getStageColumns = (stageId) => {
+  const scannedKeys = detectedColumnKeys.value[stageId] || []
+  const manualKeys = stageCustomColumns.value[stageId] || []
+  return Array.from(new Set([...scannedKeys, ...manualKeys]))
+}
+
+// 点击表头 [+] 追加矩阵自定义列
+const promptAddColumn = (stageId) => {
+  ElMessageBox.prompt('请输入新扩展列的名称（如：测试负责人、Bug单号、设计稿Link）', '➕ 追加矩阵列', {
+    confirmButtonText: '确定追加',
+    cancelButtonText: '取消',
+    inputPattern: /\S+/,
+    inputErrorMessage: '列名不能为空',
+    draggable: true
+  }).then(({ value }) => {
+    const newKey = value.trim()
+    const existingKeys = getStageColumns(stageId)
+    
+    if (existingKeys.includes(newKey)) {
+      ElMessage.warning(`列名「${newKey}」已存在，请勿重复添加`)
+      return
+    }
+
+    if (!stageCustomColumns.value[stageId]) {
+      stageCustomColumns.value[stageId] = []
+    }
+    stageCustomColumns.value[stageId].push(newKey)
+    ElMessage.success(`已成功追加扩展列「${newKey}」`)
+  }).catch(() => {})
+}
+
+// 删除指定的自定义扩展列
+const handleDeleteColumn = (key, stageId) => {
+  ElMessageBox.confirm(
+    `确定要删除整列「${key}」吗？所有任务在该列填写的内容将被彻底清空。`,
+    '删除扩展列',
+    {
+      confirmButtonText: '确定删除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(async () => {
+    // 1. 从手动添加列数据集中移除
+    if (stageCustomColumns.value[stageId]) {
+      stageCustomColumns.value[stageId] = stageCustomColumns.value[stageId].filter(k => k !== key)
+    }
+
+    // 2. 遍历该阶段内存中的全部任务节点，擦除该 key 并收集受影响节点
+    const tasks = stageSubTasks.value[stageId] || []
+    const affectedNodes = []
+
+    const removeKeyFromTree = (nodes) => {
+      nodes.forEach(node => {
+        if (node.customFields && Object.prototype.hasOwnProperty.call(node.customFields, key)) {
+          delete node.customFields[key]
+          affectedNodes.push(node)
+        }
+        if (node.children && node.children.length > 0) {
+          removeKeyFromTree(node.children)
+        }
+      })
+    }
+    removeKeyFromTree(tasks)
+
+    // 3. 批量持久化已修改节点至后端数据库
+    for (const node of affectedNodes) {
+      const updatePayload = {
+        id: node.id,
+        stageId: node.stageId,
+        parentId: node.parentId,
+        parent_id: node.parentId || node.parent_id,
+        title: node.title,
+        assignee: node.assignee,
+        status: node.status,
+        startDate: node.startDate,
+        endDate: node.endDate,
+        customFields: node.customFields
+      }
+      await updateSubTaskApi(node.id, updatePayload).catch(() => {})
+    }
+
+    // 4. 重新扫描列，刷新状态
+    detectedColumnKeys.value[stageId] = scanCustomColumns(tasks)
+    ElMessage.success(`扩展列「${key}」已成功删除`)
+  }).catch(() => {})
 }
 
 // 扁平数组转化为树形网格的算法
@@ -732,6 +796,14 @@ const startCustomFieldEdit = (row, colKey, currentVal) => {
   originalValCache.value = currentVal || ''
 }
 
+const cancelCustomFieldEdit = (row, colKey) => {
+  if (editingCustomField.value.taskId === row.id) {
+    if (!row.customFields) row.customFields = {}
+    row.customFields[colKey] = originalValCache.value
+    editingCustomField.value = { taskId: null, key: null }
+  }
+}
+
 const finishCustomFieldEdit = async (row, colKey) => {
   editingCustomField.value = { taskId: null, key: null }
   const currentVal = row.customFields?.[colKey] || ''
@@ -866,38 +938,6 @@ const handleDeleteStage = (id) => {
 const handleDeleteStageInModal = async (id) => {
   await handleDeleteStage(id)
   matrixModalVisible.value = false
-}
-
-// ----------------- 高级 Notion 属性卡片业务逻辑 -----------------
-
-const initPropertyForm = () => {
-  newPropForm.value = { key: '', value: '' }
-}
-
-const hasProperties = (customFields) => {
-  return customFields && Object.keys(customFields).length > 0
-}
-
-const addProperty = async (row) => {
-  const k = newPropForm.value.key.trim()
-  const v = newPropForm.value.value.trim()
-  if (!k || !v) {
-    ElMessage.warning('请填写完整的键与值')
-    return
-  }
-  if (!row.customFields) {
-    row.customFields = {}
-  }
-  row.customFields[k] = v
-  initPropertyForm()
-  await saveSubTask(row)
-}
-
-const removeProperty = async (row, key) => {
-  if (row.customFields && row.customFields[key] !== undefined) {
-    delete row.customFields[key]
-    await saveSubTask(row)
-  }
 }
 
 onMounted(async () => {
@@ -1296,6 +1336,75 @@ onMounted(async () => {
   font-weight: 500;
 }
 
+/* ================= 表头加号与动态列样式 ================= */
+.custom-header-cell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding-right: 2px;
+}
+
+.custom-header-title {
+  font-weight: 600;
+  color: var(--notion-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 关键修复：当鼠标悬浮在对应表头单元格上时，极简 ✕ 删除图标自动浮现 */
+.header-delete-btn {
+  cursor: pointer;
+  font-size: 12px;
+  color: #909399;
+  padding: 1px 4px;
+  border-radius: 50%;
+  line-height: 1;
+  opacity: 0;
+  transition: all 0.15s ease-in-out;
+  margin-left: 4px;
+}
+
+:deep(th.el-table__cell:hover) .header-delete-btn {
+  opacity: 1;
+}
+
+.header-delete-btn:hover {
+  background-color: #fef0f0;
+  color: #f56c6c;
+}
+
+/* 表头右侧 [+ 新增列] 按钮样式 */
+.add-column-header-btn {
+  cursor: pointer;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: rgba(55, 53, 47, 0.45);
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.add-column-header-btn:hover {
+  background-color: rgba(55, 53, 47, 0.08);
+  color: var(--el-color-primary);
+  transform: scale(1.15);
+}
+
+/* 单元格空值占位样式 */
+.custom-field-text.is-empty {
+  color: rgba(55, 53, 47, 0.25);
+  font-style: italic;
+  font-size: 12px;
+}
+
+.inline-edit-cell:hover .custom-field-text.is-empty {
+  color: rgba(55, 53, 47, 0.5);
+}
+
 /* ================= 底部追加新行区域 ================= */
 .excel-quick-append-row {
   height: 48px !important;
@@ -1357,80 +1466,6 @@ onMounted(async () => {
 
 .excel-table-style :deep(.el-table__row--level-1) .assignee-tag {
   opacity: 0.85;
-}
-
-/* ================= 属性标签面板与 Inspector ================= */
-.properties-preview-box {
-  cursor: pointer;
-  min-height: 28px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  width: 100%;
-  padding: 2px 0;
-  border: 1px transparent dashed;
-  border-radius: 4px;
-  transition: all 0.12s ease-in-out;
-}
-
-.properties-preview-box:hover {
-  border-color: rgba(55, 53, 47, 0.16);
-  background-color: var(--notion-hover);
-}
-
-.properties-placeholder {
-  font-size: 11px;
-  color: rgba(55, 53, 47, 0.35);
-  padding-left: 6px;
-}
-
-.property-inspector {
-  padding: 5px;
-}
-
-.inspector-title {
-  margin: 0 0 10px 0;
-  font-size: 12px;
-  color: var(--notion-text);
-  border-bottom: 1px solid var(--notion-border-light);
-  padding-bottom: 6px;
-  font-weight: 600;
-}
-
-.existing-properties {
-  max-height: 150px;
-  overflow-y: auto;
-  margin-bottom: 12px;
-}
-
-.property-item-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 0;
-  border-bottom: 1px dashed var(--notion-border-light);
-}
-
-.property-item-row:last-child {
-  border-bottom: none;
-}
-
-.prop-badge {
-  font-size: 11px;
-  color: rgba(55, 53, 47, 0.8);
-}
-
-.no-props-placeholder {
-  font-size: 11px;
-  color: rgba(55, 53, 47, 0.35);
-  text-align: center;
-  padding: 10px 0;
-}
-
-.add-property-form {
-  display: flex;
-  border-top: 1px solid var(--notion-border-light);
-  padding-top: 10px;
 }
 
 /* ================= Notion 软色调 Tag ================= */
