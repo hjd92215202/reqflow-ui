@@ -67,7 +67,7 @@
           <div class="todo-items-wrapper" v-loading="loading">
             <template v-if="filteredTodos.length > 0">
               <div
-                v-for="item in filteredTodos"
+                v-for="item in paginatedTodos"
                 :key="item.isProjectTask ? `proj-${item.id}` : `pers-${item.id}`"
                 :class="['todo-item-row', { 'is-done': item.status === 'DONE', 'is-project': item.isProjectTask }]"
               >
@@ -81,6 +81,9 @@
                 <!-- 标题与基本信息 -->
                 <div class="todo-content-block" @click="openEditDialog(item)">
                   <span class="todo-title-text">{{ item.title }}</span>
+                  <!-- 新增：详细内容 preview 预览 -->
+                  <p v-if="item.description" class="todo-desc-text">{{ item.description }}</p>
+                  
                   <div class="todo-meta-tags">
                     <!-- 需求待办的项目关联徽章 (支持一键跳转) -->
                     <el-tag 
@@ -117,6 +120,18 @@
             </template>
 
             <el-empty v-else description="暂无该分类下的待办事项，轻松一下吧！" :image-size="100" />
+          </div>
+
+          <!-- 待办中心底部分页组件 -->
+          <div class="pagination-wrapper" style="margin-top: 20px; display: flex; justify-content: flex-end;">
+            <el-pagination
+              v-model:current-page="todoCurrentPage"
+              v-model:page-size="todoPageSize"
+              :page-sizes="[5, 10, 20, 50]"
+              layout="total, sizes, prev, pager, next, jumper"
+              :total="filteredTodos.length"
+              @size-change="todoCurrentPage = 1"
+            />
           </div>
         </div>
       </div>
@@ -195,10 +210,19 @@
     </div>
 
     <!-- 修改待办对话框 -->
-    <el-dialog v-model="editDialogVisible" title="修改待办事项" width="450px" append-to-body>
+    <el-dialog v-model="editDialogVisible" title="修改待办事项" width="480px" append-to-body>
       <el-form :model="editForm" label-width="80px">
         <el-form-item label="待办标题" required>
-          <el-input v-model="editForm.title" placeholder="请输入待办内容..." />
+          <el-input v-model="editForm.title" placeholder="请输入待办标题..." />
+        </el-form-item>
+        <!-- 新增：详细内容 textarea 输入框 -->
+        <el-form-item label="详细内容" v-if="!editForm.isProjectTask">
+          <el-input
+            v-model="editForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="添加待办事项的补充细节、备注说明或步骤清单..."
+          />
         </el-form-item>
         <el-form-item label="优先级" v-if="!editForm.isProjectTask">
           <el-radio-group v-model="editForm.priority">
@@ -226,7 +250,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   getMyTodosApi,
@@ -249,11 +273,21 @@ const newTodoTitle = ref('')
 const newTodoPriority = ref('MEDIUM')
 const newTodoDueDate = ref(null)
 
+// 待办分页状态
+const todoCurrentPage = ref(1)
+const todoPageSize = ref(10)
+
+// 监听分类与状态过滤按键切换，自动重置页码回到第 1 页
+watch([categoryType, activeTab], () => {
+  todoCurrentPage.value = 1
+})
+
 // 编辑弹窗绑定
 const editDialogVisible = ref(false)
 const editForm = ref({
   id: null,
   title: '',
+  description: '',
   priority: 'MEDIUM',
   dueDate: null,
   status: 'TODO',
@@ -298,6 +332,13 @@ const filteredTodos = computed(() => {
   return list
 })
 
+// 当前页实际渲染展示的待办列表切片
+const paginatedTodos = computed(() => {
+  const start = (todoCurrentPage.value - 1) * todoPageSize.value
+  const end = start + todoPageSize.value
+  return filteredTodos.value.slice(start, end)
+})
+
 // 加载待办列表
 const loadTodos = async () => {
   loading.value = true
@@ -324,6 +365,7 @@ const handleCreateTodo = async () => {
     ElMessage.success('日常待办添加成功')
     newTodoTitle.value = ''
     newTodoDueDate.value = null
+    todoCurrentPage.value = 1 // 新建成功后跳转回首页展示
     await loadTodos()
   } catch (error) { }
 }
@@ -340,7 +382,10 @@ const handleToggleStatus = async (item) => {
 
 // 打开编辑弹窗
 const openEditDialog = (item) => {
-  editForm.value = { ...item }
+  editForm.value = {
+    ...item,
+    description: item.description || ''
+  }
   editDialogVisible.value = true
 }
 
@@ -566,7 +611,7 @@ onMounted(() => {
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .todo-title-text {
@@ -575,11 +620,27 @@ onMounted(() => {
   font-weight: 500;
 }
 
+/* 待办详细描述文本 preview 样式 */
+.todo-desc-text {
+  margin: 2px 0 2px 0;
+  font-size: 12px;
+  color: #8c8c8c;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
 .todo-meta-tags {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  margin-top: 2px;
 }
 
 .project-badge {
