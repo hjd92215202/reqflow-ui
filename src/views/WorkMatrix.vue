@@ -117,7 +117,7 @@
           </div>
         </div>
 
-        <!-- 树形 Excel 协同表格 (使用分页绑定的数据) -->
+        <!-- 树形 Excel 协同表格 -->
         <el-table :data="getPaginatedTasks(activeStage.id)" border row-key="id" default-expand-all
           :tree-props="{ children: 'children' }" :indent="28" class="excel-table-style"
           @filter-change="handleFilterChange">
@@ -180,7 +180,7 @@
             </template>
           </el-table-column>
 
-          <!-- 5. 动态 JSONB 扩展列 (表头悬浮快捷显现 ✕ 删除按钮) -->
+          <!-- 5. 动态 JSONB 扩展列 -->
           <el-table-column v-for="key in getStageColumns(activeStage.id)" :key="key" :column-key="key"
             min-width="150" :filters="getCustomColumnFilters(key, activeStage.id)">
             <template #header>
@@ -330,7 +330,7 @@ const stageCustomColumns = ref({})
 const stageSubTasks = ref({})
 const stageAddForms = ref({})
 
-// 各列筛选器激活的状态（格式：{ [columnKey]: [selectedValues] }）
+// 各列筛选器激活的状态
 const activeFilters = ref({})
 
 // 阶段新建弹窗
@@ -352,6 +352,23 @@ const vFocus = {
   }
 }
 
+// 应用本地保存的需求自定义排序
+const applySavedRequirementOrder = (dataList) => {
+  const savedOrderStr = localStorage.getItem('reqflow_requirement_order')
+  if (!savedOrderStr) return dataList
+  try {
+    const orderIds = JSON.parse(savedOrderStr)
+    const orderMap = new Map(orderIds.map((id, index) => [id, index]))
+    return dataList.sort((a, b) => {
+      const indexA = orderMap.has(a.id) ? orderMap.get(a.id) : Infinity
+      const indexB = orderMap.has(b.id) ? orderMap.get(b.id) : Infinity
+      return indexA - indexB
+    })
+  } catch (e) {
+    return dataList
+  }
+}
+
 // 标签与排期工具函数
 const getPriorityTag = (p) => {
   if (p === 'HIGH') return 'danger'
@@ -366,7 +383,7 @@ const formatDateRange = (row) => {
   return '暂无排期'
 }
 
-// 计算阶段完成进度统计（用于全局掌控列表展示）
+// 计算阶段完成进度统计
 const getStageTaskStats = (stageId) => {
   const tasks = stageSubTasks.value[stageId] || []
   let total = 0
@@ -404,7 +421,7 @@ const scanCustomColumns = (list) => {
   return Array.from(keys)
 }
 
-// 计算并获取当前阶段下所有的列 (合并自动扫描出的列与手动追加的空列)
+// 获取当前阶段下所有的列
 const getStageColumns = (stageId) => {
   const scannedKeys = detectedColumnKeys.value[stageId] || []
   const manualKeys = stageCustomColumns.value[stageId] || []
@@ -447,12 +464,10 @@ const handleDeleteColumn = (key, stageId) => {
       type: 'warning'
     }
   ).then(async () => {
-    // 1. 从手动添加列数据集中移除
     if (stageCustomColumns.value[stageId]) {
       stageCustomColumns.value[stageId] = stageCustomColumns.value[stageId].filter(k => k !== key)
     }
 
-    // 2. 遍历该阶段内存中的全部任务节点，擦除该 key 并收集受影响节点
     const tasks = stageSubTasks.value[stageId] || []
     const affectedNodes = []
 
@@ -469,7 +484,6 @@ const handleDeleteColumn = (key, stageId) => {
     }
     removeKeyFromTree(tasks)
 
-    // 3. 批量持久化已修改节点至后端数据库
     for (const node of affectedNodes) {
       const updatePayload = {
         id: node.id,
@@ -486,13 +500,12 @@ const handleDeleteColumn = (key, stageId) => {
       await updateSubTaskApi(node.id, updatePayload).catch(() => {})
     }
 
-    // 4. 重新扫描列，刷新状态
     detectedColumnKeys.value[stageId] = scanCustomColumns(tasks)
     ElMessage.success(`扩展列「${key}」已成功删除`)
   }).catch(() => {})
 }
 
-// 扁平数组转化为树形网格的算法
+// 扁平数组转化为树形网格
 const arrayToTree = (list) => {
   const map = {}, roots = [];
   for (let i = 0; i < list.length; i++) {
@@ -516,7 +529,6 @@ const arrayToTree = (list) => {
   return roots;
 }
 
-// 递归寻找并更新本地真实数据源中的对应节点属性
 const updateOriginalNode = (nodes, updatedNode) => {
   for (let i = 0; i < nodes.length; i++) {
     if (nodes[i].id === updatedNode.id) {
@@ -536,7 +548,6 @@ const updateOriginalNode = (nodes, updatedNode) => {
   return false
 }
 
-// 树形递归剪枝过滤算法
 const filterTreeData = (nodes, allowedStatuses, currentFilters) => {
   const result = []
   for (const node of nodes) {
@@ -577,7 +588,6 @@ const filterTreeData = (nodes, allowedStatuses, currentFilters) => {
   return result
 }
 
-// 属性计算与缓存 (获取已筛选过滤的根节点列表)
 const filteredTasksMap = computed(() => {
   const map = {}
   stages.value.forEach(stage => {
@@ -604,7 +614,6 @@ const getFilteredTasks = (stageId) => {
   return filteredTasksMap.value[stageId] || []
 }
 
-// 获取当前页展示的协同矩阵一级子任务树
 const getPaginatedTasks = (stageId) => {
   const allFiltered = getFilteredTasks(stageId)
   const start = (taskCurrentPage.value - 1) * taskPageSize.value
@@ -612,7 +621,6 @@ const getPaginatedTasks = (stageId) => {
   return allFiltered.slice(start, end)
 }
 
-// 列头过滤数据
 const getAssigneeFilters = (stageId) => {
   const tasks = stageSubTasks.value[stageId] || []
   const uniqueValues = new Set()
@@ -660,7 +668,7 @@ const handleFilterChange = (filters) => {
   for (const key in filters) {
     activeFilters.value[key] = filters[key]
   }
-  taskCurrentPage.value = 1 // 触发筛选时自动重置回第一页
+  taskCurrentPage.value = 1
 }
 
 // ----------------- 数据加载与需求自由切换业务 -----------------
@@ -668,11 +676,13 @@ const handleFilterChange = (filters) => {
 const loadRequirements = async () => {
   try {
     const res = await getRequirementsListApi({ page: 0, size: 200 })
-    requirements.value = res.content || []
+    let list = res.content || []
+    if (Array.isArray(res)) list = res
+    // 应用拖拽后的需求自定义顺序
+    requirements.value = applySavedRequirementOrder(list)
   } catch (error) { }
 }
 
-// 核心优化：用户在顶栏下拉菜单中主动切换需求
 const handleReqSelectChange = async (reqId) => {
   const target = requirements.value.find(r => r.id === reqId)
   if (target) {
@@ -685,7 +695,7 @@ const switchRequirement = async (req) => {
   selectedRequirement.value = req
   activeReqId.value = req.id
   activeFilters.value = {}
-  stageCurrentPage.value = 1 // 切换需求时重置阶段列表页码
+  stageCurrentPage.value = 1
   await loadStages(req.id)
 }
 
@@ -712,7 +722,6 @@ const handleStageChange = async (stageId) => {
 
 const loadSubTasks = async (stageId) => {
   const flatTaskList = await getSubTasksApi(stageId).catch(() => [])
-
   const discussions = await getDiscussionsApi(stageId).catch(() => [])
 
   const latestLogMap = {}
@@ -734,10 +743,9 @@ const loadSubTasks = async (stageId) => {
   stageSubTasks.value[stageId] = arrayToTree(flatTaskList)
 }
 
-// 点击阶段列表项，唤醒沉浸式协同大弹窗
 const openStageMatrixModal = async (stage) => {
   activeStageId.value = stage.id
-  taskCurrentPage.value = 1 // 打开协同矩阵弹窗时重置页码为第一页
+  taskCurrentPage.value = 1
   await handleStageChange(stage.id)
   matrixModalVisible.value = true
 }
@@ -949,9 +957,11 @@ onMounted(async () => {
     if (target) {
       await switchRequirement(target)
     } else if (requirements.value.length > 0) {
+      // 核心要求：默认展示排序后的第一个需求的阶段
       await switchRequirement(requirements.value[0])
     }
   } else {
+    // 核心要求：点击【工作事项矩阵】无 url 参数时，默认展示排序后的第一个需求的阶段
     if (requirements.value.length > 0) {
       await switchRequirement(requirements.value[0])
     }
@@ -960,7 +970,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* ================= Notion 级全局设计变量层 ================= */
 .workbench-workspace {
   --notion-text: #37352f;
   --notion-bg: #ffffff;
@@ -977,13 +986,11 @@ onMounted(async () => {
   flex-direction: column;
 }
 
-/* 分页容器通用右对齐样式 */
 .pagination-wrapper {
   display: flex;
   justify-content: flex-end;
 }
 
-/* ================= 主面板与全局项目视图 ================= */
 .matrix-board {
   background-color: var(--notion-bg);
   border-radius: 6px;
@@ -1052,7 +1059,6 @@ onMounted(async () => {
   gap: 10px;
 }
 
-/* ================= 阶段列表视图 (List View Style) ================= */
 .stages-list-view {
   display: flex;
   flex-direction: column;
@@ -1133,7 +1139,6 @@ onMounted(async () => {
   gap: 12px;
 }
 
-/* ================= 沉浸式弹窗与表格样式 ================= */
 .stage-table-block {
   border: 1px solid var(--notion-border);
   border-radius: 6px;
@@ -1167,7 +1172,6 @@ onMounted(async () => {
   align-items: center;
 }
 
-/* ================= 深度定制 Element 表格样式 ================= */
 .excel-table-style {
   --el-table-border-color: var(--notion-border-light) !important;
   --el-table-header-bg-color: #f7f7f5 !important;
@@ -1224,7 +1228,6 @@ onMounted(async () => {
   background-color: #f2f7fc !important;
 }
 
-/* ================= 极简行内即时编辑 ================= */
 .inline-edit-cell {
   border: 1px dashed transparent;
   padding: 2px 6px;
@@ -1336,7 +1339,6 @@ onMounted(async () => {
   font-weight: 500;
 }
 
-/* ================= 表头加号与动态列样式 ================= */
 .custom-header-cell {
   display: flex;
   align-items: center;
@@ -1353,7 +1355,6 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
-/* 关键修复：当鼠标悬浮在对应表头单元格上时，极简 ✕ 删除图标自动浮现 */
 .header-delete-btn {
   cursor: pointer;
   font-size: 12px;
@@ -1375,7 +1376,6 @@ onMounted(async () => {
   color: #f56c6c;
 }
 
-/* 表头右侧 [+ 新增列] 按钮样式 */
 .add-column-header-btn {
   cursor: pointer;
   height: 28px;
@@ -1394,7 +1394,6 @@ onMounted(async () => {
   transform: scale(1.15);
 }
 
-/* 单元格空值占位样式 */
 .custom-field-text.is-empty {
   color: rgba(55, 53, 47, 0.25);
   font-style: italic;
@@ -1405,7 +1404,6 @@ onMounted(async () => {
   color: rgba(55, 53, 47, 0.5);
 }
 
-/* ================= 底部追加新行区域 ================= */
 .excel-quick-append-row {
   height: 48px !important;
   background-color: #fafafa;
@@ -1450,7 +1448,6 @@ onMounted(async () => {
   box-shadow: 0 1px 2px rgba(15, 15, 15, 0.04);
 }
 
-/* 树形缩进控制 */
 .excel-table-style :deep(.el-table__row--level-1) .el-table__indent {
   padding-left: 32px !important;
 }
@@ -1468,7 +1465,6 @@ onMounted(async () => {
   opacity: 0.85;
 }
 
-/* ================= Notion 软色调 Tag ================= */
 :deep(.el-tag) {
   border: none !important;
   font-weight: 500;

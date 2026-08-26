@@ -6,7 +6,30 @@
         <el-button type="primary" @click="openCreateDialog">录入新需求</el-button>
       </div>
 
-      <el-table :data="tableData" style="width: 100%; margin-top: 15px;" border stripe v-loading="loading">
+      <el-table
+        ref="requirementTableRef"
+        :data="tableData"
+        style="width: 100%; margin-top: 15px;"
+        border
+        stripe
+        v-loading="loading"
+        :row-class-name="tableRowClassName"
+      >
+        <!-- 核心优化：鼠标按住手柄实时拖动排序 -->
+        <el-table-column width="60" align="center" label="排序">
+          <template #default="scope">
+            <div class="drag-handle-wrapper">
+              <span
+                class="drag-handle"
+                title="按住此手柄上下滑动调整顺序"
+                @mousedown="startRowDrag(scope.$index, $event)"
+              >
+                ⋮⋮
+              </span>
+            </div>
+          </template>
+        </el-table-column>
+
         <el-table-column prop="title" label="需求标题" min-width="150" show-overflow-tooltip />
         <el-table-column prop="description" label="核心描述" min-width="180" show-overflow-tooltip />
         <el-table-column label="排期起止" width="220">
@@ -30,7 +53,7 @@
           </template>
         </el-table-column>
 
-        <!-- 新增：阶段完成度 (迷你进度条与阶段徽章) -->
+        <!-- 阶段完成度 (迷你进度条与阶段徽章) -->
         <el-table-column label="阶段完成度" min-width="170" align="center">
           <template #default="scope">
             <div v-if="stageStatsMap[scope.row.id] && stageStatsMap[scope.row.id].total > 0" class="progress-cell">
@@ -128,14 +151,18 @@ const loading = ref(false)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const requirementDateRange = ref([])
+const requirementTableRef = ref(null)
 
-// 各需求下的阶段完成统计映射表 ({ [reqId]: { done, total, percent } })
+// 各需求下的阶段完成统计映射表
 const stageStatsMap = ref({})
 
 // 分页状态
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+
+// 正在拖拽的行索引标识
+const activeDragIndex = ref(null)
 
 const form = ref({
   id: null,
@@ -147,22 +174,95 @@ const form = ref({
   endDate: null
 })
 
+// 应用本地保存的排序规则
+const applySavedRequirementOrder = (dataList) => {
+  const savedOrderStr = localStorage.getItem('reqflow_requirement_order')
+  if (!savedOrderStr) return dataList
+  try {
+    const orderIds = JSON.parse(savedOrderStr)
+    const orderMap = new Map(orderIds.map((id, index) => [id, index]))
+    return dataList.sort((a, b) => {
+      const indexA = orderMap.has(a.id) ? orderMap.get(a.id) : Infinity
+      const indexB = orderMap.has(b.id) ? orderMap.get(b.id) : Infinity
+      return indexA - indexB
+    })
+  } catch (e) {
+    return dataList
+  }
+}
+
+// 持久化保存排序规则
+const saveRequirementOrder = () => {
+  const orderIds = tableData.value.map(item => item.id)
+  localStorage.setItem('reqflow_requirement_order', JSON.stringify(orderIds))
+}
+
+const tableRowClassName = ({ rowIndex }) => {
+  return activeDragIndex.value === rowIndex ? 'dragging-row' : ''
+}
+
+// ----------------- 核心：鼠标按住手柄滑动实时拖拽排序 -----------------
+const startRowDrag = (startIndex, event) => {
+  event.preventDefault()
+  event.stopPropagation()
+
+  activeDragIndex.value = startIndex
+  document.body.style.cursor = 'grabbing'
+  document.body.style.userSelect = 'none'
+
+  const handleMouseMove = (e) => {
+    if (activeDragIndex.value === null) return
+
+    // 取得 Element Plus 表格中所有的 TR 节点
+    const rows = document.querySelectorAll('.workspace .el-table__body-wrapper tbody tr')
+    rows.forEach((rowEl, targetIndex) => {
+      const rect = rowEl.getBoundingClientRect()
+      // 判断当前鼠标 Y 坐标是否落在某个 TR 的上下边界内
+      if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
+        if (activeDragIndex.value !== targetIndex) {
+          // 实时交换数组项
+          const movedItem = tableData.value.splice(activeDragIndex.value, 1)[0]
+          tableData.value.splice(targetIndex, 0, movedItem)
+          activeDragIndex.value = targetIndex
+        }
+      }
+    })
+  }
+
+  const handleMouseUp = () => {
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+    window.removeEventListener('mousemove', handleMouseMove)
+    window.removeEventListener('mouseup', handleMouseUp)
+
+    if (activeDragIndex.value !== null) {
+      saveRequirementOrder()
+      ElMessage.success('需求展示顺序已更新')
+      activeDragIndex.value = null
+    }
+  }
+
+  window.addEventListener('mousemove', handleMouseMove)
+  window.addEventListener('mouseup', handleMouseUp)
+}
+
+// ----------------- 需求列表数据加载 -----------------
 const loadRequirements = async () => {
   loading.value = true
   try {
     const res = await getRequirementsListApi({
-      page: currentPage.value - 1, // Spring Data 页码从 0 开始
+      page: currentPage.value - 1,
       size: pageSize.value
     })
-    // 兼容后端返回分页 Page 对象与普通 List 数组两种情况
+    let list = []
     if (res && res.content !== undefined) {
-      tableData.value = res.content
+      list = res.content
       total.value = res.totalElements || 0
     } else if (Array.isArray(res)) {
-      tableData.value = res
+      list = res
       total.value = res.length
     }
-    // 异步计算并统计当前列表所有需求的阶段完成进度
+    tableData.value = applySavedRequirementOrder(list)
     await loadRequirementStats(tableData.value)
   } catch (error) {
   } finally {
@@ -322,6 +422,37 @@ onMounted(() => {
   font-weight: bold;
 }
 
+/* 拖拽手柄样式与高亮反馈 */
+.drag-handle-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.drag-handle {
+  font-size: 16px;
+  color: #909399;
+  cursor: grab;
+  user-select: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.drag-handle:hover {
+  background-color: rgba(35, 131, 226, 0.12);
+  color: #2383e2;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+:deep(.dragging-row) {
+  background-color: #e6f7ff !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
 .date-text {
   font-size: 13px;
   color: #606266;
@@ -355,24 +486,21 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
-/* 1. 撑开表格单元格的纵向空间（增加上下内边距至 12px） */
 :deep(.el-table .el-table__cell) {
   padding: 12px 0 !important;
 }
 
-/* 重写 Element Plus Tag 基础样式为 Notion 风格 */
 :deep(.el-tag) {
-  font-size: 11px !important;     /* 稍微降低字号以减少字符侵略感 */
-  height: 20px !important;        /* 固定标签高度 */
-  line-height: 20px !important;   /* 文字垂直居中 */
-  padding: 0 8px !important;      /* 左右内收，保持胶囊形状 */
+  font-size: 11px !important;
+  height: 20px !important;
+  line-height: 20px !important;
+  padding: 0 8px !important;
   border: none !important;
   border-radius: 3px !important;
   font-weight: 500;
-  letter-spacing: 0.3px;          /* 微调字间距提高易读性 */
+  letter-spacing: 0.3px;
 }
 
-/* 重新配置各类状态的淡色系调色板 */
 :deep(.el-tag--success) {
   background-color: #e2f5ec !important;
   color: #0d7c50 !important;
