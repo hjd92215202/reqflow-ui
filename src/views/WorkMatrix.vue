@@ -33,14 +33,35 @@
 
       <el-divider style="margin: 18px 0 20px 0;" />
 
-      <!-- 1.2 核心：执行阶段列表总览 (支持分页) -->
+      <!-- 1.2 核心：执行阶段列表总览 (支持原地双击行内改名) -->
       <div class="stages-list-view" v-if="stages.length > 0">
         <div v-for="stage in paginatedStages" :key="stage.id" class="stage-list-item" @click="openStageMatrixModal(stage)">
           <!-- 阶段名称与排期信息 -->
           <div class="stage-item-left">
             <span class="stage-item-icon">📍</span>
-            <div class="stage-item-info">
-              <span class="stage-item-title">{{ stage.title }}</span>
+            <div class="stage-item-info" @click.stop>
+              <!-- 行内编辑输入框 -->
+              <el-input
+                v-if="editingStageId === stage.id"
+                v-model="stage.title"
+                size="small"
+                class="inline-stage-title-input"
+                @blur="finishStageTitleEdit(stage)"
+                @keyup.enter="finishStageTitleEdit(stage)"
+                @keyup.esc="cancelStageTitleEdit(stage)"
+                v-focus
+                @click.stop
+                @dblclick.stop
+              />
+              <!-- 静态标题：双击变输入框 -->
+              <span
+                v-else
+                class="stage-item-title"
+                title="双击即可原地修改阶段名称"
+                @dblclick.stop="startStageTitleEdit(stage)"
+              >
+                {{ stage.title }} <i class="edit-hint-icon">✏️</i>
+              </span>
               <span class="stage-item-dates">📅 {{ stage.startDate || '未定' }} 至 {{ stage.endDate || '未定' }}</span>
             </div>
           </div>
@@ -64,12 +85,15 @@
               style="width: 120px;" />
           </div>
 
-          <!-- 操作按键 -->
+          <!-- 操作按键区 -->
           <div class="stage-item-actions" @click.stop>
-            <el-button type="primary" link size="small" @click="openStageMatrixModal(stage)">
+            <el-button type="primary" link size="small" @click.stop="openStageMatrixModal(stage)">
               进入协同矩阵 ➔
             </el-button>
-            <el-button type="danger" link size="small" @click="handleDeleteStage(stage.id)">
+            <el-button type="primary" link size="small" @click.stop="startStageTitleEdit(stage)">
+              ✏️ 重命名
+            </el-button>
+            <el-button type="danger" link size="small" @click.stop="handleDeleteStage(stage.id)">
               移除
             </el-button>
           </div>
@@ -100,8 +124,27 @@
       width="92%" top="3vh" destroy-on-close class="matrix-dialog-wrapper">
       <div v-if="activeStage" class="stage-table-block" style="margin-top: 0;">
         <div class="stage-block-header">
-          <div class="stage-title-left">
-            <span class="block-stage-name">📍 阶段：{{ activeStage.title }}</span>
+          <div class="stage-title-left" @click.stop>
+            <span class="block-stage-prefix">📍 阶段：</span>
+            <!-- 弹窗内行内修改阶段名称 -->
+            <el-input
+              v-if="editingStageId === activeStage.id"
+              v-model="activeStage.title"
+              size="small"
+              style="width: 220px;"
+              @blur="finishStageTitleEdit(activeStage)"
+              @keyup.enter="finishStageTitleEdit(activeStage)"
+              @keyup.esc="cancelStageTitleEdit(activeStage)"
+              v-focus
+            />
+            <span
+              v-else
+              class="block-stage-name"
+              title="双击直接原地重命名"
+              @dblclick.stop="startStageTitleEdit(activeStage)"
+            >
+              {{ activeStage.title }} <i class="edit-hint-icon">✏️</i>
+            </span>
             <span class="block-stage-dates">排期：{{ activeStage.startDate || '未定' }} 至 {{ activeStage.endDate || '未定' }}</span>
           </div>
           <div class="stage-title-right">
@@ -298,7 +341,6 @@ const stages = ref([])
 const stageCurrentPage = ref(1)
 const stagePageSize = ref(5)
 
-// 计算属性：当前页展现的阶段列表
 const paginatedStages = computed(() => {
   const start = (stageCurrentPage.value - 1) * stagePageSize.value
   const end = start + stagePageSize.value
@@ -313,7 +355,6 @@ const taskPageSize = ref(10)
 const matrixModalVisible = ref(false)
 const activeStageId = ref(null)
 
-// 计算属性：当前大弹窗聚焦激活的阶段
 const activeStage = computed(() => {
   return stages.value.find(s => s.id === activeStageId.value)
 })
@@ -323,7 +364,6 @@ const originalValCache = ref('')
 
 // 响应式存储：每个阶段下扫描出的全部自定义属性 Key
 const detectedColumnKeys = ref({})
-// 用户手动追加的扩展列 Key 映射表 (按 stageId 隔离)
 const stageCustomColumns = ref({})
 
 // 状态映射绑定
@@ -338,6 +378,9 @@ const stageDialogVisible = ref(false)
 const stageDateRange = ref([])
 const stageForm = ref({ title: '', startDate: null, endDate: null })
 
+// 核心：阶段名称行内原地编辑标识
+const editingStageId = ref(null)
+
 // 局部独立编辑态标识
 const editingTitleTaskId = ref(null)
 const editingAssigneeTaskId = ref(null)
@@ -349,6 +392,40 @@ const vFocus = {
   mounted: (el) => {
     const target = el.querySelector('input, textarea')
     if (target) target.focus()
+  }
+}
+
+// ----------------- 阶段名称原地即时改名逻辑 -----------------
+const startStageTitleEdit = (stage) => {
+  editingStageId.value = stage.id
+  originalValCache.value = stage.title || ''
+}
+
+const cancelStageTitleEdit = (stage) => {
+  stage.title = originalValCache.value
+  editingStageId.value = null
+}
+
+const finishStageTitleEdit = async (stage) => {
+  editingStageId.value = null
+  const newTitle = stage.title ? stage.title.trim() : ''
+  
+  if (!newTitle) {
+    stage.title = originalValCache.value
+    ElMessage.warning('阶段名称不能为空')
+    return
+  }
+  
+  if (newTitle === originalValCache.value) {
+    return
+  }
+
+  stage.title = newTitle
+  try {
+    await updateStageApi(stage.id, stage)
+    ElMessage.success('阶段名称修改成功')
+  } catch (error) {
+    stage.title = originalValCache.value
   }
 }
 
@@ -383,7 +460,6 @@ const formatDateRange = (row) => {
   return '暂无排期'
 }
 
-// 计算阶段完成进度统计
 const getStageTaskStats = (stageId) => {
   const tasks = stageSubTasks.value[stageId] || []
   let total = 0
@@ -400,7 +476,6 @@ const getStageTaskStats = (stageId) => {
   return { total, done, percent }
 }
 
-// 自动扫描 JSONB 属性 Key 列表
 const scanCustomColumns = (list) => {
   const keys = new Set()
   const traverse = (items) => {
@@ -421,14 +496,12 @@ const scanCustomColumns = (list) => {
   return Array.from(keys)
 }
 
-// 获取当前阶段下所有的列
 const getStageColumns = (stageId) => {
   const scannedKeys = detectedColumnKeys.value[stageId] || []
   const manualKeys = stageCustomColumns.value[stageId] || []
   return Array.from(new Set([...scannedKeys, ...manualKeys]))
 }
 
-// 点击表头 [+] 追加矩阵自定义列
 const promptAddColumn = (stageId) => {
   ElMessageBox.prompt('请输入新扩展列的名称（如：测试负责人、Bug单号、设计稿Link）', '➕ 追加矩阵列', {
     confirmButtonText: '确定追加',
@@ -453,7 +526,6 @@ const promptAddColumn = (stageId) => {
   }).catch(() => {})
 }
 
-// 删除指定的自定义扩展列
 const handleDeleteColumn = (key, stageId) => {
   ElMessageBox.confirm(
     `确定要删除整列「${key}」吗？所有任务在该列填写的内容将被彻底清空。`,
@@ -505,7 +577,6 @@ const handleDeleteColumn = (key, stageId) => {
   }).catch(() => {})
 }
 
-// 扁平数组转化为树形网格
 const arrayToTree = (list) => {
   const map = {}, roots = [];
   for (let i = 0; i < list.length; i++) {
@@ -678,7 +749,6 @@ const loadRequirements = async () => {
     const res = await getRequirementsListApi({ page: 0, size: 200 })
     let list = res.content || []
     if (Array.isArray(res)) list = res
-    // 应用拖拽后的需求自定义顺序
     requirements.value = applySavedRequirementOrder(list)
   } catch (error) { }
 }
@@ -957,11 +1027,9 @@ onMounted(async () => {
     if (target) {
       await switchRequirement(target)
     } else if (requirements.value.length > 0) {
-      // 核心要求：默认展示排序后的第一个需求的阶段
       await switchRequirement(requirements.value[0])
     }
   } else {
-    // 核心要求：点击【工作事项矩阵】无 url 参数时，默认展示排序后的第一个需求的阶段
     if (requirements.value.length > 0) {
       await switchRequirement(requirements.value[0])
     }
@@ -1088,7 +1156,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 260px;
+  min-width: 280px;
 }
 
 .stage-item-icon {
@@ -1101,10 +1169,29 @@ onMounted(async () => {
   gap: 3px;
 }
 
+.inline-stage-title-input {
+  width: 220px !important;
+}
+
 .stage-item-title {
   font-size: 14px;
   font-weight: 600;
   color: var(--notion-text);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.edit-hint-icon {
+  font-style: normal;
+  font-size: 11px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.stage-item-title:hover .edit-hint-icon,
+.block-stage-name:hover .edit-hint-icon {
+  opacity: 1;
 }
 
 .stage-item-dates {
@@ -1155,16 +1242,32 @@ onMounted(async () => {
   padding: 0 16px;
 }
 
+.block-stage-prefix {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--notion-text);
+}
+
 .block-stage-name {
   font-size: 13px;
   font-weight: 600;
   color: var(--notion-text);
+  cursor: pointer;
+}
+
+.block-stage-name:hover {
+  color: var(--el-color-primary);
 }
 
 .block-stage-dates {
   font-size: 11px;
   color: rgba(55, 53, 47, 0.5);
   margin-left: 12px;
+}
+
+.stage-title-left {
+  display: flex;
+  align-items: center;
 }
 
 .stage-title-right {
