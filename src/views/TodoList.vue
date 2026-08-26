@@ -49,14 +49,14 @@
         <!-- 3. 待办过滤标签与列表 -->
         <div class="todo-list-card">
           <div class="list-toolbar-row">
-            <!-- 分类隔离切换按键 -->
+            <!-- 分类隔离切换按键 (默认选中：日常待办) -->
             <el-radio-group v-model="categoryType" size="default">
               <el-radio-button value="ALL">全部分类 ({{ allTodos.length }})</el-radio-button>
               <el-radio-button value="PERSONAL">📝 日常待办 ({{ personalTodosCount }})</el-radio-button>
               <el-radio-button value="PROJECT">📋 需求待办 ({{ projectTodosCount }})</el-radio-button>
             </el-radio-group>
 
-            <!-- 状态筛选按键 -->
+            <!-- 状态筛选按键 (默认选中：待处理) -->
             <el-radio-group v-model="activeTab" size="small">
               <el-radio-button value="ALL">全部</el-radio-button>
               <el-radio-button value="PENDING">待处理</el-radio-button>
@@ -81,7 +81,7 @@
                 <!-- 标题与基本信息 -->
                 <div class="todo-content-block" @click="openEditDialog(item)">
                   <span class="todo-title-text">{{ item.title }}</span>
-                  <!-- 新增：详细内容 preview 预览 -->
+                  <!-- 详细内容 preview 预览 -->
                   <p v-if="item.description" class="todo-desc-text">{{ item.description }}</p>
                   
                   <div class="todo-meta-tags">
@@ -136,7 +136,7 @@
         </div>
       </div>
 
-      <!-- 右侧辅助概览看板 (占 30% 宽度，充分填补右侧留白) -->
+      <!-- 右侧辅助概览看板 (占 30% 宽度) -->
       <div class="sidebar-right">
         <!-- 概览进度卡片 -->
         <div class="sidebar-card">
@@ -215,7 +215,6 @@
         <el-form-item label="待办标题" required>
           <el-input v-model="editForm.title" placeholder="请输入待办标题..." />
         </el-form-item>
-        <!-- 新增：详细内容 textarea 输入框 -->
         <el-form-item label="详细内容" v-if="!editForm.isProjectTask">
           <el-input
             v-model="editForm.description"
@@ -265,8 +264,10 @@ const router = useRouter()
 
 const loading = ref(false)
 const allTodos = ref([])
-const categoryType = ref('ALL') // ALL, PERSONAL, PROJECT
-const activeTab = ref('ALL')     // ALL, PENDING, COMPLETED
+// 核心优化 1：默认展示【日常待办】
+const categoryType = ref('PERSONAL') // ALL, PERSONAL, PROJECT
+// 核心优化 2：默认展示【待处理】事项
+const activeTab = ref('PENDING')      // ALL, PENDING, COMPLETED
 
 // 新建输入框绑定
 const newTodoTitle = ref('')
@@ -463,7 +464,7 @@ onMounted(() => {
 
 .todo-container {
   width: 100%;
-  max-width: 1380px; /* 扩展最大宽度，充分利用宽屏 */
+  max-width: 1380px;
   display: flex;
   gap: 20px;
   align-items: flex-start;
