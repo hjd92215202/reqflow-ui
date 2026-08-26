@@ -74,6 +74,7 @@
         <el-table-column label="操作面板" width="220" align="center" fixed="right">
           <template #default="scope">
             <el-button size="small" link type="success" @click="goToWorkMatrix(scope.row.id)">矩阵与跟进</el-button>
+            <el-button size="small" link type="warning" @click="goToWiki(scope.row.id)">Wiki 沉淀</el-button>
             <el-button size="small" link type="primary" @click="openEditDialog(scope.row)">编辑</el-button>
             <el-button size="small" link type="danger" @click="handleDelete(scope.row.id)">删除</el-button>
           </template>
@@ -307,6 +308,10 @@ const handleCurrentChange = (val) => {
 
 const goToWorkMatrix = (reqId) => {
   router.push({ path: '/matrix', query: { reqId } })
+}
+
+const goToWiki = (reqId) => {
+  router.push({ path: '/wiki', query: { reqId } })
 }
 
 const openCreateDialog = () => {

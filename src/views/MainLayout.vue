@@ -24,7 +24,8 @@
         </button>
         <button class="control-btn close-btn" @click.stop="closeWindow" title="关闭">
           <svg width="10" height="10" viewBox="0 0 10 10">
-            <path fill="currentColor" d="M1.707 1 1 1.707 4.293 5 1 8.293 1.707 9 5 5.707 8.293 9 9 8.293 5.707 5 9 1.707 8.293 1 5 4.293z" />
+            <path fill="currentColor"
+              d="M1.707 1 1 1.707 4.293 5 1 8.293 1.707 9 5 5.707 8.293 9 9 8.293 5.707 5 9 1.707 8.293 1 5 4.293z" />
           </svg>
         </button>
       </div>
@@ -64,6 +65,13 @@
             </el-icon>
             <span>工作事项矩阵</span>
           </el-menu-item>
+
+          <el-menu-item index="/wiki">
+            <el-icon>
+              <Notebook />
+            </el-icon>
+            <span>项目 Wiki 库</span>
+          </el-menu-item>
         </el-menu>
 
         <!-- 统一底部用户信息及退出 (自适应折叠状态) -->
@@ -93,7 +101,7 @@
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
-import { Menu, Checked, Finished, SwitchButton, Expand, Fold } from '@element-plus/icons-vue'
+import { Menu, Checked, Finished, SwitchButton, Expand, Fold, Notebook  } from '@element-plus/icons-vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 
 const router = useRouter()
@@ -131,21 +139,21 @@ const minimizeWindow = async () => {
   try {
     const appWindow = getCurrentWindow()
     await appWindow.minimize()
-  } catch (err) {}
+  } catch (err) { }
 }
 
 const toggleMaximizeWindow = async () => {
   try {
     const appWindow = getCurrentWindow()
     await appWindow.toggleMaximize()
-  } catch (err) {}
+  } catch (err) { }
 }
 
 const closeWindow = async () => {
   try {
     const appWindow = getCurrentWindow()
     await appWindow.close()
-  } catch (err) {}
+  } catch (err) { }
 }
 </script>
 
