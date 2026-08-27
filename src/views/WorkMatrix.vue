@@ -33,36 +33,35 @@
 
       <el-divider style="margin: 18px 0 20px 0;" />
 
-      <!-- 1.2 核心：执行阶段列表总览 (支持原地双击行内改名) -->
+      <!-- 1.2 核心：执行阶段列表总览 (支持原地双击改名 & 原地点击修改排期) -->
       <div class="stages-list-view" v-if="stages.length > 0">
-        <div v-for="stage in paginatedStages" :key="stage.id" class="stage-list-item" @click="openStageMatrixModal(stage)">
+        <div v-for="stage in paginatedStages" :key="stage.id" class="stage-list-item"
+          @click="openStageMatrixModal(stage)">
           <!-- 阶段名称与排期信息 -->
           <div class="stage-item-left">
             <span class="stage-item-icon">📍</span>
             <div class="stage-item-info" @click.stop>
               <!-- 行内编辑输入框 -->
-              <el-input
-                v-if="editingStageId === stage.id"
-                v-model="stage.title"
-                size="small"
-                class="inline-stage-title-input"
-                @blur="finishStageTitleEdit(stage)"
-                @keyup.enter="finishStageTitleEdit(stage)"
-                @keyup.esc="cancelStageTitleEdit(stage)"
-                v-focus
-                @click.stop
-                @dblclick.stop
-              />
+              <el-input v-if="editingStageId === stage.id" v-model="stage.title" size="small"
+                class="inline-stage-title-input" @blur="finishStageTitleEdit(stage)"
+                @keyup.enter="finishStageTitleEdit(stage)" @keyup.esc="cancelStageTitleEdit(stage)" v-focus @click.stop
+                @dblclick.stop />
               <!-- 静态标题：双击变输入框 -->
-              <span
-                v-else
-                class="stage-item-title"
-                title="双击即可原地修改阶段名称"
-                @dblclick.stop="startStageTitleEdit(stage)"
-              >
+              <span v-else class="stage-item-title" title="双击即可原地修改阶段名称" @dblclick.stop="startStageTitleEdit(stage)">
                 {{ stage.title }} <i class="edit-hint-icon">✏️</i>
               </span>
-              <span class="stage-item-dates">📅 {{ stage.startDate || '未定' }} 至 {{ stage.endDate || '未定' }}</span>
+
+              <!-- 阶段排期：点击弹出日期范围选择器 -->
+              <div class="stage-item-dates-wrapper" @click.stop>
+                <el-date-picker v-if="editingStageDateId === stage.id" v-model="stage.dateRange" type="daterange"
+                  range-separator="至" start-placeholder="开始" end-placeholder="截止" size="small" value-format="YYYY-MM-DD"
+                  @change="finishStageDateEdit(stage)" @blur="editingStageDateId = null" style="width: 220px;"
+                  v-focus />
+                <span v-else class="stage-item-dates clickable-date" title="点击修改阶段起止排期"
+                  @click.stop="startStageDateEdit(stage)">
+                  📅 {{ stage.startDate || '未定' }} 至 {{ stage.endDate || '未定' }} <i class="edit-hint-icon">✏️</i>
+                </span>
+              </div>
             </div>
           </div>
 
@@ -90,9 +89,6 @@
             <el-button type="primary" link size="small" @click.stop="openStageMatrixModal(stage)">
               进入协同矩阵 ➔
             </el-button>
-            <el-button type="primary" link size="small" @click.stop="startStageTitleEdit(stage)">
-              ✏️ 重命名
-            </el-button>
             <el-button type="danger" link size="small" @click.stop="handleDeleteStage(stage.id)">
               移除
             </el-button>
@@ -101,13 +97,8 @@
 
         <!-- 阶段列表底部分页条 -->
         <div class="pagination-wrapper" style="margin-top: 15px;">
-          <el-pagination
-            v-model:current-page="stageCurrentPage"
-            v-model:page-size="stagePageSize"
-            :page-sizes="[5, 10, 20]"
-            layout="total, sizes, prev, pager, next, jumper"
-            :total="stages.length"
-          />
+          <el-pagination v-model:current-page="stageCurrentPage" v-model:page-size="stagePageSize"
+            :page-sizes="[5, 10, 20]" layout="total, sizes, prev, pager, next, jumper" :total="stages.length" />
         </div>
       </div>
 
@@ -127,25 +118,25 @@
           <div class="stage-title-left" @click.stop>
             <span class="block-stage-prefix">📍 阶段：</span>
             <!-- 弹窗内行内修改阶段名称 -->
-            <el-input
-              v-if="editingStageId === activeStage.id"
-              v-model="activeStage.title"
-              size="small"
-              style="width: 220px;"
-              @blur="finishStageTitleEdit(activeStage)"
-              @keyup.enter="finishStageTitleEdit(activeStage)"
-              @keyup.esc="cancelStageTitleEdit(activeStage)"
-              v-focus
-            />
-            <span
-              v-else
-              class="block-stage-name"
-              title="双击直接原地重命名"
-              @dblclick.stop="startStageTitleEdit(activeStage)"
-            >
+            <el-input v-if="editingStageId === activeStage.id" v-model="activeStage.title" size="small"
+              style="width: 220px;" @blur="finishStageTitleEdit(activeStage)"
+              @keyup.enter="finishStageTitleEdit(activeStage)" @keyup.esc="cancelStageTitleEdit(activeStage)" v-focus />
+            <span v-else class="block-stage-name" title="双击直接原地重命名" @dblclick.stop="startStageTitleEdit(activeStage)">
               {{ activeStage.title }} <i class="edit-hint-icon">✏️</i>
             </span>
-            <span class="block-stage-dates">排期：{{ activeStage.startDate || '未定' }} 至 {{ activeStage.endDate || '未定' }}</span>
+
+            <!-- 弹窗内修改阶段排期 -->
+            <div class="stage-modal-dates-wrapper" @click.stop style="margin-left: 12px;">
+              <el-date-picker v-if="editingStageDateId === activeStage.id" v-model="activeStage.dateRange"
+                type="daterange" range-separator="至" start-placeholder="开始" end-placeholder="截止" size="small"
+                value-format="YYYY-MM-DD" @change="finishStageDateEdit(activeStage)" @blur="editingStageDateId = null"
+                style="width: 220px;" v-focus />
+              <span v-else class="block-stage-dates clickable-date" title="点击修改阶段起止排期"
+                @click.stop="startStageDateEdit(activeStage)">
+                排期：{{ activeStage.startDate || '未定' }} 至 {{ activeStage.endDate || '未定' }} <i
+                  class="edit-hint-icon">✏️</i>
+              </span>
+            </div>
           </div>
           <div class="stage-title-right">
             <el-radio-group v-model="activeStage.status" size="small" @change="handleStageStatusChange(activeStage)">
@@ -224,8 +215,8 @@
           </el-table-column>
 
           <!-- 5. 动态 JSONB 扩展列 -->
-          <el-table-column v-for="key in getStageColumns(activeStage.id)" :key="key" :column-key="key"
-            min-width="150" :filters="getCustomColumnFilters(key, activeStage.id)">
+          <el-table-column v-for="key in getStageColumns(activeStage.id)" :key="key" :column-key="key" min-width="150"
+            :filters="getCustomColumnFilters(key, activeStage.id)">
             <template #header>
               <div class="custom-header-cell">
                 <span class="custom-header-title" :title="key">{{ key }}</span>
@@ -240,10 +231,8 @@
                 <el-input key="edit-custom-input"
                   v-if="editingCustomField.taskId === scope.row.id && editingCustomField.key === key"
                   v-model="scope.row.customFields[key]" size="small" placeholder="输入内容..."
-                  @blur="finishCustomFieldEdit(scope.row, key)"
-                  @keyup.enter="finishCustomFieldEdit(scope.row, key)"
-                  @keyup.esc="cancelCustomFieldEdit(scope.row, key)"
-                  @click.stop @dblclick.stop v-focus />
+                  @blur="finishCustomFieldEdit(scope.row, key)" @keyup.enter="finishCustomFieldEdit(scope.row, key)"
+                  @keyup.esc="cancelCustomFieldEdit(scope.row, key)" @click.stop @dblclick.stop v-focus />
                 <span v-else :class="['custom-field-text', { 'is-empty': !scope.row.customFields?.[key] }]"
                   @click="startCustomFieldEdit(scope.row, key, scope.row.customFields?.[key])">
                   {{ scope.row.customFields?.[key] || '添加内容...' }}
@@ -286,14 +275,9 @@
 
         <!-- 矩阵表格底部分页条 -->
         <div class="pagination-wrapper" style="margin-top: 15px;">
-          <el-pagination
-            v-model:current-page="taskCurrentPage"
-            v-model:page-size="taskPageSize"
-            :page-sizes="[5, 10, 20, 50]"
-            layout="total, sizes, prev, pager, next, jumper"
-            :total="getFilteredTasks(activeStage.id).length"
-            @size-change="taskCurrentPage = 1"
-          />
+          <el-pagination v-model:current-page="taskCurrentPage" v-model:page-size="taskPageSize"
+            :page-sizes="[5, 10, 20, 50]" layout="total, sizes, prev, pager, next, jumper"
+            :total="getFilteredTasks(activeStage.id).length" @size-change="taskCurrentPage = 1" />
         </div>
       </div>
     </el-dialog>
@@ -378,8 +362,9 @@ const stageDialogVisible = ref(false)
 const stageDateRange = ref([])
 const stageForm = ref({ title: '', startDate: null, endDate: null })
 
-// 核心：阶段名称行内原地编辑标识
+// 阶段名称原地即时改名与排期编辑标识
 const editingStageId = ref(null)
+const editingStageDateId = ref(null)
 
 // 局部独立编辑态标识
 const editingTitleTaskId = ref(null)
@@ -409,13 +394,13 @@ const cancelStageTitleEdit = (stage) => {
 const finishStageTitleEdit = async (stage) => {
   editingStageId.value = null
   const newTitle = stage.title ? stage.title.trim() : ''
-  
+
   if (!newTitle) {
     stage.title = originalValCache.value
     ElMessage.warning('阶段名称不能为空')
     return
   }
-  
+
   if (newTitle === originalValCache.value) {
     return
   }
@@ -426,6 +411,29 @@ const finishStageTitleEdit = async (stage) => {
     ElMessage.success('阶段名称修改成功')
   } catch (error) {
     stage.title = originalValCache.value
+  }
+}
+
+// ----------------- 阶段排期原地即时修改逻辑 -----------------
+const startStageDateEdit = (stage) => {
+  stage.dateRange = (stage.startDate && stage.endDate) ? [stage.startDate, stage.endDate] : []
+  editingStageDateId.value = stage.id
+}
+
+const finishStageDateEdit = async (stage) => {
+  editingStageDateId.value = null
+  if (stage.dateRange && stage.dateRange.length === 2) {
+    stage.startDate = stage.dateRange[0]
+    stage.endDate = stage.dateRange[1]
+  } else {
+    stage.startDate = null
+    stage.endDate = null
+  }
+  try {
+    await updateStageApi(stage.id, stage)
+    ElMessage.success('阶段排期修改成功')
+  } catch (error) {
+    ElMessage.error('更新阶段排期失败')
   }
 }
 
@@ -512,7 +520,7 @@ const promptAddColumn = (stageId) => {
   }).then(({ value }) => {
     const newKey = value.trim()
     const existingKeys = getStageColumns(stageId)
-    
+
     if (existingKeys.includes(newKey)) {
       ElMessage.warning(`列名「${newKey}」已存在，请勿重复添加`)
       return
@@ -523,7 +531,7 @@ const promptAddColumn = (stageId) => {
     }
     stageCustomColumns.value[stageId].push(newKey)
     ElMessage.success(`已成功追加扩展列「${newKey}」`)
-  }).catch(() => {})
+  }).catch(() => { })
 }
 
 const handleDeleteColumn = (key, stageId) => {
@@ -569,12 +577,12 @@ const handleDeleteColumn = (key, stageId) => {
         endDate: node.endDate,
         customFields: node.customFields
       }
-      await updateSubTaskApi(node.id, updatePayload).catch(() => {})
+      await updateSubTaskApi(node.id, updatePayload).catch(() => { })
     }
 
     detectedColumnKeys.value[stageId] = scanCustomColumns(tasks)
     ElMessage.success(`扩展列「${key}」已成功删除`)
-  }).catch(() => {})
+  }).catch(() => { })
 }
 
 const arrayToTree = (list) => {
@@ -772,6 +780,11 @@ const switchRequirement = async (req) => {
 const loadStages = async (reqId) => {
   try {
     const stageList = await getStagesApi(reqId)
+    if (stageList && Array.isArray(stageList)) {
+      stageList.forEach(s => {
+        s.dateRange = (s.startDate && s.endDate) ? [s.startDate, s.endDate] : []
+      })
+    }
     stages.value = stageList
 
     if (stageList.length > 0) {
@@ -1194,9 +1207,33 @@ onMounted(async () => {
   opacity: 1;
 }
 
+.stage-item-dates-wrapper {
+  display: inline-flex;
+  align-items: center;
+}
+
 .stage-item-dates {
   font-size: 11px;
   color: rgba(55, 53, 47, 0.5);
+}
+
+.clickable-date {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.clickable-date:hover {
+  background-color: rgba(35, 131, 226, 0.08);
+  color: var(--el-color-primary) !important;
+}
+
+.clickable-date:hover .edit-hint-icon {
+  opacity: 1;
 }
 
 .stage-item-status {
@@ -1262,7 +1299,6 @@ onMounted(async () => {
 .block-stage-dates {
   font-size: 11px;
   color: rgba(55, 53, 47, 0.5);
-  margin-left: 12px;
 }
 
 .stage-title-left {
