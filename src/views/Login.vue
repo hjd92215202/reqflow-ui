@@ -7,6 +7,10 @@
         <span class="brand-title">ReqFlow</span>
       </div>
       <div class="titlebar-controls" @mousedown.stop>
+        <!-- 顶部快捷服务器设置按钮 -->
+        <button class="control-btn" @click.stop="openServerConfigDialog" title="服务器设置">
+          <el-icon :size="13"><Setting /></el-icon>
+        </button>
         <button class="control-btn" @click.stop="minimizeWindow" title="最小化">
           <svg width="10" height="10" viewBox="0 0 10 10">
             <path fill="currentColor" d="M1 5h8v1H1z" />
@@ -20,18 +24,15 @@
       </div>
     </div>
 
-    <!-- 登录卡片 (@mousedown.stop 阻止冒泡，避免在卡片内打字和点输入框时触发拖拽) -->
+    <!-- 登录卡片 -->
     <el-card class="login-card" @mousedown.stop>
       <h2 class="title">ReqFlow</h2>
       <p class="subtitle">私有化部署 · 工作需求事项记录系统</p>
       
       <el-tabs v-model="activeTab" stretch>
-        <!-- 登录面板 -->
+        <!-- 登录面板 (仅需输入用户名和密码) -->
         <el-tab-pane label="账密登录" name="login">
           <el-form :model="loginForm" label-position="top">
-            <el-form-item label="服务器地址 (Server URL)">
-              <el-input v-model="loginForm.serverUrl" placeholder="例如: http://192.168.1.100:8080" />
-            </el-form-item>
             <el-form-item label="用户名">
               <el-input v-model="loginForm.username" placeholder="请输入用户名" />
             </el-form-item>
@@ -39,7 +40,7 @@
               <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" show-password @keyup.enter="handleLogin" />
             </el-form-item>
             <el-form-item style="margin-top: 25px;">
-              <el-button type="primary" :loading="loading" @click="handleLogin" style="width: 100%;">连 接 并 登 录</el-button>
+              <el-button type="primary" :loading="loading" @click="handleLogin" style="width: 100%;">登 录</el-button>
             </el-form-item>
           </el-form>
         </el-tab-pane>
@@ -47,9 +48,6 @@
         <!-- 注册面板 -->
         <el-tab-pane label="注册账户" name="register">
           <el-form :model="registerForm" label-position="top">
-            <el-form-item label="服务器地址 (Server URL)">
-              <el-input v-model="registerForm.serverUrl" placeholder="例如: http://192.168.1.100:8080" />
-            </el-form-item>
             <el-form-item label="用户名">
               <el-input v-model="registerForm.username" placeholder="创建系统用户名" />
             </el-form-item>
@@ -65,16 +63,54 @@
           </el-form>
         </el-tab-pane>
       </el-tabs>
+
+      <!-- 底部服务器状态与快捷修改栏 -->
+      <div class="server-status-bar" @click="openServerConfigDialog">
+        <span :class="['server-status-dot', { connected: Boolean(userStore.serverUrl) }]"></span>
+        <span class="server-status-text">
+          {{ userStore.serverUrl ? `服务地址: ${userStore.serverUrl}` : '未配置后端地址 (点击设置)' }}
+        </span>
+        <el-icon class="server-edit-icon"><Setting /></el-icon>
+      </div>
     </el-card>
+
+    <!-- 服务器地址配置独立弹窗 -->
+    <el-dialog
+      v-model="serverConfigVisible"
+      title="⚙️ 服务器连接设置"
+      width="420px"
+      append-to-body
+      :close-on-click-modal="false"
+      @mousedown.stop
+    >
+      <el-form label-position="top">
+        <el-form-item label="后端服务地址 (Server URL)">
+          <el-input
+            v-model="tempServerUrl"
+            placeholder="例如: http://192.168.1.100:8080 或 http://localhost:8080"
+            clearable
+            @keyup.enter="saveServerConfig"
+          />
+        </el-form-item>
+        <div class="server-dialog-tip">
+          💡 说明：系统会将数据保存在您指定的私有化后端实例中。首次设置保存后，下次启动将自动连接，无需重复输入。
+        </div>
+      </el-form>
+      <template #footer>
+        <el-button @click="serverConfigVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveServerConfig">保存配置</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { loginApi, registerApi } from '@/api/auth'
 import { useUserStore } from '@/store/user'
 import { ElMessage } from 'element-plus'
+import { Setting } from '@element-plus/icons-vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 
 const router = useRouter()
@@ -83,16 +119,28 @@ const userStore = useUserStore()
 const activeTab = ref('login')
 const loading = ref(false)
 
-const loginForm = ref({ serverUrl: '', username: '', password: '' })
-const registerForm = ref({ serverUrl: '', username: '', password: '', nickname: '' })
+// 账密表单
+const loginForm = ref({ username: '', password: '' })
+const registerForm = ref({ username: '', password: '', nickname: '' })
 
-// 页面加载时自动回显历史服务器地址
-onMounted(() => {
-  if (userStore.serverUrl) {
-    loginForm.value.serverUrl = userStore.serverUrl
-    registerForm.value.serverUrl = userStore.serverUrl
+// 服务器配置弹窗状态
+const serverConfigVisible = ref(false)
+const tempServerUrl = ref('')
+
+const openServerConfigDialog = () => {
+  tempServerUrl.value = userStore.serverUrl || ''
+  serverConfigVisible.value = true
+}
+
+const saveServerConfig = () => {
+  if (!tempServerUrl.value.trim()) {
+    ElMessage.warning('服务器地址不能为空')
+    return
   }
-})
+  userStore.setServerUrl(tempServerUrl.value)
+  ElMessage.success('服务器地址已更新')
+  serverConfigVisible.value = false
+}
 
 // ----------------- Tauri 窗口控制与原生拖拽 -----------------
 const startDrag = async (e) => {
@@ -120,12 +168,17 @@ const closeWindow = async () => {
 
 // ----------------- 登录 / 注册业务逻辑 -----------------
 const handleLogin = async () => {
-  if (!loginForm.value.serverUrl || !loginForm.value.username || !loginForm.value.password) {
-    ElMessage.warning('请填写完整的服务器地址、账号和密码')
+  // 检查是否配置了服务器地址
+  if (!userStore.serverUrl) {
+    ElMessage.warning('请先设置服务器连接地址')
+    openServerConfigDialog()
     return
   }
-  
-  userStore.serverUrl = loginForm.value.serverUrl.replace(/\/$/, '')
+
+  if (!loginForm.value.username || !loginForm.value.password) {
+    ElMessage.warning('请填写用户名和密码')
+    return
+  }
   
   loading.value = true
   try {
@@ -135,7 +188,7 @@ const handleLogin = async () => {
     }
     const data = await loginApi(payload)
     userStore.setUserInfo(data.token, data.nickname, userStore.serverUrl)
-    ElMessage.success('连接并登录成功')
+    ElMessage.success('登录成功')
     router.push('/requirements')
   } catch (error) {
   } finally {
@@ -144,12 +197,16 @@ const handleLogin = async () => {
 }
 
 const handleRegister = async () => {
-  if (!registerForm.value.serverUrl || !registerForm.value.username || !registerForm.value.password) {
-    ElMessage.warning('服务器地址、用户名和密码为必填项')
+  if (!userStore.serverUrl) {
+    ElMessage.warning('请先设置服务器连接地址')
+    openServerConfigDialog()
     return
   }
-  
-  userStore.serverUrl = registerForm.value.serverUrl.replace(/\/$/, '')
+
+  if (!registerForm.value.username || !registerForm.value.password) {
+    ElMessage.warning('用户名和密码为必填项')
+    return
+  }
   
   loading.value = true
   try {
@@ -162,7 +219,6 @@ const handleRegister = async () => {
     ElMessage.success('注册成功，请使用新账户登录')
     activeTab.value = 'login'
     loginForm.value.username = registerForm.value.username
-    loginForm.value.serverUrl = registerForm.value.serverUrl
   } catch (error) {
   } finally {
     loading.value = false
@@ -250,6 +306,7 @@ const handleRegister = async () => {
   padding: 15px;
   z-index: 10;
   cursor: default;
+  border-radius: 8px;
 }
 
 .title {
@@ -264,5 +321,55 @@ const handleRegister = async () => {
   margin-bottom: 25px;
   font-size: 13px;
   color: #909399;
+}
+
+/* 底部服务器状态栏 */
+.server-status-bar {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed #e4e7ed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #909399;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.server-status-bar:hover {
+  color: #409EFF;
+}
+
+.server-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #f56c6c;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.server-status-dot.connected {
+  background-color: #67c23a;
+}
+
+.server-status-text {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.server-edit-icon {
+  font-size: 13px;
+}
+
+.server-dialog-tip {
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.6;
+  margin-top: 4px;
 }
 </style>

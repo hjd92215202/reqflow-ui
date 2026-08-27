@@ -56,9 +56,10 @@
               <el-radio-button value="PROJECT">📋 需求待办 ({{ projectTodosCount }})</el-radio-button>
             </el-radio-group>
 
-            <!-- 状态筛选按键 (默认选中：待处理) -->
+            <!-- 状态筛选按键 (默认选中：进行中) -->
             <el-radio-group v-model="activeTab" size="small">
               <el-radio-button value="ALL">全部</el-radio-button>
+              <el-radio-button value="IN_PROGRESS">进行中</el-radio-button>
               <el-radio-button value="PENDING">待处理</el-radio-button>
               <el-radio-button value="COMPLETED">已完成</el-radio-button>
             </el-radio-group>
@@ -69,7 +70,7 @@
               <div
                 v-for="item in paginatedTodos"
                 :key="item.isProjectTask ? `proj-${item.id}` : `pers-${item.id}`"
-                :class="['todo-item-row', { 'is-done': item.status === 'DONE', 'is-project': item.isProjectTask }]"
+                :class="['todo-item-row', { 'is-done': item.status === 'DONE', 'is-progress': item.status === 'IN_PROGRESS', 'is-project': item.isProjectTask }]"
               >
                 <!-- 自定义打勾圆圈 -->
                 <div class="check-box-wrapper" @click="handleToggleStatus(item)">
@@ -81,7 +82,6 @@
                 <!-- 标题与基本信息 -->
                 <div class="todo-content-block" @click="openEditDialog(item)">
                   <span class="todo-title-text">{{ item.title }}</span>
-                  <!-- 详细内容 preview 预览 -->
                   <p v-if="item.description" class="todo-desc-text">{{ item.description }}</p>
                   
                   <div class="todo-meta-tags">
@@ -94,6 +94,11 @@
                       @click.stop="goToMatrix(item)"
                     >
                       📌 关联需求：[{{ item.requirementTitle || '未命名需求' }}] ➔ {{ item.stageTitle || '未命名阶段' }}
+                    </el-tag>
+
+                    <!-- 状态 Tag -->
+                    <el-tag :type="getStatusTagType(item.status)" size="small">
+                      {{ formatStatus(item.status) }}
                     </el-tag>
 
                     <!-- 优先级 Tag -->
@@ -119,7 +124,7 @@
               </div>
             </template>
 
-            <el-empty v-else description="暂无该分类下的待办事项，轻松一下吧！" :image-size="100" />
+            <el-empty v-else description="暂无该分类/状态下的待办事项，轻松一下吧！" :image-size="100" />
           </div>
 
           <!-- 待办中心底部分页组件 -->
@@ -151,6 +156,10 @@
             />
           </div>
           <div class="stats-grid">
+            <div class="stat-cell">
+              <span class="stat-val warning-val">{{ inProgressCount }}</span>
+              <span class="stat-lbl">进行中</span>
+            </div>
             <div class="stat-cell">
               <span class="stat-val">{{ pendingCount }}</span>
               <span class="stat-lbl">待处理</span>
@@ -204,7 +213,7 @@
             <span class="tip-icon">💡</span>
             <span class="tip-title">联动提示</span>
           </div>
-          <p class="tip-body">【需求待办】来自协同矩阵的分配，勾选打勾后矩阵中的任务状态将自动同步为【已完成】。</p>
+          <p class="tip-body">【需求待办】来自协同矩阵分配。新建与重置的待办默认处于【进行中】状态，勾选打勾后将自动同步为【已完成】。</p>
         </div>
       </div>
     </div>
@@ -214,6 +223,13 @@
       <el-form :model="editForm" label-width="80px">
         <el-form-item label="待办标题" required>
           <el-input v-model="editForm.title" placeholder="请输入待办标题..." />
+        </el-form-item>
+        <el-form-item label="待办状态">
+          <el-radio-group v-model="editForm.status">
+            <el-radio-button value="TODO">待处理</el-radio-button>
+            <el-radio-button value="IN_PROGRESS">进行中</el-radio-button>
+            <el-radio-button value="DONE">已完成</el-radio-button>
+          </el-radio-group>
         </el-form-item>
         <el-form-item label="详细内容" v-if="!editForm.isProjectTask">
           <el-input
@@ -264,10 +280,10 @@ const router = useRouter()
 
 const loading = ref(false)
 const allTodos = ref([])
-// 核心优化 1：默认展示【日常待办】
+// 默认展示【日常待办】
 const categoryType = ref('PERSONAL') // ALL, PERSONAL, PROJECT
-// 核心优化 2：默认展示【待处理】事项
-const activeTab = ref('PENDING')      // ALL, PENDING, COMPLETED
+// 默认展示【进行中】事项
+const activeTab = ref('IN_PROGRESS') // ALL, IN_PROGRESS, PENDING, COMPLETED
 
 // 新建输入框绑定
 const newTodoTitle = ref('')
@@ -291,7 +307,7 @@ const editForm = ref({
   description: '',
   priority: 'MEDIUM',
   dueDate: null,
-  status: 'TODO',
+  status: 'IN_PROGRESS',
   isProjectTask: false
 })
 
@@ -306,6 +322,7 @@ const personalTodosCount = computed(() => allTodos.value.filter(t => !t.isProjec
 const projectTodosCount = computed(() => allTodos.value.filter(t => t.isProjectTask).length)
 
 const pendingCount = computed(() => allTodos.value.filter(t => t.status === 'TODO').length)
+const inProgressCount = computed(() => allTodos.value.filter(t => t.status === 'IN_PROGRESS').length)
 const completedCount = computed(() => allTodos.value.filter(t => t.status === 'DONE').length)
 const completionPercent = computed(() => {
   const total = allTodos.value.length
@@ -324,6 +341,9 @@ const filteredTodos = computed(() => {
   }
 
   // 2. 状态过滤
+  if (activeTab.value === 'IN_PROGRESS') {
+    return list.filter(t => t.status === 'IN_PROGRESS')
+  }
   if (activeTab.value === 'PENDING') {
     return list.filter(t => t.status === 'TODO')
   }
@@ -351,7 +371,7 @@ const loadTodos = async () => {
   }
 }
 
-// 新建个人日常待办
+// 新建个人日常待办 (默认写入 IN_PROGRESS 进行中)
 const handleCreateTodo = async () => {
   if (!newTodoTitle.value.trim()) {
     ElMessage.warning('请输入待办事项内容')
@@ -361,19 +381,21 @@ const handleCreateTodo = async () => {
     await createTodoApi({
       title: newTodoTitle.value.trim(),
       priority: newTodoPriority.value,
-      dueDate: newTodoDueDate.value
+      dueDate: newTodoDueDate.value,
+      status: 'IN_PROGRESS'
     })
-    ElMessage.success('日常待办添加成功')
+    ElMessage.success('待办已加入「进行中」')
     newTodoTitle.value = ''
     newTodoDueDate.value = null
-    todoCurrentPage.value = 1 // 新建成功后跳转回首页展示
+    todoCurrentPage.value = 1 // 跳转回首页展示
     await loadTodos()
   } catch (error) { }
 }
 
-// 快捷打勾/取消打勾
+// 快捷打勾/取消打勾 (取消打勾自动恢复为 IN_PROGRESS 进行中)
 const handleToggleStatus = async (item) => {
-  item.status = item.status === 'DONE' ? 'TODO' : 'DONE'
+  const newStatus = item.status === 'DONE' ? 'IN_PROGRESS' : 'DONE'
+  item.status = newStatus
   try {
     await toggleTodoApi(item.id, item.isProjectTask)
   } catch (error) {
@@ -385,6 +407,7 @@ const handleToggleStatus = async (item) => {
 const openEditDialog = (item) => {
   editForm.value = {
     ...item,
+    status: item.status || 'IN_PROGRESS',
     description: item.description || ''
   }
   editDialogVisible.value = true
@@ -444,6 +467,18 @@ const formatPriority = (p) => {
   if (p === 'HIGH') return '高优'
   if (p === 'MEDIUM') return '中优'
   return '低优'
+}
+
+const getStatusTagType = (s) => {
+  if (s === 'DONE') return 'success'
+  if (s === 'IN_PROGRESS') return 'warning'
+  return 'info'
+}
+
+const formatStatus = (s) => {
+  if (s === 'DONE') return '已完成'
+  if (s === 'IN_PROGRESS') return '进行中'
+  return '待处理'
 }
 
 onMounted(() => {
@@ -703,8 +738,8 @@ onMounted(() => {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
   border-top: 1px solid rgba(55, 53, 47, 0.08);
   padding-top: 12px;
 }
@@ -716,9 +751,13 @@ onMounted(() => {
 }
 
 .stat-val {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: #37352f;
+}
+
+.warning-val {
+  color: #e6a23c;
 }
 
 .success-val {
@@ -729,6 +768,7 @@ onMounted(() => {
   font-size: 11px;
   color: #8c8c8c;
   margin-top: 2px;
+  white-space: nowrap;
 }
 
 .distribution-list {
