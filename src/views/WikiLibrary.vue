@@ -116,6 +116,8 @@
             <el-radio-button value="preview">📖 预览</el-radio-button>
           </el-radio-group>
 
+          <!-- 🔗 生成只读分享链接 -->
+          <el-button type="primary" plain size="default" @click="openShareModal">🔗 分享文档</el-button>
           <el-button type="success" size="default" :loading="saving" @click="handleSaveDoc">💾 保存文档</el-button>
           <el-button type="danger" link size="small" @click="handleDeleteDoc">删除文章</el-button>
         </div>
@@ -198,17 +200,31 @@
     <div class="empty-main-state" v-else>
       <el-empty description="选择左侧文档进行阅读与编辑，或点击 [+ 新建文档] 开始沉淀" :image-size="120" />
     </div>
+
+    <!-- 5. 只读分享链接弹窗 -->
+    <el-dialog v-model="shareModalVisible" title="🔗 生成只读分享链接" width="480px" append-to-body>
+      <p style="font-size: 13px; color: #606266; margin-top: 0;">
+        复制此链接后发送给他人，对方无需登录系统即可在浏览器中只读查看此文档。
+      </p>
+      <el-input v-model="generatedShareUrl" readonly size="default">
+        <template #append>
+          <el-button @click="copyShareUrl" type="primary">复制链接</el-button>
+        </template>
+      </el-input>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useUserStore } from '@/store/user'
 import { getWikiListApi, createWikiApi, updateWikiApi, deleteWikiApi } from '@/api/wiki'
 import { getRequirementsListApi } from '@/api/requirement'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
+const userStore = useUserStore()
 
 const loading = ref(false)
 const saving = ref(false)
@@ -228,6 +244,10 @@ const viewMode = ref('split')
 const isSidebarCollapsed = ref(false)
 const isReqCategoryCollapsed = ref(false)
 const isDocListCollapsed = ref(false)
+
+// 只读分享弹窗与生成链接
+const shareModalVisible = ref(false)
+const generatedShareUrl = ref('')
 
 // 过滤计算属性
 const filteredDocs = computed(() => {
@@ -331,6 +351,22 @@ const parseMarkdownToHtml = (rawText) => {
 const renderedMarkdown = computed(() => {
   return parseMarkdownToHtml(currentDoc.value?.content || '')
 })
+
+// ----------------- 分享链接生成 -----------------
+const openShareModal = () => {
+  if (!currentDoc.value?.id) return
+  const serverUrl = userStore.serverUrl || ''
+  const baseUrl = window.location.origin + window.location.pathname
+  generatedShareUrl.value = `${baseUrl}#/share/wiki/${currentDoc.value.id}${serverUrl ? `?serverUrl=${encodeURIComponent(serverUrl)}` : ''}`
+  shareModalVisible.value = true
+}
+
+const copyShareUrl = () => {
+  navigator.clipboard.writeText(generatedShareUrl.value).then(() => {
+    ElMessage.success('只读分享链接已复制到剪贴板！')
+    shareModalVisible.value = false
+  })
+}
 
 // ----------------- 快捷 Markdown 语法插入 -----------------
 const insertMarkdown = (prefix, suffix, placeholder = '') => {
