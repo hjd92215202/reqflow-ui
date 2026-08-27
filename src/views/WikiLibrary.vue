@@ -355,9 +355,20 @@ const renderedMarkdown = computed(() => {
 // ----------------- 分享链接生成 -----------------
 const openShareModal = () => {
   if (!currentDoc.value?.id) return
-  const serverUrl = userStore.serverUrl || ''
-  const baseUrl = window.location.origin + window.location.pathname
-  generatedShareUrl.value = `${baseUrl}#/share/wiki/${currentDoc.value.id}${serverUrl ? `?serverUrl=${encodeURIComponent(serverUrl)}` : ''}`
+  const serverUrl = userStore.serverUrl || 'http://localhost:8080'
+  
+  // 判断当前运行环境：如果是桌面客户端 (tauri.localhost / asset)，直接生成后端直链
+  const isDesktop = window.location.hostname === 'tauri.localhost' || window.location.protocol === 'tauri:'
+  
+  if (isDesktop) {
+    // 桌面端分享：生成直达后端服务器的极速只读页面链接，任何电脑和手机均可访问
+    generatedShareUrl.value = `${serverUrl.replace(/\/$/, '')}/share/wiki/${currentDoc.value.id}`
+  } else {
+    // Web 浏览器环境：生成前端单页路由链接
+    const baseUrl = window.location.origin + window.location.pathname
+    generatedShareUrl.value = `${baseUrl}#/share/wiki/${currentDoc.value.id}?serverUrl=${encodeURIComponent(serverUrl)}`
+  }
+  
   shareModalVisible.value = true
 }
 
