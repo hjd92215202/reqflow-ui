@@ -1,14 +1,14 @@
 <template>
   <div class="app-root">
-    <!-- 顶部极简 Notion/VSCode 风格自定义标题栏 -->
-    <div class="custom-titlebar" data-tauri-drag-region @mousedown="startDrag">
-      <div class="titlebar-brand" data-tauri-drag-region @mousedown="startDrag">
+    <!-- 顶部极简 Notion/VSCode 风格自定义标题栏 (由 handleTitlebarMouseDown 统一分发拖拽与双击最大化) -->
+    <div class="custom-titlebar" @mousedown="handleTitlebarMouseDown">
+      <div class="titlebar-brand">
         <span class="brand-logo">🌊</span>
         <span class="brand-title">ReqFlow</span>
       </div>
 
-      <!-- 中间无缝拖拽区域 -->
-      <div class="titlebar-drag-space" data-tauri-drag-region @mousedown="startDrag"></div>
+      <!-- 中间无缝拖拽与双击区域 -->
+      <div class="titlebar-drag-space"></div>
 
       <!-- 右侧自定义控制按键 (@mousedown.stop 阻止冒泡避免误触发拖拽) -->
       <div class="titlebar-controls" @mousedown.stop>
@@ -101,7 +101,7 @@
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
-import { Menu, Checked, Finished, SwitchButton, Expand, Fold, Notebook  } from '@element-plus/icons-vue'
+import { Menu, Checked, Finished, SwitchButton, Expand, Fold, Notebook } from '@element-plus/icons-vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 
 const router = useRouter()
@@ -123,15 +123,33 @@ const logout = () => {
   router.push('/login')
 }
 
-// ----------------- Tauri 2.0 窗口控制与原生拖拽 -----------------
-const startDrag = async (e) => {
-  if (e.button === 0) { // 仅鼠标左键点击时触发窗口原生拖动
-    try {
-      const appWindow = getCurrentWindow()
+// ----------------- 核心修复：精准分发双击最大化与单击拖拽 -----------------
+let lastClickTime = 0
+
+const handleTitlebarMouseDown = async (e) => {
+  // 仅响应鼠标左键，且忽略右侧控制按键区域
+  if (e.button !== 0) return
+  if (e.target.closest('.titlebar-controls, button, input, select, textarea')) {
+    return
+  }
+
+  const now = Date.now()
+  // 双击判定：浏览器连击数 e.detail === 2 或两次点击间隔小于 350ms
+  const isDoubleClick = e.detail === 2 || (now - lastClickTime < 350)
+  lastClickTime = now
+
+  try {
+    const appWindow = getCurrentWindow()
+    if (isDoubleClick) {
+      // 捕获双击：直接执行窗口最大化/还原，不再向下触发系统拖拽
+      lastClickTime = 0
+      await appWindow.toggleMaximize()
+    } else {
+      // 单击：正常启动窗口原生拖拽
       await appWindow.startDragging()
-    } catch (err) {
-      // 浏览器环境静默忽略
     }
+  } catch (err) {
+    // 浏览器环境静默忽略
   }
 }
 
