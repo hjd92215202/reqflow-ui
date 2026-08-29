@@ -219,7 +219,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
-import { getWikiListApi, createWikiApi, updateWikiApi, deleteWikiApi } from '@/api/wiki'
+import { getWikiListApi, createWikiApi, updateWikiApi, deleteWikiApi, getDocShareTokenApi } from '@/api/wiki'
 import { getRequirementsListApi } from '@/api/requirement'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -353,20 +353,26 @@ const renderedMarkdown = computed(() => {
 })
 
 // ----------------- 分享链接生成 -----------------
-const openShareModal = () => {
+const openShareModal = async () => {
   if (!currentDoc.value?.id) return
   const serverUrl = userStore.serverUrl || 'http://localhost:8080'
   
-  // 彻底精简：直接生成干净纯粹的服务端直链，不再携带任何 ?serverUrl 参数
-  // 生成效果例如: http://101.35.55.189:8090/share/wiki/3
-  generatedShareUrl.value = `${serverUrl.replace(/\/$/, '')}/share/wiki/${currentDoc.value.id}`
-  
-  shareModalVisible.value = true
+  try {
+    // 动态向后端申请安全随机 Token (如: a7f8e3b248df4a61)
+    const res = await getDocShareTokenApi(currentDoc.value.id)
+    const token = res.shareToken || res
+    
+    // 生成基于不可猜解 Token 的安全链接
+    generatedShareUrl.value = `${serverUrl.replace(/\/$/, '')}/share/wiki/${token}`
+    shareModalVisible.value = true
+  } catch (error) {
+    ElMessage.error('获取分享链接失败')
+  }
 }
 
 const copyShareUrl = () => {
   navigator.clipboard.writeText(generatedShareUrl.value).then(() => {
-    ElMessage.success('只读分享链接已复制到剪贴板！')
+    ElMessage.success('安全分享链接已复制到剪贴板！')
     shareModalVisible.value = false
   })
 }

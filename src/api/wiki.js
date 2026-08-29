@@ -1,11 +1,16 @@
 import request from './request'
 import axios from 'axios'
 
-// 免鉴权只读公开分享请求 (支持动态传入私有化后端 BaseURL)
-export function getSharedWikiDetailApi(id, customBaseUrl) {
+// 1. 向后端申请/获取文档专属的安全随机 Share Token (需要当前用户鉴权)
+export function getDocShareTokenApi(id) {
+  return request.post(`/api/wikis/${id}/share-token`)
+}
+
+// 2. 免鉴权只读公开分享请求 (根据安全随机 Token 查找)
+export function getSharedWikiDetailApi(token, customBaseUrl) {
   const url = customBaseUrl 
-    ? `${customBaseUrl.replace(/\/$/, '')}/api/wikis/share/${id}`
-    : `/api/wikis/share/${id}`
+    ? `${customBaseUrl.replace(/\/$/, '')}/api/wikis/share/${token}`
+    : `/api/wikis/share/${token}`
   return axios.get(url).then(res => res.data)
 }
 
