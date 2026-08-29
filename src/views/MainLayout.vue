@@ -3,7 +3,8 @@
     <!-- 顶部极简 Notion/VSCode 风格自定义标题栏 (由 handleTitlebarMouseDown 统一分发拖拽与双击最大化) -->
     <div class="custom-titlebar" @mousedown="handleTitlebarMouseDown">
       <div class="titlebar-brand">
-        <span class="brand-logo">🌊</span>
+        <!-- 替换为高清 Logo -->
+        <img src="@/assets/logo.png" class="brand-logo" alt="ReqFlow Logo" />
         <span class="brand-title">ReqFlow</span>
       </div>
 
@@ -202,14 +203,17 @@ const closeWindow = async () => {
 .titlebar-brand {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 12px;
   font-weight: 600;
   color: #37352f;
 }
 
 .brand-logo {
-  font-size: 14px;
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  border-radius: 3px;
 }
 
 .brand-title {

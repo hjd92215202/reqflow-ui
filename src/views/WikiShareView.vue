@@ -3,7 +3,8 @@
     <!-- 顶部极简只读状态栏 (吸顶固定) -->
     <header class="share-header">
       <div class="share-brand">
-        <span class="brand-logo">🌊</span>
+        <!-- 替换为高清 Logo -->
+        <img src="@/assets/logo.png" class="brand-logo" alt="ReqFlow Logo" />
         <span class="brand-name">ReqFlow Wiki</span>
         <el-tag size="small" type="info" effect="plain" class="readonly-badge">📖 只读分享模式</el-tag>
       </div>
@@ -19,7 +20,7 @@
           <!-- 标题与 Meta 信息 -->
           <div class="article-header">
             <h1 class="article-title">{{ doc.title || '未命名文档' }}</h1>
-            
+
             <div class="article-meta-row">
               <div class="meta-left">
                 <span class="meta-item">👤 作者: <b>{{ doc.creatorNickname || '管理员' }}</b></span>
@@ -182,7 +183,6 @@ onMounted(() => {
   box-sizing: border-box;
 }
 
-/* 顶部吸顶固定栏 */
 .share-header {
   height: 48px;
   background-color: #ffffff;
@@ -202,7 +202,10 @@ onMounted(() => {
 }
 
 .brand-logo {
-  font-size: 18px;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  border-radius: 4px;
 }
 
 .brand-name {
@@ -216,7 +219,6 @@ onMounted(() => {
   margin-left: 6px;
 }
 
-/* 核心滚动视口容器 */
 .share-scroll-wrapper {
   flex: 1;
   overflow-y: auto;
@@ -226,7 +228,6 @@ onMounted(() => {
   -webkit-overflow-scrolling: touch;
 }
 
-/* 正文白底卡片 */
 .share-main-body {
   max-width: 880px;
   margin: 0 auto;
@@ -266,7 +267,6 @@ onMounted(() => {
   gap: 8px;
 }
 
-/* Markdown 富文本样式 */
 :deep(.markdown-preview-body) {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   color: #37352f;
@@ -364,7 +364,8 @@ onMounted(() => {
   color: #2383e2;
 }
 
-:deep(.ul-item), :deep(.ol-item) {
+:deep(.ul-item),
+:deep(.ol-item) {
   margin: 6px 0;
 }
 
@@ -375,7 +376,8 @@ onMounted(() => {
   font-size: 13.5px;
 }
 
-:deep(.markdown-table th), :deep(.markdown-table td) {
+:deep(.markdown-table th),
+:deep(.markdown-table td) {
   border: 1px solid #dcdfe6;
   padding: 10px 14px;
   text-align: left;
@@ -399,17 +401,19 @@ onMounted(() => {
   height: 12px;
 }
 
-/* 移动端/窄屏自适应 */
 @media (max-width: 768px) {
   .share-scroll-wrapper {
     padding: 16px 8px 60px 8px;
   }
+
   .share-main-body {
     padding: 24px 16px;
   }
+
   .article-title {
     font-size: 22px;
   }
+
   .share-header {
     padding: 0 12px;
   }

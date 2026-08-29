@@ -1,9 +1,10 @@
 <template>
-  <div class="login-container" data-tauri-drag-region @mousedown="startDrag">
+  <!-- 整个登录容器背景均支持拖拽与双击最大化 -->
+  <div class="login-container" @mousedown="handleTitlebarMouseDown">
     <!-- 顶部登录页极简控制栏 -->
-    <div class="login-titlebar" data-tauri-drag-region @mousedown="startDrag">
-      <div class="titlebar-brand" data-tauri-drag-region @mousedown="startDrag">
-        <span class="brand-logo">🌊</span>
+    <div class="login-titlebar">
+      <div class="titlebar-brand">
+        <img src="@/assets/logo.png" class="brand-logo" alt="ReqFlow Logo" />
         <span class="brand-title">ReqFlow</span>
       </div>
       <div class="titlebar-controls" @mousedown.stop>
@@ -16,6 +17,12 @@
             <path fill="currentColor" d="M1 5h8v1H1z" />
           </svg>
         </button>
+        <!-- 最大化 / 还原按键 -->
+        <button class="control-btn" @click.stop="toggleMaximizeWindow" title="最大化 / 还原">
+          <svg width="10" height="10" viewBox="0 0 10 10">
+            <path fill="none" stroke="currentColor" stroke-width="1" d="M1.5 1.5h7v7h-7z" />
+          </svg>
+        </button>
         <button class="control-btn close-btn" @click.stop="closeWindow" title="关闭">
           <svg width="10" height="10" viewBox="0 0 10 10">
             <path fill="currentColor" d="M1.707 1 1 1.707 4.293 5 1 8.293 1.707 9 5 5.707 8.293 9 9 8.293 5.707 5 9 1.707 8.293 1 5 4.293z" />
@@ -24,13 +31,16 @@
       </div>
     </div>
 
-    <!-- 登录卡片 -->
+    <!-- 登录卡片 (@mousedown.stop 阻止冒泡，避免卡片内打字误触窗口拖动) -->
     <el-card class="login-card" @mousedown.stop>
-      <h2 class="title">ReqFlow</h2>
-      <p class="subtitle">私有化部署 · 工作需求事项记录系统</p>
+      <div class="login-header-box">
+        <img src="@/assets/logo.png" class="login-main-logo" alt="ReqFlow" />
+        <h2 class="title">ReqFlow</h2>
+        <p class="subtitle">私有化部署 · 工作需求事项记录系统</p>
+      </div>
       
       <el-tabs v-model="activeTab" stretch>
-        <!-- 登录面板 (仅需输入用户名和密码) -->
+        <!-- 登录面板 -->
         <el-tab-pane label="账密登录" name="login">
           <el-form :model="loginForm" label-position="top">
             <el-form-item label="用户名">
@@ -70,7 +80,6 @@
         <span class="server-status-text">
           {{ userStore.serverUrl ? `服务地址: ${userStore.serverUrl}` : '未配置后端地址 (点击设置)' }}
         </span>
-        <el-icon class="server-edit-icon"><Setting /></el-icon>
       </div>
     </el-card>
 
@@ -142,20 +151,42 @@ const saveServerConfig = () => {
   serverConfigVisible.value = false
 }
 
-// ----------------- Tauri 窗口控制与原生拖拽 -----------------
-const startDrag = async (e) => {
-  if (e.button === 0) { // 仅左键拖拽
-    try {
-      const appWindow = getCurrentWindow()
-      await appWindow.startDragging()
-    } catch (err) {}
+// ----------------- 核心修复：精准分发双击最大化与单击拖拽 -----------------
+let lastClickTime = 0
+
+const handleTitlebarMouseDown = async (e) => {
+  // 仅响应鼠标左键，忽略卡片内部、按钮、输入框
+  if (e.button !== 0) return
+  if (e.target.closest('.login-card, .titlebar-controls, .el-dialog, button, input, select, textarea')) {
+    return
   }
+
+  const now = Date.now()
+  const isDoubleClick = e.detail === 2 || (now - lastClickTime < 350)
+  lastClickTime = now
+
+  try {
+    const appWindow = getCurrentWindow()
+    if (isDoubleClick) {
+      lastClickTime = 0
+      await appWindow.toggleMaximize()
+    } else {
+      await appWindow.startDragging()
+    }
+  } catch (err) {}
 }
 
 const minimizeWindow = async () => {
   try {
     const appWindow = getCurrentWindow()
     await appWindow.minimize()
+  } catch (err) {}
+}
+
+const toggleMaximizeWindow = async () => {
+  try {
+    const appWindow = getCurrentWindow()
+    await appWindow.toggleMaximize()
   } catch (err) {}
 }
 
@@ -168,7 +199,6 @@ const closeWindow = async () => {
 
 // ----------------- 登录 / 注册业务逻辑 -----------------
 const handleLogin = async () => {
-  // 检查是否配置了服务器地址
   if (!userStore.serverUrl) {
     ElMessage.warning('请先设置服务器连接地址')
     openServerConfigDialog()
@@ -257,14 +287,17 @@ const handleRegister = async () => {
 .titlebar-brand {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 12px;
   font-weight: 600;
   color: #37352f;
 }
 
 .brand-logo {
-  font-size: 14px;
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  border-radius: 3px;
 }
 
 .brand-title {
@@ -309,17 +342,33 @@ const handleRegister = async () => {
   border-radius: 8px;
 }
 
+.login-header-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.login-main-logo {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 10px;
+  margin-bottom: 6px;
+}
+
 .title {
   text-align: center;
   margin: 0;
   color: #409EFF;
+  font-size: 20px;
 }
 
 .subtitle {
   text-align: center;
-  margin-top: 5px;
-  margin-bottom: 25px;
-  font-size: 13px;
+  margin-top: 4px;
+  margin-bottom: 16px;
+  font-size: 12.5px;
   color: #909399;
 }
 
