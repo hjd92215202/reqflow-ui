@@ -1,12 +1,12 @@
+<!-- src/views/WikiLibrary.vue -->
 <template>
   <div class="wiki-workspace">
-    <!-- 左侧文档与项目导航树 (支持整体伸缩) -->
+    <!-- 左侧文档与项目导航树 -->
     <div :class="['wiki-sidebar', { 'is-collapsed': isSidebarCollapsed }]">
       <div class="sidebar-header" v-if="!isSidebarCollapsed">
         <span class="sidebar-title">📖 项目 Wiki 库</span>
         <div class="header-btns">
           <el-button type="primary" size="small" @click="handleCreateNewDoc(null)">+ 新建</el-button>
-          <!-- 侧边栏收起按钮 -->
           <el-button link class="collapse-btn" @click="isSidebarCollapsed = true" title="收起侧边栏">
             ◀
           </el-button>
@@ -22,7 +22,6 @@
 
       <!-- 需求空间与文档列表 -->
       <div class="doc-tree-list" v-loading="loading" v-if="!isSidebarCollapsed">
-        <!-- 全部与通用经验目录 -->
         <div
           :class="['tree-node-item', { active: activeReqFilter === null && (!currentDoc || !currentDoc.id) }]"
           @click="selectFilter(null)"
@@ -33,7 +32,7 @@
 
         <el-divider style="margin: 8px 0;" />
 
-        <!-- 1. 关联需求经验库分类树 (支持折叠) -->
+        <!-- 1. 关联需求经验库分类树 -->
         <div class="collapsible-section">
           <div class="category-title clickable-title" @click="isReqCategoryCollapsed = !isReqCategoryCollapsed">
             <span>📌 需求项目经验库</span>
@@ -57,7 +56,7 @@
 
         <el-divider style="margin: 8px 0;" />
 
-        <!-- 2. 当前筛选目录下的文档列表 (支持折叠) -->
+        <!-- 2. 文档列表 -->
         <div class="collapsible-section">
           <div class="category-title clickable-title" @click="isDocListCollapsed = !isDocListCollapsed">
             <span>📄 文章列表 ({{ filteredDocs.length }})</span>
@@ -90,7 +89,6 @@
       <!-- 1. 顶栏操作与模式切换 -->
       <div class="doc-top-bar">
         <div class="top-bar-left">
-          <!-- 侧边栏收起时的快捷展开悬浮按钮 -->
           <el-button
             v-if="isSidebarCollapsed"
             link
@@ -109,14 +107,12 @@
         </div>
 
         <div class="top-bar-actions">
-          <!-- 模式切换控制器 -->
           <el-radio-group v-model="viewMode" size="small" class="view-mode-switch">
             <el-radio-button value="edit">✏️ 编辑</el-radio-button>
             <el-radio-button value="split">🌗 分屏</el-radio-button>
             <el-radio-button value="preview">📖 预览</el-radio-button>
           </el-radio-group>
 
-          <!-- 🔗 生成只读分享链接 -->
           <el-button type="primary" plain size="default" @click="openShareModal">🔗 分享文档</el-button>
           <el-button type="success" size="default" :loading="saving" @click="handleSaveDoc">💾 保存文档</el-button>
           <el-button type="danger" link size="small" @click="handleDeleteDoc">删除文章</el-button>
@@ -146,20 +142,20 @@
           </div>
         </div>
 
-        <!-- 3. Markdown 格式化与模板工具栏 (仅在编辑或分屏模式展示) -->
+        <!-- 3. Markdown 专业工具栏 -->
         <div class="markdown-toolbar-bar" v-if="viewMode !== 'preview'">
           <div class="tool-group">
             <span class="tool-group-label">快捷语法:</span>
             <el-button-group size="small">
-              <el-button @click="insertMarkdown('**', '**', '粗体文字')" title="粗体"><b>B</b></el-button>
-              <el-button @click="insertMarkdown('*', '*', '斜体文字')" title="斜体"><i>I</i></el-button>
-              <el-button @click="insertMarkdown('~~', '~~', '删除文本')" title="删除线"><del>S</del></el-button>
-              <el-button @click="insertMarkdown('### ', '', '小标题')" title="标题">H</el-button>
-              <el-button @click="insertMarkdown('`', '`', 'code')" title="行内代码">&lt;/&gt;</el-button>
+              <el-button @click="editorRef?.wrapSelection('**', '**', '粗体文字')" title="粗体"><b>B</b></el-button>
+              <el-button @click="editorRef?.wrapSelection('*', '*', '斜体文字')" title="斜体"><i>I</i></el-button>
+              <el-button @click="editorRef?.wrapSelection('~~', '~~', '删除文本')" title="删除线"><del>S</del></el-button>
+              <el-button @click="editorRef?.wrapSelection('### ', '', '小标题')" title="标题">H</el-button>
+              <el-button @click="editorRef?.wrapSelection('`', '`', 'code')" title="行内代码">&lt;/&gt;</el-button>
               <el-button @click="insertCodeBlock" title="代码块">代码块</el-button>
-              <el-button @click="insertMarkdown('> ', '', '引用说明...')" title="引用">”</el-button>
-              <el-button @click="insertMarkdown('- [ ] ', '', '待办清单任务')" title="任务待办">☑️</el-button>
-              <el-button @click="insertMarkdown('- ', '', '无序列表项')" title="列表">• 列表</el-button>
+              <el-button @click="editorRef?.wrapSelection('> ', '', '引用说明...')" title="引用">”</el-button>
+              <el-button @click="editorRef?.wrapSelection('- [ ] ', '', '待办清单任务')" title="任务待办">☑️</el-button>
+              <el-button @click="editorRef?.wrapSelection('- ', '', '无序列表项')" title="列表">• 列表</el-button>
               <el-button @click="insertTable" title="表格">📊 表格</el-button>
             </el-button-group>
           </div>
@@ -174,24 +170,24 @@
         </div>
       </div>
 
-      <!-- 4. Markdown 编辑与实时渲染视口 -->
+      <!-- 4. Markdown 编辑器 (CodeMirror 6) 与标准渲染预览视口 -->
       <div :class="['doc-content-workspace', `mode-${viewMode}`]">
-        <!-- 左侧/编辑面板 -->
         <div class="editor-pane" v-show="viewMode === 'edit' || viewMode === 'split'">
-          <textarea
-            ref="textareaRef"
+          <MarkdownEditor
+            ref="editorRef"
             v-model="currentDoc.content"
-            placeholder="在此撰写经验复盘、技术细节、踩坑记录... (支持 Markdown 语法与上方快捷工具)"
-            class="custom-markdown-editor"
-          ></textarea>
+            @scroll-change="handleEditorScroll"
+          />
         </div>
 
-        <!-- 分割标识线 (分屏模式可见) -->
         <div class="split-divider" v-if="viewMode === 'split'"></div>
 
-        <!-- 右侧/预览面板 -->
-        <div class="preview-pane" v-show="viewMode === 'preview' || viewMode === 'split'">
-          <div class="markdown-preview-body" v-html="renderedMarkdown"></div>
+        <div class="preview-pane" ref="previewPaneRef" v-show="viewMode === 'preview' || viewMode === 'split'">
+          <MarkdownPreview
+            :source="currentDoc.content"
+            :editable-task="true"
+            @task-toggle="handleTaskToggle"
+          />
         </div>
       </div>
     </div>
@@ -222,6 +218,8 @@ import { useUserStore } from '@/store/user'
 import { getWikiListApi, createWikiApi, updateWikiApi, deleteWikiApi, getDocShareTokenApi } from '@/api/wiki'
 import { getRequirementsListApi } from '@/api/requirement'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import MarkdownEditor from '@/components/markdown/MarkdownEditor.vue'
+import MarkdownPreview from '@/components/markdown/MarkdownPreview.vue'
 
 const route = useRoute()
 const userStore = useUserStore()
@@ -235,21 +233,18 @@ const activeReqFilter = ref(null)
 const searchKeyword = ref('')
 
 const currentDoc = ref(null)
-const textareaRef = ref(null)
+const editorRef = ref(null)
+const previewPaneRef = ref(null)
 
-// 视图模式: 'edit' | 'split' | 'preview'
 const viewMode = ref('split')
 
-// 侧边栏与分类折叠控制状态
 const isSidebarCollapsed = ref(false)
 const isReqCategoryCollapsed = ref(false)
 const isDocListCollapsed = ref(false)
 
-// 只读分享弹窗与生成链接
 const shareModalVisible = ref(false)
 const generatedShareUrl = ref('')
 
-// 过滤计算属性
 const filteredDocs = computed(() => {
   if (!Array.isArray(allDocs.value)) return []
   let list = allDocs.value
@@ -274,95 +269,42 @@ const getReqDocCount = (reqId) => {
   return allDocs.value.filter(d => d && d.requirementId === reqId).length
 }
 
-// ----------------- 轻量级高性能安全 Markdown 渲染引擎 -----------------
-const parseMarkdownToHtml = (rawText) => {
-  if (!rawText) return '<div class="empty-preview-hint">✍️ 开始输入内容，实时 Markdown 渲染将在此呈现...</div>'
-
-  let text = rawText
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-
-  // 1. 代码块
-  text = text.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
-    return `<div class="code-block-wrapper"><div class="code-block-header">${lang || 'code'}</div><pre class="code-block"><code>${code.trim()}</code></pre></div>`
-  })
-
-  // 2. 行内代码
-  text = text.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
-
-  // 3. 标题
-  text = text.replace(/^###### (.*$)/gim, '<h6>$1</h6>')
-  text = text.replace(/^##### (.*$)/gim, '<h5>$1</h5>')
-  text = text.replace(/^#### (.*$)/gim, '<h4>$1</h4>')
-  text = text.replace(/^### (.*$)/gim, '<h3>$1</h3>')
-  text = text.replace(/^## (.*$)/gim, '<h2>$1</h2>')
-  text = text.replace(/^# (.*$)/gim, '<h1>$1</h1>')
-
-  // 4. 分割线
-  text = text.replace(/^(?:---|\*\*\*|___)\s*$/gim, '<hr class="markdown-hr" />')
-
-  // 5. 待办清单
-  text = text.replace(/^\s*-\s*\[x\]\s+(.*$)/gim, '<div class="task-list-item is-checked"><span class="checkbox-icon">✓</span><span class="task-text">$1</span></div>')
-  text = text.replace(/^\s*-\s*\[\s*\]\s+(.*$)/gim, '<div class="task-list-item"><span class="checkbox-icon">○</span><span class="task-text">$1</span></div>')
-
-  // 6. 引用块
-  text = text.replace(/^\> (.*$)/gim, '<blockquote class="markdown-quote">$1</blockquote>')
-
-  // 7. 列表
-  text = text.replace(/^\s*-\s+(.*$)/gim, '<li class="ul-item">• $1</li>')
-  text = text.replace(/^\s*(\d+)\.\s+(.*$)/gim, '<li class="ol-item"><span class="num">$1.</span> $2</li>')
-
-  // 8. 粗体、斜体、删除线
-  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-  text = text.replace(/~~(.*?)~~/g, '<del>$1</del>')
-  text = text.replace(/\*(.*?)\*/g, '<em>$1</em>')
-
-  // 9. 表格
-  text = text.replace(/((?:\|[^\n]+\|\n?)+)/g, (match) => {
-    const lines = match.trim().split('\n').filter(l => l.trim().length > 0)
-    if (lines.length < 2) return match
-
-    let html = '<table class="markdown-table">'
-    lines.forEach((line, index) => {
-      if (line.includes('---')) return
-      const cols = line.split('|').filter((_, i, arr) => i > 0 && i < arr.length - 1)
-      if (index === 0) {
-        html += '<thead><tr>' + cols.map(c => `<th>${c.trim()}</th>`).join('') + '</tr></thead><tbody>'
-      } else {
-        html += '<tr>' + cols.map(c => `<td>${c.trim()}</td>`).join('') + '</tr>'
-      }
-    })
-    html += '</tbody></table>'
-    return html
-  })
-
-  // 10. 链接与图片
-  text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="markdown-img" />')
-  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="markdown-link">$1 🔗</a>')
-
-  // 11. 换行
-  text = text.replace(/\n\n/g, '<div class="paragraph-gap"></div>')
-  text = text.replace(/\n/g, '<br/>')
-
-  return text
+// 分屏滚动同步
+const handleEditorScroll = (ratio) => {
+  if (viewMode.value !== 'split' || !previewPaneRef.value) return
+  const el = previewPaneRef.value
+  el.scrollTop = ratio * (el.scrollHeight - el.clientHeight)
 }
 
-const renderedMarkdown = computed(() => {
-  return parseMarkdownToHtml(currentDoc.value?.content || '')
-})
+// 预览区交互勾选任务列表时，同步更新源码
+const handleTaskToggle = ({ index, checked }) => {
+  if (!currentDoc.value || !currentDoc.value.content) return
+  const lines = currentDoc.value.content.split('\n')
+  let currentTaskIdx = 0
 
-// ----------------- 分享链接生成 -----------------
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (/^\s*-\s*\[([ xX])\]\s+/.test(line)) {
+      if (currentTaskIdx === index) {
+        lines[i] = checked
+          ? line.replace(/^(\s*-\s*\[)[ xX](\]\s+)/, '$1x$2')
+          : line.replace(/^(\s*-\s*\[)[ xX](\]\s+)/, '$1 $2')
+        break
+      }
+      currentTaskIdx++
+    }
+  }
+  currentDoc.value.content = lines.join('\n')
+}
+
+// 分享弹窗
 const openShareModal = async () => {
   if (!currentDoc.value?.id) return
   const serverUrl = userStore.serverUrl || 'http://localhost:8080'
-  
+
   try {
-    // 动态向后端申请安全随机 Token (如: a7f8e3b248df4a61)
     const res = await getDocShareTokenApi(currentDoc.value.id)
     const token = res.shareToken || res
-    
-    // 生成基于不可猜解 Token 的安全链接
     generatedShareUrl.value = `${serverUrl.replace(/\/$/, '')}/share/wiki/${token}`
     shareModalVisible.value = true
   } catch (error) {
@@ -377,35 +319,17 @@ const copyShareUrl = () => {
   })
 }
 
-// ----------------- 快捷 Markdown 语法插入 -----------------
-const insertMarkdown = (prefix, suffix, placeholder = '') => {
-  const el = textareaRef.value
-  if (!el || !currentDoc.value) return
-
-  const start = el.selectionStart
-  const end = el.selectionEnd
-  const content = currentDoc.value.content || ''
-  const selectedText = content.substring(start, end) || placeholder
-
-  const newText = prefix + selectedText + suffix
-  currentDoc.value.content = content.substring(0, start) + newText + content.substring(end)
-
-  setTimeout(() => {
-    el.focus()
-    el.setSelectionRange(start + prefix.length, start + prefix.length + selectedText.length)
-  }, 0)
-}
-
+// 工具栏辅助插入
 const insertCodeBlock = () => {
-  insertMarkdown('```javascript\n', '\n```', '// 在此输入代码...')
+  editorRef.value?.wrapSelection('```javascript\n', '\n```', '// 在此输入代码...')
 }
 
 const insertTable = () => {
   const tableTemplate = '\n| 模块 / 功能 | 说明 | 负责人 | 状态 |\n|---|---|---|---|\n| 接口联调 | 核心数据拉取 | 张三 | 进行中 |\n'
-  insertMarkdown('', '', tableTemplate)
+  editorRef.value?.insertBlock(tableTemplate)
 }
 
-// ----------------- 数据加载与保存 -----------------
+// 数据加载与保存
 const loadData = async () => {
   loading.value = true
   try {
@@ -572,7 +496,6 @@ onMounted(() => {
   box-sizing: border-box;
 }
 
-/* 侧边栏收起态样式 */
 .wiki-sidebar.is-collapsed {
   width: 0 !important;
   padding: 0 !important;
@@ -621,7 +544,6 @@ onMounted(() => {
   gap: 4px;
 }
 
-/* 分类标题可折叠与箭头旋转 */
 .clickable-title {
   display: flex;
   justify-content: space-between;
@@ -808,7 +730,6 @@ onMounted(() => {
   color: #8c8c8c;
 }
 
-/* Markdown 工具栏 */
 .markdown-toolbar-bar {
   display: flex;
   justify-content: space-between;
@@ -833,7 +754,6 @@ onMounted(() => {
   color: #8c8c8c;
 }
 
-/* 编辑与渲染工作区 */
 .doc-content-workspace {
   flex: 1;
   display: flex;
@@ -850,21 +770,6 @@ onMounted(() => {
   overflow: hidden;
 }
 
-.custom-markdown-editor {
-  width: 100%;
-  height: 100%;
-  padding: 16px;
-  border: none;
-  outline: none;
-  resize: none;
-  font-family: 'Consolas', 'Menlo', 'Monaco', 'Courier New', monospace;
-  font-size: 14px;
-  line-height: 1.7;
-  color: #37352f;
-  background-color: #fafaf9;
-  box-sizing: border-box;
-}
-
 .split-divider {
   width: 1px;
   background-color: rgba(55, 53, 47, 0.1);
@@ -877,147 +782,6 @@ onMounted(() => {
   padding: 20px 24px;
   background-color: #ffffff;
   box-sizing: border-box;
-}
-
-/* Markdown 预览富文本样式 (Notion 风格) */
-:deep(.markdown-preview-body) {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  color: #37352f;
-  line-height: 1.7;
-  font-size: 14.5px;
-}
-
-:deep(.empty-preview-hint) {
-  color: #a8abb2;
-  font-style: italic;
-  font-size: 13px;
-  padding: 40px 0;
-  text-align: center;
-}
-
-:deep(h1) {
-  font-size: 22px;
-  font-weight: 700;
-  margin: 16px 0 10px 0;
-  padding-bottom: 6px;
-  border-bottom: 1px solid #eaecef;
-}
-
-:deep(h2) {
-  font-size: 18px;
-  font-weight: 700;
-  margin: 16px 0 8px 0;
-  color: #2383e2;
-}
-
-:deep(h3) {
-  font-size: 15px;
-  font-weight: 600;
-  margin: 12px 0 6px 0;
-}
-
-:deep(.inline-code) {
-  background-color: #f2f2f1;
-  color: #eb5757;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 13px;
-  font-family: monospace;
-}
-
-:deep(.code-block-wrapper) {
-  background-color: #282c34;
-  border-radius: 6px;
-  margin: 12px 0;
-  overflow: hidden;
-}
-
-:deep(.code-block-header) {
-  background-color: #21252b;
-  color: #abb2bf;
-  font-size: 11px;
-  padding: 4px 12px;
-  text-transform: uppercase;
-  font-family: monospace;
-}
-
-:deep(.code-block) {
-  margin: 0;
-  padding: 14px 16px;
-  color: #abb2bf;
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 13px;
-  line-height: 1.5;
-  overflow-x: auto;
-}
-
-:deep(.markdown-quote) {
-  margin: 10px 0;
-  padding: 6px 14px;
-  border-left: 4px solid #2383e2;
-  background-color: #f7f9fc;
-  color: #606266;
-}
-
-:deep(.task-list-item) {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 4px 0;
-}
-
-:deep(.task-list-item.is-checked) {
-  text-decoration: line-through;
-  color: #909399;
-}
-
-:deep(.checkbox-icon) {
-  font-size: 12px;
-  font-weight: bold;
-  color: #2383e2;
-}
-
-:deep(.ul-item), :deep(.ol-item) {
-  margin: 4px 0;
-  padding-left: 6px;
-}
-
-:deep(.markdown-hr) {
-  border: none;
-  height: 1px;
-  background-color: #e4e7ed;
-  margin: 16px 0;
-}
-
-:deep(.markdown-table) {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 12px 0;
-  font-size: 13px;
-}
-
-:deep(.markdown-table th), :deep(.markdown-table td) {
-  border: 1px solid #dcdfe6;
-  padding: 8px 12px;
-  text-align: left;
-}
-
-:deep(.markdown-table th) {
-  background-color: #f5f7fa;
-  font-weight: 600;
-}
-
-:deep(.markdown-link) {
-  color: #2383e2;
-  text-decoration: none;
-}
-
-:deep(.markdown-link:hover) {
-  text-decoration: underline;
-}
-
-:deep(.paragraph-gap) {
-  height: 10px;
 }
 
 .empty-main-state {

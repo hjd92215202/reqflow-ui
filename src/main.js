@@ -6,6 +6,7 @@ import ElementPlus from 'element-plus'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import 'element-plus/dist/index.css'
 import '@/assets/styles/global.css'
+import '@/styles/markdown-theme.css'
 
 const app = createApp(App)
 

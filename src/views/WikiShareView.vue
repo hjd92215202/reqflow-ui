@@ -1,9 +1,9 @@
+<!-- src/views/WikiShareView.vue -->
 <template>
   <div class="share-page-container">
-    <!-- 顶部极简只读状态栏 (吸顶固定) -->
+    <!-- 顶部极简只读状态栏 -->
     <header class="share-header">
       <div class="share-brand">
-        <!-- 替换为高清 Logo -->
         <img src="@/assets/logo.png" class="brand-logo" alt="ReqFlow Logo" />
         <span class="brand-name">ReqFlow Wiki</span>
         <el-tag size="small" type="info" effect="plain" class="readonly-badge">📖 只读分享模式</el-tag>
@@ -39,8 +39,8 @@
 
           <el-divider style="margin: 16px 0 24px 0;" />
 
-          <!-- Markdown 渲染正文 -->
-          <article class="markdown-preview-body" v-html="renderedMarkdown"></article>
+          <!-- 使用统一 Markdown 渲染组件 -->
+          <MarkdownPreview :source="doc.content || ''" :editable-task="false" />
         </template>
 
         <el-empty v-else-if="!loading" description="该分享文档不存在或已被删除" :image-size="120" />
@@ -50,92 +50,15 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { getSharedWikiDetailApi } from '@/api/wiki'
 import { ElMessage } from 'element-plus'
+import MarkdownPreview from '@/components/markdown/MarkdownPreview.vue'
 
 const route = useRoute()
 const loading = ref(false)
 const doc = ref(null)
-
-// ----------------- 轻量级 Markdown 渲染引擎 -----------------
-const parseMarkdownToHtml = (rawText) => {
-  if (!rawText) return '<div class="empty-hint">（此文档暂无正文内容）</div>'
-
-  let text = rawText
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-
-  // 1. 代码块
-  text = text.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
-    return `<div class="code-block-wrapper"><div class="code-block-header">${lang || 'code'}</div><pre class="code-block"><code>${code.trim()}</code></pre></div>`
-  })
-
-  // 2. 行内代码
-  text = text.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
-
-  // 3. 标题
-  text = text.replace(/^###### (.*$)/gim, '<h6>$1</h6>')
-  text = text.replace(/^##### (.*$)/gim, '<h5>$1</h5>')
-  text = text.replace(/^#### (.*$)/gim, '<h4>$1</h4>')
-  text = text.replace(/^### (.*$)/gim, '<h3>$1</h3>')
-  text = text.replace(/^## (.*$)/gim, '<h2>$1</h2>')
-  text = text.replace(/^# (.*$)/gim, '<h1>$1</h1>')
-
-  // 4. 分割线
-  text = text.replace(/^(?:---|\*\*\*|___)\s*$/gim, '<hr class="markdown-hr" />')
-
-  // 5. 待办清单
-  text = text.replace(/^\s*-\s*\[x\]\s+(.*$)/gim, '<div class="task-list-item is-checked"><span class="checkbox-icon">✓</span><span class="task-text">$1</span></div>')
-  text = text.replace(/^\s*-\s*\[\s*\]\s+(.*$)/gim, '<div class="task-list-item"><span class="checkbox-icon">○</span><span class="task-text">$1</span></div>')
-
-  // 6. 引用块
-  text = text.replace(/^\> (.*$)/gim, '<blockquote class="markdown-quote">$1</blockquote>')
-
-  // 7. 列表
-  text = text.replace(/^\s*-\s+(.*$)/gim, '<li class="ul-item">• $1</li>')
-  text = text.replace(/^\s*(\d+)\.\s+(.*$)/gim, '<li class="ol-item"><span class="num">$1.</span> $2</li>')
-
-  // 8. 粗体、斜体、删除线
-  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-  text = text.replace(/~~(.*?)~~/g, '<del>$1</del>')
-  text = text.replace(/\*(.*?)\*/g, '<em>$1</em>')
-
-  // 9. 表格
-  text = text.replace(/((?:\|[^\n]+\|\n?)+)/g, (match) => {
-    const lines = match.trim().split('\n').filter(l => l.trim().length > 0)
-    if (lines.length < 2) return match
-
-    let html = '<table class="markdown-table">'
-    lines.forEach((line, index) => {
-      if (line.includes('---')) return
-      const cols = line.split('|').filter((_, i, arr) => i > 0 && i < arr.length - 1)
-      if (index === 0) {
-        html += '<thead><tr>' + cols.map(c => `<th>${c.trim()}</th>`).join('') + '</tr></thead><tbody>'
-      } else {
-        html += '<tr>' + cols.map(c => `<td>${c.trim()}</td>`).join('') + '</tr>'
-      }
-    })
-    html += '</tbody></table>'
-    return html
-  })
-
-  // 10. 链接与图片
-  text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="markdown-img" />')
-  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="markdown-link">$1 🔗</a>')
-
-  // 11. 换行
-  text = text.replace(/\n\n/g, '<div class="paragraph-gap"></div>')
-  text = text.replace(/\n/g, '<br/>')
-
-  return text
-}
-
-const renderedMarkdown = computed(() => {
-  return parseMarkdownToHtml(doc.value?.content || '')
-})
 
 const loadSharedDoc = async () => {
   const docId = route.params.id
@@ -171,7 +94,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 整个页面铺满视口，采用 Flex 纵向布局 */
 .share-page-container {
   height: 100vh;
   width: 100vw;
@@ -265,140 +187,6 @@ onMounted(() => {
 .meta-right {
   display: flex;
   gap: 8px;
-}
-
-:deep(.markdown-preview-body) {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  color: #37352f;
-  line-height: 1.8;
-  font-size: 15px;
-  word-break: break-word;
-}
-
-:deep(.empty-hint) {
-  color: #909399;
-  font-style: italic;
-  padding: 40px 0;
-  text-align: center;
-}
-
-:deep(h1) {
-  font-size: 24px;
-  font-weight: 700;
-  margin: 24px 0 12px 0;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #eaecef;
-}
-
-:deep(h2) {
-  font-size: 20px;
-  font-weight: 700;
-  margin: 20px 0 10px 0;
-  color: #2383e2;
-}
-
-:deep(h3) {
-  font-size: 16px;
-  font-weight: 600;
-  margin: 16px 0 8px 0;
-}
-
-:deep(.inline-code) {
-  background-color: #f2f2f1;
-  color: #eb5757;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 13px;
-  font-family: monospace;
-}
-
-:deep(.code-block-wrapper) {
-  background-color: #282c34;
-  border-radius: 6px;
-  margin: 16px 0;
-  overflow: hidden;
-}
-
-:deep(.code-block-header) {
-  background-color: #21252b;
-  color: #abb2bf;
-  font-size: 11px;
-  padding: 4px 12px;
-  text-transform: uppercase;
-  font-family: monospace;
-}
-
-:deep(.code-block) {
-  margin: 0;
-  padding: 16px;
-  color: #abb2bf;
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 13.5px;
-  line-height: 1.6;
-  overflow-x: auto;
-}
-
-:deep(.markdown-quote) {
-  margin: 12px 0;
-  padding: 8px 16px;
-  border-left: 4px solid #2383e2;
-  background-color: #f7f9fc;
-  color: #606266;
-}
-
-:deep(.task-list-item) {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 6px 0;
-}
-
-:deep(.task-list-item.is-checked) {
-  text-decoration: line-through;
-  color: #909399;
-}
-
-:deep(.checkbox-icon) {
-  font-size: 12px;
-  font-weight: bold;
-  color: #2383e2;
-}
-
-:deep(.ul-item),
-:deep(.ol-item) {
-  margin: 6px 0;
-}
-
-:deep(.markdown-table) {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 16px 0;
-  font-size: 13.5px;
-}
-
-:deep(.markdown-table th),
-:deep(.markdown-table td) {
-  border: 1px solid #dcdfe6;
-  padding: 10px 14px;
-  text-align: left;
-}
-
-:deep(.markdown-table th) {
-  background-color: #f5f7fa;
-  font-weight: 600;
-}
-
-:deep(.markdown-link) {
-  color: #2383e2;
-  text-decoration: none;
-}
-
-:deep(.markdown-link:hover) {
-  text-decoration: underline;
-}
-
-:deep(.paragraph-gap) {
-  height: 12px;
 }
 
 @media (max-width: 768px) {
