@@ -4,7 +4,7 @@ import DOMPurify from 'dompurify'
 import GithubSlugger from 'github-slugger'
 import hljs from 'highlight.js/lib/core'
 
-// 注册子集核心语言以控制体积
+// 注册子集核心语言以控制打包体积
 import javascript from 'highlight.js/lib/languages/javascript'
 import typescript from 'highlight.js/lib/languages/typescript'
 import json from 'highlight.js/lib/languages/json'
@@ -62,17 +62,17 @@ export function renderMarkdownToHtml(rawMarkdown, options = {}) {
     breaks: true
   })
 
-  // 自定义 Renderer
+  // 自定义 Renderer（完全适配 marked v12+ ~ v15+ Token 对象规范，移除对 table 的错误拦截）
   const renderer = {
-    heading({ tokens, depth }) {
-      const text = this.parser.parseInline(tokens)
-      // 提取纯文本生成 GitHub 规范 Slug
-      const rawHeadingText = tokens.map(t => t.raw || t.text || '').join('')
+    heading(token) {
+      const text = this.parser.parseInline(token.tokens || [])
+      const rawHeadingText = (token.tokens || []).map(t => t.raw || t.text || '').join('') || token.text || ''
       const id = slugger.slug(rawHeadingText)
-      return `<h${depth} id="${id}">${text}</h${depth}>\n`
+      return `<h${token.depth} id="${id}">${text}</h${token.depth}>\n`
     },
-    code({ text, lang }) {
-      const language = (lang || '').trim().toLowerCase()
+    code(token) {
+      const text = token.text || ''
+      const language = (token.lang || '').trim().toLowerCase()
       let highlighted = ''
       const validLang = language && hljs.getLanguage(language) ? language : 'plaintext'
 
@@ -97,12 +97,9 @@ export function renderMarkdownToHtml(rawMarkdown, options = {}) {
         </div>
       `
     },
-    table(header, body) {
-      return `<div class="table-wrap"><table>${header}${body}</table></div>`
-    },
-    checkbox({ checked }) {
+    checkbox(token) {
       const idx = checkboxCounter++
-      const checkedAttr = checked ? 'checked' : ''
+      const checkedAttr = token.checked ? 'checked' : ''
       const disabledAttr = options.editableTask ? '' : 'disabled'
       return `<input type="checkbox" class="task-list-item-checkbox" data-task-index="${idx}" ${checkedAttr} ${disabledAttr} /> `
     }
@@ -111,7 +108,7 @@ export function renderMarkdownToHtml(rawMarkdown, options = {}) {
   markedInstance.use({ renderer })
   const parsedHtml = markedInstance.parse(rawMarkdown)
 
-  // DOMPurify 安全净化
+  // DOMPurify 白名单过滤与安全净化
   return DOMPurify.sanitize(parsedHtml, {
     ADD_TAGS: ['input'],
     ADD_ATTR: ['target', 'rel', 'align', 'checked', 'disabled', 'data-task-index', 'data-code', 'type'],

@@ -118,22 +118,22 @@
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
-/* 表格包装器（横向自适应滚动） */
-.markdown-body .table-wrap {
-  overflow-x: auto;
-  margin: 16px 0;
-}
-
+/* GFM 表格样式：支持自适应宽度与横向滚动，支持 :---: 对齐 */
 .markdown-body table {
-  width: 100%;
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
   border-collapse: collapse;
-  margin: 0;
+  margin: 16px 0;
 }
 
 .markdown-body table th,
 .markdown-body table td {
-  padding: 8px 13px;
+  padding: 8px 14px;
   border: 1px solid #d0d7de;
+  font-size: 13.5px;
+  line-height: 1.5;
 }
 
 .markdown-body table th {
@@ -143,6 +143,21 @@
 
 .markdown-body table tr:nth-child(2n) {
   background-color: #f6f8fa;
+}
+
+.markdown-body table th[align="center"],
+.markdown-body table td[align="center"] {
+  text-align: center;
+}
+
+.markdown-body table th[align="right"],
+.markdown-body table td[align="right"] {
+  text-align: right;
+}
+
+.markdown-body table th[align="left"],
+.markdown-body table td[align="left"] {
+  text-align: left;
 }
 
 /* 引用块 */
