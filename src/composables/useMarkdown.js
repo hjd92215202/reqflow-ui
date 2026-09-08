@@ -1,5 +1,6 @@
 // src/composables/useMarkdown.js
 import { Marked } from 'marked'
+import markedKatex from 'marked-katex-extension'
 import DOMPurify from 'dompurify'
 import GithubSlugger from 'github-slugger'
 import hljs from 'highlight.js/lib/core'
@@ -44,7 +45,7 @@ hljs.registerLanguage('properties', ini)
 hljs.registerLanguage('ini', ini)
 
 /**
- * 将 Markdown 源码渲染为标准化、安全的高亮 HTML
+ * 将 Markdown 源码渲染为标准化、安全的高亮 HTML（含 LaTeX 数学公式）
  * @param {string} rawMarkdown
  * @param {object} options { editableTask: boolean }
  * @returns {string} Safe HTML
@@ -62,7 +63,15 @@ export function renderMarkdownToHtml(rawMarkdown, options = {}) {
     breaks: true
   })
 
-  // 自定义 Renderer（完全适配 marked v12+ ~ v15+ Token 对象规范，移除对 table 的错误拦截）
+  // 1. 挂载 KaTeX 数学公式解析扩展（支持行内 $...$ 和块级 $$...$$）
+  markedInstance.use(
+    markedKatex({
+      throwOnError: false,
+      nonStandard: true // 开启识别单一 $ 包裹的行内公式
+    })
+  )
+
+  // 2. 自定义 Renderer
   const renderer = {
     heading(token) {
       const text = this.parser.parseInline(token.tokens || [])
@@ -108,10 +117,22 @@ export function renderMarkdownToHtml(rawMarkdown, options = {}) {
   markedInstance.use({ renderer })
   const parsedHtml = markedInstance.parse(rawMarkdown)
 
-  // DOMPurify 白名单过滤与安全净化
+  // 3. DOMPurify 安全白名单（放行 KaTeX 生成的公式 MathML 标签）
   return DOMPurify.sanitize(parsedHtml, {
-    ADD_TAGS: ['input'],
-    ADD_ATTR: ['target', 'rel', 'align', 'checked', 'disabled', 'data-task-index', 'data-code', 'type'],
+    ADD_TAGS: [
+      'input',
+      'math', 'semantics', 'annotation', 'annotation-xml',
+      'mrow', 'mi', 'mn', 'mo', 'ms', 'mspace', 'mtext',
+      'menclose', 'merror', 'mfenced', 'mfrac', 'mpadded',
+      'mphantom', 'mroot', 'mstyle', 'msqrt', 'msub',
+      'msubsup', 'msup', 'mtable', 'mtd', 'mtr', 'munder',
+      'munderover', 'mover'
+    ],
+    ADD_ATTR: [
+      'target', 'rel', 'align', 'checked', 'disabled',
+      'data-task-index', 'data-code', 'type',
+      'aria-hidden', 'xmlns', 'display', 'mathvariant', 'encoding'
+    ],
     FORBID_TAGS: ['style', 'script', 'iframe', 'form'],
     ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i
   })

@@ -25,7 +25,9 @@
     "github-markdown-css": "^5.8.1",
     "github-slugger": "^2.0.0",
     "highlight.js": "^11.11.1",
+    "katex": "^0.18.7",
     "marked": "^15.0.7",
+    "marked-katex-extension": "^5.1.12",
     "pinia": "^2.1.7",
     "vue": "^3.4.15",
     "vue-router": "^4.2.5"
