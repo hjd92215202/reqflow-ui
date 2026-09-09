@@ -58,9 +58,10 @@ export function renderMarkdownToHtml(rawMarkdown, options = {}) {
   const slugger = new GithubSlugger()
   let checkboxCounter = 0
 
+  // F2 修复：breaks 设为 false，与 CommonMark/GitHub 规范和后端渲染保持 100% 一致
   const markedInstance = new Marked({
     gfm: true,
-    breaks: true
+    breaks: false
   })
 
   // 1. 挂载 KaTeX 数学公式解析扩展（支持行内 $...$ 和块级 $$...$$）
