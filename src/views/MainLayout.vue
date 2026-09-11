@@ -13,20 +13,22 @@
 
       <!-- 右侧自定义控制按键 (@mousedown.stop 阻止冒泡避免误触发拖拽) -->
       <div class="titlebar-controls" @mousedown.stop>
-        <button class="control-btn" @click.stop="minimizeWindow" title="最小化">
+        <button class="control-btn" title="最小化" @click.stop="minimizeWindow">
           <svg width="10" height="10" viewBox="0 0 10 10">
             <path fill="currentColor" d="M1 5h8v1H1z" />
           </svg>
         </button>
-        <button class="control-btn" @click.stop="toggleMaximizeWindow" title="最大化 / 还原">
+        <button class="control-btn" title="最大化 / 还原" @click.stop="toggleMaximizeWindow">
           <svg width="10" height="10" viewBox="0 0 10 10">
             <path fill="none" stroke="currentColor" stroke-width="1" d="M1.5 1.5h7v7h-7z" />
           </svg>
         </button>
-        <button class="control-btn close-btn" @click.stop="closeWindow" title="关闭">
+        <button class="control-btn close-btn" title="关闭" @click.stop="closeWindow">
           <svg width="10" height="10" viewBox="0 0 10 10">
-            <path fill="currentColor"
-              d="M1.707 1 1 1.707 4.293 5 1 8.293 1.707 9 5 5.707 8.293 9 9 8.293 5.707 5 9 1.707 8.293 1 5 4.293z" />
+            <path
+              fill="currentColor"
+              d="M1.707 1 1 1.707 4.293 5 1 8.293 1.707 9 5 5.707 8.293 9 9 8.293 5.707 5 9 1.707 8.293 1 5 4.293z"
+            />
           </svg>
         </button>
       </div>
@@ -37,17 +39,28 @@
       <!-- 统一全局左侧侧边栏 -->
       <aside class="sidebar">
         <!-- 悬浮伸缩按钮：绝对定位，不再独占一行 -->
-        <el-button link @click="isCollapsed = !isCollapsed" class="collapse-toggle-btn"
-          :class="{ 'collapsed': isCollapsed }">
+        <el-button
+          link
+          class="collapse-toggle-btn"
+          :class="{ collapsed: isCollapsed }"
+          @click="isCollapsed = !isCollapsed"
+        >
           <el-icon>
             <Expand v-if="isCollapsed" />
             <Fold v-else />
           </el-icon>
         </el-button>
 
-        <el-menu :default-active="activeMenu" class="sidebar-menu" background-color="#fbfbfa" text-color="#5f5e5b"
-          active-text-color="#37352f" :collapse="isCollapsed" :collapse-transition="false" router>
-
+        <el-menu
+          :default-active="activeMenu"
+          class="sidebar-menu"
+          background-color="#fbfbfa"
+          text-color="#5f5e5b"
+          active-text-color="#37352f"
+          :collapse="isCollapsed"
+          :collapse-transition="false"
+          router
+        >
           <el-menu-item index="/todos">
             <el-icon>
               <Finished />
@@ -76,16 +89,16 @@
         </el-menu>
 
         <!-- 统一底部用户信息及退出 (自适应折叠状态) -->
-        <div class="sidebar-user-footer" :class="{ 'collapsed': isCollapsed }">
+        <div class="sidebar-user-footer" :class="{ collapsed: isCollapsed }">
           <div class="user-info-text">
             <span class="user-avatar">👤</span>
             <span v-if="!isCollapsed" class="user-name">{{ userStore.nickname }}</span>
           </div>
-          <el-button type="danger" link size="small" @click="logout" class="logout-btn">
+          <el-button type="danger" link size="small" class="logout-btn" @click="logout">
             <el-icon>
               <SwitchButton />
             </el-icon>
-            <span v-if="!isCollapsed" style="margin-left: 6px;">退出登录</span>
+            <span v-if="!isCollapsed" style="margin-left: 6px">退出登录</span>
           </el-button>
         </div>
       </aside>
@@ -102,7 +115,15 @@
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
-import { Menu, Checked, Finished, SwitchButton, Expand, Fold, Notebook } from '@element-plus/icons-vue'
+import {
+  Menu,
+  Checked,
+  Finished,
+  SwitchButton,
+  Expand,
+  Fold,
+  Notebook
+} from '@element-plus/icons-vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 
 const router = useRouter()
@@ -112,7 +133,7 @@ const userStore = useUserStore()
 const isCollapsed = ref(false) // 全局共享折叠状态
 
 // 动态计算菜单宽度
-const sidebarWidth = computed(() => isCollapsed.value ? '64px' : '240px')
+const sidebarWidth = computed(() => (isCollapsed.value ? '64px' : '240px'))
 
 // 监听当前路由，高亮对应的菜单项
 const activeMenu = computed(() => {
@@ -127,7 +148,7 @@ const logout = () => {
 // ----------------- 核心修复：精准分发双击最大化与单击拖拽 -----------------
 let lastClickTime = 0
 
-const handleTitlebarMouseDown = async (e) => {
+const handleTitlebarMouseDown = async e => {
   // 仅响应鼠标左键，且忽略右侧控制按键区域
   if (e.button !== 0) return
   if (e.target.closest('.titlebar-controls, button, input, select, textarea')) {
@@ -136,7 +157,7 @@ const handleTitlebarMouseDown = async (e) => {
 
   const now = Date.now()
   // 双击判定：浏览器连击数 e.detail === 2 或两次点击间隔小于 350ms
-  const isDoubleClick = e.detail === 2 || (now - lastClickTime < 350)
+  const isDoubleClick = e.detail === 2 || now - lastClickTime < 350
   lastClickTime = now
 
   try {
@@ -158,21 +179,21 @@ const minimizeWindow = async () => {
   try {
     const appWindow = getCurrentWindow()
     await appWindow.minimize()
-  } catch (err) { }
+  } catch (err) {}
 }
 
 const toggleMaximizeWindow = async () => {
   try {
     const appWindow = getCurrentWindow()
     await appWindow.toggleMaximize()
-  } catch (err) { }
+  } catch (err) {}
 }
 
 const closeWindow = async () => {
   try {
     const appWindow = getCurrentWindow()
     await appWindow.close()
-  } catch (err) { }
+  } catch (err) {}
 }
 </script>
 

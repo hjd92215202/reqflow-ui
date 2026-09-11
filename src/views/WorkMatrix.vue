@@ -1,65 +1,119 @@
 <template>
   <div class="workbench-workspace">
     <!-- 1. 主页面：项目/需求全局视图 & 阶段列表总览 (全局掌控) -->
-    <div class="matrix-board" v-if="selectedRequirement">
+    <div v-if="selectedRequirement" class="matrix-board">
       <!-- 1.1 顶栏：项目全局概览 & 需求无缝切换器 -->
       <div class="board-top-info">
         <div>
           <div class="header-title-row">
             <span class="header-req-icon">📋</span>
             <!-- 需求自由切换下拉框 -->
-            <el-select v-model="activeReqId" placeholder="请选择/切换需求项目" size="large" class="header-req-select"
-              @change="handleReqSelectChange">
-              <el-option v-for="req in requirements" :key="req.id" :label="req.title" :value="req.id">
+            <el-select
+              v-model="activeReqId"
+              placeholder="请选择/切换需求项目"
+              size="large"
+              class="header-req-select"
+              @change="handleReqSelectChange"
+            >
+              <el-option
+                v-for="req in requirements"
+                :key="req.id"
+                :label="req.title"
+                :value="req.id"
+              >
                 <div class="req-option-item">
                   <span class="req-option-title">{{ req.title }}</span>
-                  <el-tag :type="getPriorityTag(req.priority)" size="small" style="margin-left: 8px;">
+                  <el-tag
+                    :type="getPriorityTag(req.priority)"
+                    size="small"
+                    style="margin-left: 8px"
+                  >
                     {{ req.priority }}
                   </el-tag>
                 </div>
               </el-option>
             </el-select>
 
-            <el-tag :type="getPriorityTag(selectedRequirement.priority)" size="small" style="margin-left: 12px;">
+            <el-tag
+              :type="getPriorityTag(selectedRequirement.priority)"
+              size="small"
+              style="margin-left: 12px"
+            >
               {{ selectedRequirement.priority }} 优先级
             </el-tag>
           </div>
-          <p class="board-header-desc" v-if="selectedRequirement.description">{{ selectedRequirement.description }}</p>
+          <p v-if="selectedRequirement.description" class="board-header-desc">
+            {{ selectedRequirement.description }}
+          </p>
         </div>
         <div class="top-action-bar">
-          <el-button type="primary" size="default" @click="openCreateStageDialog">➕ 划分新执行阶段</el-button>
+          <el-button type="primary" size="default" @click="openCreateStageDialog"
+            >➕ 划分新执行阶段</el-button
+          >
         </div>
       </div>
 
-      <el-divider style="margin: 18px 0 20px 0;" />
+      <el-divider style="margin: 18px 0 20px 0" />
 
       <!-- 1.2 核心：执行阶段列表总览 (支持原地双击改名 & 原地点击修改排期) -->
-      <div class="stages-list-view" v-if="stages.length > 0">
-        <div v-for="stage in paginatedStages" :key="stage.id" class="stage-list-item"
-          @click="openStageMatrixModal(stage)">
+      <div v-if="stages.length > 0" class="stages-list-view">
+        <div
+          v-for="stage in paginatedStages"
+          :key="stage.id"
+          class="stage-list-item"
+          @click="openStageMatrixModal(stage)"
+        >
           <!-- 阶段名称与排期信息 -->
           <div class="stage-item-left">
             <span class="stage-item-icon">📍</span>
             <div class="stage-item-info" @click.stop>
               <!-- 行内编辑输入框 -->
-              <el-input v-if="editingStageId === stage.id" v-model="stage.title" size="small"
-                class="inline-stage-title-input" @blur="finishStageTitleEdit(stage)"
-                @keyup.enter="finishStageTitleEdit(stage)" @keyup.esc="cancelStageTitleEdit(stage)" v-focus @click.stop
-                @dblclick.stop />
+              <el-input
+                v-if="editingStageId === stage.id"
+                v-model="stage.title"
+                v-focus
+                size="small"
+                class="inline-stage-title-input"
+                @blur="finishStageTitleEdit(stage)"
+                @keyup.enter="finishStageTitleEdit(stage)"
+                @keyup.esc="cancelStageTitleEdit(stage)"
+                @click.stop
+                @dblclick.stop
+              />
               <!-- 静态标题：双击变输入框 -->
-              <span v-else class="stage-item-title" title="双击即可原地修改阶段名称" @dblclick.stop="startStageTitleEdit(stage)">
+              <span
+                v-else
+                class="stage-item-title"
+                title="双击即可原地修改阶段名称"
+                @dblclick.stop="startStageTitleEdit(stage)"
+              >
                 {{ stage.title }} <i class="edit-hint-icon">✏️</i>
               </span>
 
               <!-- 阶段排期：点击弹出日期范围选择器 -->
               <div class="stage-item-dates-wrapper" @click.stop>
-                <el-date-picker v-if="editingStageDateId === stage.id" v-model="stage.dateRange" type="daterange"
-                  range-separator="至" start-placeholder="开始" end-placeholder="截止" size="small" value-format="YYYY-MM-DD"
-                  @change="finishStageDateEdit(stage)" @blur="editingStageDateId = null" style="width: 220px;"
-                  v-focus />
-                <span v-else class="stage-item-dates clickable-date" title="点击修改阶段起止排期"
-                  @click.stop="startStageDateEdit(stage)">
-                  📅 {{ stage.startDate || '未定' }} 至 {{ stage.endDate || '未定' }} <i class="edit-hint-icon">✏️</i>
+                <el-date-picker
+                  v-if="editingStageDateId === stage.id"
+                  v-model="stage.dateRange"
+                  v-focus
+                  type="daterange"
+                  range-separator="至"
+                  start-placeholder="开始"
+                  end-placeholder="截止"
+                  size="small"
+                  value-format="YYYY-MM-DD"
+                  style="width: 220px"
+                  @change="finishStageDateEdit(stage)"
+                  @blur="editingStageDateId = null"
+                />
+                <span
+                  v-else
+                  class="stage-item-dates clickable-date"
+                  title="点击修改阶段起止排期"
+                  @click.stop="startStageDateEdit(stage)"
+                >
+                  📅 {{ stage.startDate || '未定' }} 至 {{ stage.endDate || '未定' }}
+                  <i class="edit-hint-icon">✏️</i>
                 </span>
               </div>
             </div>
@@ -67,7 +121,11 @@
 
           <!-- 阶段状态快速切换 -->
           <div class="stage-item-status" @click.stop>
-            <el-radio-group v-model="stage.status" size="small" @change="handleStageStatusChange(stage)">
+            <el-radio-group
+              v-model="stage.status"
+              size="small"
+              @change="handleStageStatusChange(stage)"
+            >
               <el-radio-button value="TODO">待处理</el-radio-button>
               <el-radio-button value="IN_PROGRESS">进行中</el-radio-button>
               <el-radio-button value="DONE">已完成</el-radio-button>
@@ -77,11 +135,15 @@
           <!-- 拆解任务完成度进度条 -->
           <div class="stage-item-progress">
             <span class="progress-count-text">
-              进度: {{ getStageTaskStats(stage.id).done }} / {{ getStageTaskStats(stage.id).total }} 项
+              进度: {{ getStageTaskStats(stage.id).done }} /
+              {{ getStageTaskStats(stage.id).total }} 项
             </span>
-            <el-progress :percentage="getStageTaskStats(stage.id).percent"
-              :status="getStageTaskStats(stage.id).percent === 100 ? 'success' : ''" :stroke-width="6"
-              style="width: 120px;" />
+            <el-progress
+              :percentage="getStageTaskStats(stage.id).percent"
+              :status="getStageTaskStats(stage.id).percent === 100 ? 'success' : ''"
+              :stroke-width="6"
+              style="width: 120px"
+            />
           </div>
 
           <!-- 操作按键区 -->
@@ -96,78 +158,151 @@
         </div>
 
         <!-- 阶段列表底部分页条 -->
-        <div class="pagination-wrapper" style="margin-top: 15px;">
-          <el-pagination v-model:current-page="stageCurrentPage" v-model:page-size="stagePageSize"
-            :page-sizes="[5, 10, 20]" layout="total, sizes, prev, pager, next, jumper" :total="stages.length" />
+        <div class="pagination-wrapper" style="margin-top: 15px">
+          <el-pagination
+            v-model:current-page="stageCurrentPage"
+            v-model:page-size="stagePageSize"
+            :page-sizes="[5, 10, 20]"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="stages.length"
+          />
         </div>
       </div>
 
-      <el-empty v-else description="暂无执行阶段，点击右上角“划分新执行阶段”开始拆解" :image-size="100" />
+      <el-empty
+        v-else
+        description="暂无执行阶段，点击右上角“划分新执行阶段”开始拆解"
+        :image-size="100"
+      />
     </div>
 
     <!-- 未选择需求或没有需求时的占位 -->
-    <div class="empty-board-state" v-else>
+    <div v-else class="empty-board-state">
       <el-empty description="暂无需求事项，请先在【需求事项管理】中录入需求" :image-size="120" />
     </div>
 
     <!-- 2. 大弹窗：阶段微观协同矩阵 (沉浸式聚焦体验) -->
-    <el-dialog v-model="matrixModalVisible" :title="activeStage ? `📍 协同矩阵 · ${activeStage.title}` : '阶段协同矩阵'"
-      width="92%" top="3vh" destroy-on-close class="matrix-dialog-wrapper">
-      <div v-if="activeStage" class="stage-table-block" style="margin-top: 0;">
+    <el-dialog
+      v-model="matrixModalVisible"
+      :title="activeStage ? `📍 协同矩阵 · ${activeStage.title}` : '阶段协同矩阵'"
+      width="92%"
+      top="3vh"
+      destroy-on-close
+      class="matrix-dialog-wrapper"
+    >
+      <div v-if="activeStage" class="stage-table-block" style="margin-top: 0">
         <div class="stage-block-header">
           <div class="stage-title-left" @click.stop>
             <span class="block-stage-prefix">📍 阶段：</span>
             <!-- 弹窗内行内修改阶段名称 -->
-            <el-input v-if="editingStageId === activeStage.id" v-model="activeStage.title" size="small"
-              style="width: 220px;" @blur="finishStageTitleEdit(activeStage)"
-              @keyup.enter="finishStageTitleEdit(activeStage)" @keyup.esc="cancelStageTitleEdit(activeStage)" v-focus />
-            <span v-else class="block-stage-name" title="双击直接原地重命名" @dblclick.stop="startStageTitleEdit(activeStage)">
+            <el-input
+              v-if="editingStageId === activeStage.id"
+              v-model="activeStage.title"
+              v-focus
+              size="small"
+              style="width: 220px"
+              @blur="finishStageTitleEdit(activeStage)"
+              @keyup.enter="finishStageTitleEdit(activeStage)"
+              @keyup.esc="cancelStageTitleEdit(activeStage)"
+            />
+            <span
+              v-else
+              class="block-stage-name"
+              title="双击直接原地重命名"
+              @dblclick.stop="startStageTitleEdit(activeStage)"
+            >
               {{ activeStage.title }} <i class="edit-hint-icon">✏️</i>
             </span>
 
             <!-- 弹窗内修改阶段排期 -->
-            <div class="stage-modal-dates-wrapper" @click.stop style="margin-left: 12px;">
-              <el-date-picker v-if="editingStageDateId === activeStage.id" v-model="activeStage.dateRange"
-                type="daterange" range-separator="至" start-placeholder="开始" end-placeholder="截止" size="small"
-                value-format="YYYY-MM-DD" @change="finishStageDateEdit(activeStage)" @blur="editingStageDateId = null"
-                style="width: 220px;" v-focus />
-              <span v-else class="block-stage-dates clickable-date" title="点击修改阶段起止排期"
-                @click.stop="startStageDateEdit(activeStage)">
-                排期：{{ activeStage.startDate || '未定' }} 至 {{ activeStage.endDate || '未定' }} <i
-                  class="edit-hint-icon">✏️</i>
+            <div class="stage-modal-dates-wrapper" style="margin-left: 12px" @click.stop>
+              <el-date-picker
+                v-if="editingStageDateId === activeStage.id"
+                v-model="activeStage.dateRange"
+                v-focus
+                type="daterange"
+                range-separator="至"
+                start-placeholder="开始"
+                end-placeholder="截止"
+                size="small"
+                value-format="YYYY-MM-DD"
+                style="width: 220px"
+                @change="finishStageDateEdit(activeStage)"
+                @blur="editingStageDateId = null"
+              />
+              <span
+                v-else
+                class="block-stage-dates clickable-date"
+                title="点击修改阶段起止排期"
+                @click.stop="startStageDateEdit(activeStage)"
+              >
+                排期：{{ activeStage.startDate || '未定' }} 至 {{ activeStage.endDate || '未定' }}
+                <i class="edit-hint-icon">✏️</i>
               </span>
             </div>
           </div>
           <div class="stage-title-right">
-            <el-radio-group v-model="activeStage.status" size="small" @change="handleStageStatusChange(activeStage)">
+            <el-radio-group
+              v-model="activeStage.status"
+              size="small"
+              @change="handleStageStatusChange(activeStage)"
+            >
               <el-radio-button value="TODO">待处理</el-radio-button>
               <el-radio-button value="IN_PROGRESS">进行中</el-radio-button>
               <el-radio-button value="DONE">已完成</el-radio-button>
             </el-radio-group>
-            <el-button type="danger" link size="small" @click="handleDeleteStageInModal(activeStage.id)"
-              style="margin-left: 20px;">
+            <el-button
+              type="danger"
+              link
+              size="small"
+              style="margin-left: 20px"
+              @click="handleDeleteStageInModal(activeStage.id)"
+            >
               移除阶段
             </el-button>
           </div>
         </div>
 
         <!-- 树形 Excel 协同表格 -->
-        <el-table :data="getPaginatedTasks(activeStage.id)" border row-key="id" default-expand-all
-          :tree-props="{ children: 'children' }" :indent="28" class="excel-table-style"
-          @filter-change="handleFilterChange">
+        <el-table
+          :data="getPaginatedTasks(activeStage.id)"
+          border
+          row-key="id"
+          default-expand-all
+          :tree-props="{ children: 'children' }"
+          :indent="28"
+          class="excel-table-style"
+          @filter-change="handleFilterChange"
+        >
           <!-- 1. 子任务标题列 -->
           <el-table-column label="任务与子项内容 (双击编辑 / 回车保存)" min-width="260">
             <template #default="scope">
               <div class="inline-edit-cell" @click.stop @dblclick.stop="startTitleEdit(scope.row)">
-                <el-input key="edit-title-input" v-if="editingTitleTaskId === scope.row.id" v-model="scope.row.title"
-                  size="small" @blur="finishTitleEdit(scope.row)" @keyup.enter="finishTitleEdit(scope.row)" @click.stop
-                  @dblclick.stop v-focus />
-                <span key="read-title-text" v-else
-                  :class="['cell-text', { 'completed-style': scope.row.status === 'DONE' }]">
+                <el-input
+                  v-if="editingTitleTaskId === scope.row.id"
+                  key="edit-title-input"
+                  v-model="scope.row.title"
+                  v-focus
+                  size="small"
+                  @blur="finishTitleEdit(scope.row)"
+                  @keyup.enter="finishTitleEdit(scope.row)"
+                  @click.stop
+                  @dblclick.stop
+                />
+                <span
+                  v-else
+                  key="read-title-text"
+                  :class="['cell-text', { 'completed-style': scope.row.status === 'DONE' }]"
+                >
                   {{ scope.row.title }}
                 </span>
-                <el-button class="add-sub-child-btn" size="small" type="primary" link
-                  @click.stop="handleInlineAddChild(scope.row, activeStage.id)">
+                <el-button
+                  class="add-sub-child-btn"
+                  size="small"
+                  type="primary"
+                  link
+                  @click.stop="handleInlineAddChild(scope.row, activeStage.id)"
+                >
                   + 拆解子项
                 </el-button>
               </div>
@@ -175,11 +310,25 @@
           </el-table-column>
 
           <!-- 2. 状态列 -->
-          <el-table-column label="状态" width="130" align="center" column-key="status"
-            :filters="[{ text: '待处理', value: 'TODO' }, { text: '进行中', value: 'IN_PROGRESS' }, { text: '已完成', value: 'DONE' }]">
+          <el-table-column
+            label="状态"
+            width="130"
+            align="center"
+            column-key="status"
+            :filters="[
+              { text: '待处理', value: 'TODO' },
+              { text: '进行中', value: 'IN_PROGRESS' },
+              { text: '已完成', value: 'DONE' }
+            ]"
+          >
             <template #default="scope">
-              <el-select v-model="scope.row.status" size="small" @change="saveSubTask(scope.row)" @click.stop
-                style="width: 100%;">
+              <el-select
+                v-model="scope.row.status"
+                size="small"
+                style="width: 100%"
+                @change="saveSubTask(scope.row)"
+                @click.stop
+              >
                 <el-option label="待处理" value="TODO" />
                 <el-option label="进行中" value="IN_PROGRESS" />
                 <el-option label="已完成" value="DONE" />
@@ -188,13 +337,30 @@
           </el-table-column>
 
           <!-- 3. 负责人列 -->
-          <el-table-column label="负责人" width="135" align="center" column-key="assignee"
-            :filters="getAssigneeFilters(activeStage.id)">
+          <el-table-column
+            label="负责人"
+            width="135"
+            align="center"
+            column-key="assignee"
+            :filters="getAssigneeFilters(activeStage.id)"
+          >
             <template #default="scope">
-              <div class="inline-edit-cell" @click.stop @dblclick.stop="startAssigneeEdit(scope.row)">
-                <el-input key="edit-assignee-input" v-if="editingAssigneeTaskId === scope.row.id"
-                  v-model="scope.row.assignee" size="small" @blur="finishAssigneeEdit(scope.row)"
-                  @keyup.enter="finishAssigneeEdit(scope.row)" @click.stop @dblclick.stop v-focus />
+              <div
+                class="inline-edit-cell"
+                @click.stop
+                @dblclick.stop="startAssigneeEdit(scope.row)"
+              >
+                <el-input
+                  v-if="editingAssigneeTaskId === scope.row.id"
+                  key="edit-assignee-input"
+                  v-model="scope.row.assignee"
+                  v-focus
+                  size="small"
+                  @blur="finishAssigneeEdit(scope.row)"
+                  @keyup.enter="finishAssigneeEdit(scope.row)"
+                  @click.stop
+                  @dblclick.stop
+                />
                 <span v-else class="assignee-tag">👤 {{ scope.row.assignee || '未分配' }}</span>
               </div>
             </template>
@@ -203,38 +369,76 @@
           <!-- 4. 排期起止 -->
           <el-table-column label="起止排期" width="200" align="center">
             <template #default="scope">
-              <div class="inline-edit-cell date-cell" @click.stop @dblclick.stop="startDateEdit(scope.row)">
-                <el-date-picker v-if="editingDateTaskId === scope.row.id" v-model="scope.row.dateRange" type="daterange"
-                  range-separator="-" start-placeholder="始" end-placeholder="止" size="small" value-format="YYYY-MM-DD"
-                  style="width: 100%;" @change="finishDateEdit(scope.row)" @blur="editingDateTaskId = null" v-focus />
-                <span v-else class="date-preview-text">
-                  📅 {{ formatDateRange(scope.row) }}
-                </span>
+              <div
+                class="inline-edit-cell date-cell"
+                @click.stop
+                @dblclick.stop="startDateEdit(scope.row)"
+              >
+                <el-date-picker
+                  v-if="editingDateTaskId === scope.row.id"
+                  v-model="scope.row.dateRange"
+                  v-focus
+                  type="daterange"
+                  range-separator="-"
+                  start-placeholder="始"
+                  end-placeholder="止"
+                  size="small"
+                  value-format="YYYY-MM-DD"
+                  style="width: 100%"
+                  @change="finishDateEdit(scope.row)"
+                  @blur="editingDateTaskId = null"
+                />
+                <span v-else class="date-preview-text"> 📅 {{ formatDateRange(scope.row) }} </span>
               </div>
             </template>
           </el-table-column>
 
           <!-- 5. 动态 JSONB 扩展列 -->
-          <el-table-column v-for="key in getStageColumns(activeStage.id)" :key="key" :column-key="key" min-width="150"
-            :filters="getCustomColumnFilters(key, activeStage.id)">
+          <el-table-column
+            v-for="key in getStageColumns(activeStage.id)"
+            :key="key"
+            :column-key="key"
+            min-width="150"
+            :filters="getCustomColumnFilters(key, activeStage.id)"
+          >
             <template #header>
               <div class="custom-header-cell">
                 <span class="custom-header-title" :title="key">{{ key }}</span>
                 <el-tooltip content="删除此整列" placement="top" :show-after="200">
-                  <span class="header-delete-btn" @click.stop="handleDeleteColumn(key, activeStage.id)">✕</span>
+                  <span
+                    class="header-delete-btn"
+                    @click.stop="handleDeleteColumn(key, activeStage.id)"
+                    >✕</span
+                  >
                 </el-tooltip>
               </div>
             </template>
             <template #default="scope">
-              <div class="inline-edit-cell" @click.stop
-                @dblclick.stop="startCustomFieldEdit(scope.row, key, scope.row.customFields?.[key])">
-                <el-input key="edit-custom-input"
-                  v-if="editingCustomField.taskId === scope.row.id && editingCustomField.key === key"
-                  v-model="scope.row.customFields[key]" size="small" placeholder="输入内容..."
-                  @blur="finishCustomFieldEdit(scope.row, key)" @keyup.enter="finishCustomFieldEdit(scope.row, key)"
-                  @keyup.esc="cancelCustomFieldEdit(scope.row, key)" @click.stop @dblclick.stop v-focus />
-                <span v-else :class="['custom-field-text', { 'is-empty': !scope.row.customFields?.[key] }]"
-                  @click="startCustomFieldEdit(scope.row, key, scope.row.customFields?.[key])">
+              <div
+                class="inline-edit-cell"
+                @click.stop
+                @dblclick.stop="startCustomFieldEdit(scope.row, key, scope.row.customFields?.[key])"
+              >
+                <el-input
+                  v-if="
+                    editingCustomField.taskId === scope.row.id && editingCustomField.key === key
+                  "
+                  key="edit-custom-input"
+                  v-model="scope.row.customFields[key]"
+                  v-focus
+                  size="small"
+                  placeholder="输入内容..."
+                  @blur="finishCustomFieldEdit(scope.row, key)"
+                  @keyup.enter="finishCustomFieldEdit(scope.row, key)"
+                  @keyup.esc="cancelCustomFieldEdit(scope.row, key)"
+                  @click.stop
+                  @dblclick.stop
+                />
+                <span
+                  v-else
+                  :class="['custom-field-text', { 'is-empty': !scope.row.customFields?.[key] }]"
+                  @click="startCustomFieldEdit(scope.row, key, scope.row.customFields?.[key])"
+                >
                   {{ scope.row.customFields?.[key] || '添加内容...' }}
                 </span>
               </div>
@@ -245,9 +449,7 @@
           <el-table-column width="50" align="center" :resizable="false">
             <template #header>
               <el-tooltip content="点击向矩阵追加自定义属性列" placement="top" :show-after="300">
-                <div class="add-column-header-btn" @click="promptAddColumn(activeStage.id)">
-                  ➕
-                </div>
+                <div class="add-column-header-btn" @click="promptAddColumn(activeStage.id)">➕</div>
               </el-tooltip>
             </template>
           </el-table-column>
@@ -255,29 +457,52 @@
           <!-- 7. 操作列 -->
           <el-table-column label="操作" width="70" align="center">
             <template #default="scope">
-              <el-button type="danger" link size="small"
-                @click="handleDeleteSubTask(scope.row.id, activeStage.id)">删除</el-button>
+              <el-button
+                type="danger"
+                link
+                size="small"
+                @click="handleDeleteSubTask(scope.row.id, activeStage.id)"
+                >删除</el-button
+              >
             </template>
           </el-table-column>
         </el-table>
 
         <!-- 快速添加行 -->
-        <div class="excel-quick-append-row" v-if="stageAddForms[activeStage.id]">
+        <div v-if="stageAddForms[activeStage.id]" class="excel-quick-append-row">
           <span class="append-tag">➕ 添加行</span>
-          <el-input v-model="stageAddForms[activeStage.id].title" placeholder="添加一级子任务..." size="small"
-            style="flex: 3 !important; margin-right: 12px; width: auto !important;" />
-          <el-input v-model="stageAddForms[activeStage.id].assignee" placeholder="负责人" size="small"
-            style="flex: 1 !important; margin-right: 12px; width: auto !important;" />
-          <el-button type="primary" size="small" style="flex-shrink: 0;" @click="handleQuickAddSubTask(activeStage.id)">
+          <el-input
+            v-model="stageAddForms[activeStage.id].title"
+            placeholder="添加一级子任务..."
+            size="small"
+            style="flex: 3 !important; margin-right: 12px; width: auto !important"
+          />
+          <el-input
+            v-model="stageAddForms[activeStage.id].assignee"
+            placeholder="负责人"
+            size="small"
+            style="flex: 1 !important; margin-right: 12px; width: auto !important"
+          />
+          <el-button
+            type="primary"
+            size="small"
+            style="flex-shrink: 0"
+            @click="handleQuickAddSubTask(activeStage.id)"
+          >
             确定添加
           </el-button>
         </div>
 
         <!-- 矩阵表格底部分页条 -->
-        <div class="pagination-wrapper" style="margin-top: 15px;">
-          <el-pagination v-model:current-page="taskCurrentPage" v-model:page-size="taskPageSize"
-            :page-sizes="[5, 10, 20, 50]" layout="total, sizes, prev, pager, next, jumper"
-            :total="getFilteredTasks(activeStage.id).length" @size-change="taskCurrentPage = 1" />
+        <div class="pagination-wrapper" style="margin-top: 15px">
+          <el-pagination
+            v-model:current-page="taskCurrentPage"
+            v-model:page-size="taskPageSize"
+            :page-sizes="[5, 10, 20, 50]"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="getFilteredTasks(activeStage.id).length"
+            @size-change="taskCurrentPage = 1"
+          />
         </div>
       </div>
     </el-dialog>
@@ -289,8 +514,16 @@
           <el-input v-model="stageForm.title" placeholder="如：研发编码期 / 业务测试期" />
         </el-form-item>
         <el-form-item label="起止排期">
-          <el-date-picker v-model="stageDateRange" type="daterange" range-separator="-" start-placeholder="开始"
-            end-placeholder="截止" value-format="YYYY-MM-DD" style="width: 100%;" size="small" />
+          <el-date-picker
+            v-model="stageDateRange"
+            type="daterange"
+            range-separator="-"
+            start-placeholder="开始"
+            end-placeholder="截止"
+            value-format="YYYY-MM-DD"
+            style="width: 100%"
+            size="small"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -304,7 +537,6 @@
 <script setup>
 import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useUserStore } from '@/store/user'
 import { getRequirementsListApi } from '@/api/requirement'
 import { getStagesApi, createStageApi, updateStageApi, deleteStageApi } from '@/api/stage'
 import { getSubTasksApi, createSubTaskApi, updateSubTaskApi, deleteSubTaskApi } from '@/api/subtask'
@@ -313,7 +545,6 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
-const userStore = useUserStore()
 
 // 数据源
 const requirements = ref([])
@@ -374,24 +605,24 @@ const editingCustomField = ref({ taskId: null, key: null })
 
 // 自动聚焦指令
 const vFocus = {
-  mounted: (el) => {
+  mounted: el => {
     const target = el.querySelector('input, textarea')
     if (target) target.focus()
   }
 }
 
 // ----------------- 阶段名称原地即时改名逻辑 -----------------
-const startStageTitleEdit = (stage) => {
+const startStageTitleEdit = stage => {
   editingStageId.value = stage.id
   originalValCache.value = stage.title || ''
 }
 
-const cancelStageTitleEdit = (stage) => {
+const cancelStageTitleEdit = stage => {
   stage.title = originalValCache.value
   editingStageId.value = null
 }
 
-const finishStageTitleEdit = async (stage) => {
+const finishStageTitleEdit = async stage => {
   editingStageId.value = null
   const newTitle = stage.title ? stage.title.trim() : ''
 
@@ -415,12 +646,12 @@ const finishStageTitleEdit = async (stage) => {
 }
 
 // ----------------- 阶段排期原地即时修改逻辑 -----------------
-const startStageDateEdit = (stage) => {
-  stage.dateRange = (stage.startDate && stage.endDate) ? [stage.startDate, stage.endDate] : []
+const startStageDateEdit = stage => {
+  stage.dateRange = stage.startDate && stage.endDate ? [stage.startDate, stage.endDate] : []
   editingStageDateId.value = stage.id
 }
 
-const finishStageDateEdit = async (stage) => {
+const finishStageDateEdit = async stage => {
   editingStageDateId.value = null
   if (stage.dateRange && stage.dateRange.length === 2) {
     stage.startDate = stage.dateRange[0]
@@ -438,7 +669,7 @@ const finishStageDateEdit = async (stage) => {
 }
 
 // 应用本地保存的需求自定义排序
-const applySavedRequirementOrder = (dataList) => {
+const applySavedRequirementOrder = dataList => {
   const savedOrderStr = localStorage.getItem('reqflow_requirement_order')
   if (!savedOrderStr) return dataList
   try {
@@ -455,24 +686,24 @@ const applySavedRequirementOrder = (dataList) => {
 }
 
 // 标签与排期工具函数
-const getPriorityTag = (p) => {
+const getPriorityTag = p => {
   if (p === 'HIGH') return 'danger'
   if (p === 'MEDIUM') return 'warning'
   return 'info'
 }
 
-const formatDateRange = (row) => {
+const formatDateRange = row => {
   if (row.startDate && row.endDate) {
     return `${row.startDate} 至 ${row.endDate}`
   }
   return '暂无排期'
 }
 
-const getStageTaskStats = (stageId) => {
+const getStageTaskStats = stageId => {
   const tasks = stageSubTasks.value[stageId] || []
   let total = 0
   let done = 0
-  const countTasks = (list) => {
+  const countTasks = list => {
     list.forEach(item => {
       total++
       if (item.status === 'DONE') done++
@@ -484,9 +715,9 @@ const getStageTaskStats = (stageId) => {
   return { total, done, percent }
 }
 
-const scanCustomColumns = (list) => {
+const scanCustomColumns = list => {
   const keys = new Set()
-  const traverse = (items) => {
+  const traverse = items => {
     items.forEach(item => {
       if (item.customFields) {
         Object.keys(item.customFields).forEach(k => {
@@ -504,34 +735,40 @@ const scanCustomColumns = (list) => {
   return Array.from(keys)
 }
 
-const getStageColumns = (stageId) => {
+const getStageColumns = stageId => {
   const scannedKeys = detectedColumnKeys.value[stageId] || []
   const manualKeys = stageCustomColumns.value[stageId] || []
   return Array.from(new Set([...scannedKeys, ...manualKeys]))
 }
 
-const promptAddColumn = (stageId) => {
-  ElMessageBox.prompt('请输入新扩展列的名称（如：测试负责人、Bug单号、设计稿Link）', '➕ 追加矩阵列', {
-    confirmButtonText: '确定追加',
-    cancelButtonText: '取消',
-    inputPattern: /\S+/,
-    inputErrorMessage: '列名不能为空',
-    draggable: true
-  }).then(({ value }) => {
-    const newKey = value.trim()
-    const existingKeys = getStageColumns(stageId)
-
-    if (existingKeys.includes(newKey)) {
-      ElMessage.warning(`列名「${newKey}」已存在，请勿重复添加`)
-      return
+const promptAddColumn = stageId => {
+  ElMessageBox.prompt(
+    '请输入新扩展列的名称（如：测试负责人、Bug单号、设计稿Link）',
+    '➕ 追加矩阵列',
+    {
+      confirmButtonText: '确定追加',
+      cancelButtonText: '取消',
+      inputPattern: /\S+/,
+      inputErrorMessage: '列名不能为空',
+      draggable: true
     }
+  )
+    .then(({ value }) => {
+      const newKey = value.trim()
+      const existingKeys = getStageColumns(stageId)
 
-    if (!stageCustomColumns.value[stageId]) {
-      stageCustomColumns.value[stageId] = []
-    }
-    stageCustomColumns.value[stageId].push(newKey)
-    ElMessage.success(`已成功追加扩展列「${newKey}」`)
-  }).catch(() => { })
+      if (existingKeys.includes(newKey)) {
+        ElMessage.warning(`列名「${newKey}」已存在，请勿重复添加`)
+        return
+      }
+
+      if (!stageCustomColumns.value[stageId]) {
+        stageCustomColumns.value[stageId] = []
+      }
+      stageCustomColumns.value[stageId].push(newKey)
+      ElMessage.success(`已成功追加扩展列「${newKey}」`)
+    })
+    .catch(() => {})
 }
 
 const handleDeleteColumn = (key, stageId) => {
@@ -543,69 +780,72 @@ const handleDeleteColumn = (key, stageId) => {
       cancelButtonText: '取消',
       type: 'warning'
     }
-  ).then(async () => {
-    if (stageCustomColumns.value[stageId]) {
-      stageCustomColumns.value[stageId] = stageCustomColumns.value[stageId].filter(k => k !== key)
-    }
-
-    const tasks = stageSubTasks.value[stageId] || []
-    const affectedNodes = []
-
-    const removeKeyFromTree = (nodes) => {
-      nodes.forEach(node => {
-        if (node.customFields && Object.prototype.hasOwnProperty.call(node.customFields, key)) {
-          delete node.customFields[key]
-          affectedNodes.push(node)
-        }
-        if (node.children && node.children.length > 0) {
-          removeKeyFromTree(node.children)
-        }
-      })
-    }
-    removeKeyFromTree(tasks)
-
-    for (const node of affectedNodes) {
-      const updatePayload = {
-        id: node.id,
-        stageId: node.stageId,
-        parentId: node.parentId,
-        parent_id: node.parentId || node.parent_id,
-        title: node.title,
-        assignee: node.assignee,
-        status: node.status,
-        startDate: node.startDate,
-        endDate: node.endDate,
-        customFields: node.customFields
+  )
+    .then(async () => {
+      if (stageCustomColumns.value[stageId]) {
+        stageCustomColumns.value[stageId] = stageCustomColumns.value[stageId].filter(k => k !== key)
       }
-      await updateSubTaskApi(node.id, updatePayload).catch(() => { })
-    }
 
-    detectedColumnKeys.value[stageId] = scanCustomColumns(tasks)
-    ElMessage.success(`扩展列「${key}」已成功删除`)
-  }).catch(() => { })
+      const tasks = stageSubTasks.value[stageId] || []
+      const affectedNodes = []
+
+      const removeKeyFromTree = nodes => {
+        nodes.forEach(node => {
+          if (node.customFields && Object.prototype.hasOwnProperty.call(node.customFields, key)) {
+            delete node.customFields[key]
+            affectedNodes.push(node)
+          }
+          if (node.children && node.children.length > 0) {
+            removeKeyFromTree(node.children)
+          }
+        })
+      }
+      removeKeyFromTree(tasks)
+
+      for (const node of affectedNodes) {
+        const updatePayload = {
+          id: node.id,
+          stageId: node.stageId,
+          parentId: node.parentId,
+          parent_id: node.parentId || node.parent_id,
+          title: node.title,
+          assignee: node.assignee,
+          status: node.status,
+          startDate: node.startDate,
+          endDate: node.endDate,
+          customFields: node.customFields
+        }
+        await updateSubTaskApi(node.id, updatePayload).catch(() => {})
+      }
+
+      detectedColumnKeys.value[stageId] = scanCustomColumns(tasks)
+      ElMessage.success(`扩展列「${key}」已成功删除`)
+    })
+    .catch(() => {})
 }
 
-const arrayToTree = (list) => {
-  const map = {}, roots = [];
+const arrayToTree = list => {
+  const map = {},
+    roots = []
   for (let i = 0; i < list.length; i++) {
-    map[list[i].id] = i;
-    list[i].children = [];
+    map[list[i].id] = i
+    list[i].children = []
   }
   for (let i = 0; i < list.length; i++) {
-    const node = list[i];
-    const pId = node.parentId !== undefined ? node.parentId : node.parent_id;
+    const node = list[i]
+    const pId = node.parentId !== undefined ? node.parentId : node.parent_id
     if (pId) {
-      const parentIndex = map[pId];
+      const parentIndex = map[pId]
       if (parentIndex !== undefined) {
-        list[parentIndex].children.push(node);
+        list[parentIndex].children.push(node)
       } else {
-        roots.push(node);
+        roots.push(node)
       }
     } else {
-      roots.push(node);
+      roots.push(node)
     }
   }
-  return roots;
+  return roots
 }
 
 const updateOriginalNode = (nodes, updatedNode) => {
@@ -644,7 +884,7 @@ const filterTreeData = (nodes, allowedStatuses, currentFilters) => {
 
       const selectedVals = currentFilters[key]
       if (selectedVals && selectedVals.length > 0) {
-        let nodeVal = ''
+        let nodeVal
         if (key === 'assignee') {
           nodeVal = node.assignee ? node.assignee.trim() : '未分配'
         } else {
@@ -672,9 +912,10 @@ const filteredTasksMap = computed(() => {
   stages.value.forEach(stage => {
     const originalTree = stageSubTasks.value[stage.id] || []
 
-    const allowedStatuses = activeFilters.value['status'] && activeFilters.value['status'].length > 0
-      ? activeFilters.value['status']
-      : ['TODO', 'IN_PROGRESS', 'DONE']
+    const allowedStatuses =
+      activeFilters.value['status'] && activeFilters.value['status'].length > 0
+        ? activeFilters.value['status']
+        : ['TODO', 'IN_PROGRESS', 'DONE']
 
     const hasActiveFilters = Object.keys(activeFilters.value).some(key => {
       return activeFilters.value[key] && activeFilters.value[key].length > 0
@@ -689,22 +930,22 @@ const filteredTasksMap = computed(() => {
   return map
 })
 
-const getFilteredTasks = (stageId) => {
+const getFilteredTasks = stageId => {
   return filteredTasksMap.value[stageId] || []
 }
 
-const getPaginatedTasks = (stageId) => {
+const getPaginatedTasks = stageId => {
   const allFiltered = getFilteredTasks(stageId)
   const start = (taskCurrentPage.value - 1) * taskPageSize.value
   const end = start + taskPageSize.value
   return allFiltered.slice(start, end)
 }
 
-const getAssigneeFilters = (stageId) => {
+const getAssigneeFilters = stageId => {
   const tasks = stageSubTasks.value[stageId] || []
   const uniqueValues = new Set()
 
-  const collect = (list) => {
+  const collect = list => {
     list.forEach(t => {
       uniqueValues.add(t.assignee ? t.assignee.trim() : '未分配')
       if (t.children && t.children.length > 0) collect(t.children)
@@ -719,7 +960,7 @@ const getCustomColumnFilters = (columnKey, stageId) => {
   const uniqueValues = new Set()
   let hasTooLongText = false
 
-  const collect = (list) => {
+  const collect = list => {
     list.forEach(t => {
       const val = t.customFields?.[columnKey]
       if (val && String(val).trim() !== '') {
@@ -743,7 +984,7 @@ const getCustomColumnFilters = (columnKey, stageId) => {
   return Array.from(uniqueValues).map(val => ({ text: val, value: val }))
 }
 
-const handleFilterChange = (filters) => {
+const handleFilterChange = filters => {
   for (const key in filters) {
     activeFilters.value[key] = filters[key]
   }
@@ -758,10 +999,10 @@ const loadRequirements = async () => {
     let list = res.content || []
     if (Array.isArray(res)) list = res
     requirements.value = applySavedRequirementOrder(list)
-  } catch (error) { }
+  } catch (error) {}
 }
 
-const handleReqSelectChange = async (reqId) => {
+const handleReqSelectChange = async reqId => {
   const target = requirements.value.find(r => r.id === reqId)
   if (target) {
     await switchRequirement(target)
@@ -769,7 +1010,7 @@ const handleReqSelectChange = async (reqId) => {
   }
 }
 
-const switchRequirement = async (req) => {
+const switchRequirement = async req => {
   selectedRequirement.value = req
   activeReqId.value = req.id
   activeFilters.value = {}
@@ -777,12 +1018,12 @@ const switchRequirement = async (req) => {
   await loadStages(req.id)
 }
 
-const loadStages = async (reqId) => {
+const loadStages = async reqId => {
   try {
     const stageList = await getStagesApi(reqId)
     if (stageList && Array.isArray(stageList)) {
       stageList.forEach(s => {
-        s.dateRange = (s.startDate && s.endDate) ? [s.startDate, s.endDate] : []
+        s.dateRange = s.startDate && s.endDate ? [s.startDate, s.endDate] : []
       })
     }
     stages.value = stageList
@@ -793,17 +1034,17 @@ const loadStages = async (reqId) => {
         await loadSubTasks(s.id)
       }
     }
-  } catch (error) { }
+  } catch (error) {}
 }
 
-const handleStageChange = async (stageId) => {
+const handleStageChange = async stageId => {
   if (stageId) {
     stageAddForms.value[stageId] = { title: '', assignee: '' }
     await loadSubTasks(stageId)
   }
 }
 
-const loadSubTasks = async (stageId) => {
+const loadSubTasks = async stageId => {
   const flatTaskList = await getSubTasksApi(stageId).catch(() => [])
   const discussions = await getDiscussionsApi(stageId).catch(() => [])
 
@@ -815,7 +1056,7 @@ const loadSubTasks = async (stageId) => {
   }
 
   for (let task of flatTaskList) {
-    task.dateRange = (task.startDate && task.endDate) ? [task.startDate, task.endDate] : []
+    task.dateRange = task.startDate && task.endDate ? [task.startDate, task.endDate] : []
     if (!task.customFields) {
       task.customFields = {}
     }
@@ -826,7 +1067,7 @@ const loadSubTasks = async (stageId) => {
   stageSubTasks.value[stageId] = arrayToTree(flatTaskList)
 }
 
-const openStageMatrixModal = async (stage) => {
+const openStageMatrixModal = async stage => {
   activeStageId.value = stage.id
   taskCurrentPage.value = 1
   await handleStageChange(stage.id)
@@ -835,12 +1076,12 @@ const openStageMatrixModal = async (stage) => {
 
 // ----------------- 行内编辑与保存 -----------------
 
-const startTitleEdit = (row) => {
+const startTitleEdit = row => {
   editingTitleTaskId.value = row.id
   originalValCache.value = row.title || ''
 }
 
-const finishTitleEdit = async (row) => {
+const finishTitleEdit = async row => {
   editingTitleTaskId.value = null
   if (!row.title.trim()) {
     row.title = originalValCache.value
@@ -852,12 +1093,12 @@ const finishTitleEdit = async (row) => {
   await saveSubTask(row)
 }
 
-const startAssigneeEdit = (row) => {
+const startAssigneeEdit = row => {
   editingAssigneeTaskId.value = row.id
   originalValCache.value = row.assignee || ''
 }
 
-const finishAssigneeEdit = async (row) => {
+const finishAssigneeEdit = async row => {
   editingAssigneeTaskId.value = null
   const currentVal = row.assignee || ''
   if (currentVal === originalValCache.value) {
@@ -866,11 +1107,11 @@ const finishAssigneeEdit = async (row) => {
   await saveSubTask(row)
 }
 
-const startDateEdit = (row) => {
+const startDateEdit = row => {
   editingDateTaskId.value = row.id
 }
 
-const finishDateEdit = async (row) => {
+const finishDateEdit = async row => {
   editingDateTaskId.value = null
   if (row.dateRange && row.dateRange.length === 2) {
     row.startDate = row.dateRange[0]
@@ -904,7 +1145,7 @@ const finishCustomFieldEdit = async (row, colKey) => {
   await saveSubTask(row)
 }
 
-const saveSubTask = async (row) => {
+const saveSubTask = async row => {
   try {
     const originalList = stageSubTasks.value[row.stageId] || []
     updateOriginalNode(originalList, row)
@@ -948,10 +1189,10 @@ const handleInlineAddChild = async (parentRow, stageId) => {
     nextTick(() => {
       startTitleEdit(newChild)
     })
-  } catch (error) { }
+  } catch (error) {}
 }
 
-const handleQuickAddSubTask = async (stageId) => {
+const handleQuickAddSubTask = async stageId => {
   const addForm = stageAddForms.value[stageId]
   if (!addForm.title.trim()) {
     ElMessage.warning('任务名称不可为空')
@@ -967,26 +1208,28 @@ const handleQuickAddSubTask = async (stageId) => {
     ElMessage.success('任务录入完成')
     stageAddForms.value[stageId] = { title: '', assignee: '' }
     await loadSubTasks(stageId)
-  } catch (error) { }
+  } catch (error) {}
 }
 
 const handleDeleteSubTask = (id, stageId) => {
   ElMessageBox.confirm('移除该项将同步删除其所有子拆解项，是否继续？', '提示', {
     type: 'warning'
-  }).then(async () => {
-    await deleteSubTaskApi(id)
-    ElMessage.success('删除成功')
-    await loadSubTasks(stageId)
-  }).catch(() => { })
+  })
+    .then(async () => {
+      await deleteSubTaskApi(id)
+      ElMessage.success('删除成功')
+      await loadSubTasks(stageId)
+    })
+    .catch(() => {})
 }
 
 // ----------------- 阶段增删改与状态 -----------------
 
-const handleStageStatusChange = async (stage) => {
+const handleStageStatusChange = async stage => {
   try {
     await updateStageApi(stage.id, stage)
     ElMessage.success(`阶段状态已更新: ${stage.status}`)
-  } catch (error) { }
+  } catch (error) {}
 }
 
 const openCreateStageDialog = () => {
@@ -1011,22 +1254,24 @@ const submitStageForm = async () => {
     ElMessage.success('阶段划分成功')
     stageDialogVisible.value = false
     await loadStages(selectedRequirement.value.id)
-  } catch (error) { }
+  } catch (error) {}
 }
 
-const handleDeleteStage = (id) => {
+const handleDeleteStage = id => {
   ElMessageBox.confirm('确定要移除此执行阶段吗？该阶段下的任务将同步清除。', '警告', {
     confirmButtonText: '确定移除',
     cancelButtonText: '取消',
     type: 'warning'
-  }).then(async () => {
-    await deleteStageApi(id)
-    ElMessage.success('阶段已被移除')
-    await loadStages(selectedRequirement.value.id)
-  }).catch(() => { })
+  })
+    .then(async () => {
+      await deleteStageApi(id)
+      ElMessage.success('阶段已被移除')
+      await loadStages(selectedRequirement.value.id)
+    })
+    .catch(() => {})
 }
 
-const handleDeleteStageInModal = async (id) => {
+const handleDeleteStageInModal = async id => {
   await handleDeleteStage(id)
   matrixModalVisible.value = false
 }

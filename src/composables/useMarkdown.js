@@ -76,14 +76,15 @@ export function renderMarkdownToHtml(rawMarkdown, options = {}) {
   const renderer = {
     heading(token) {
       const text = this.parser.parseInline(token.tokens || [])
-      const rawHeadingText = (token.tokens || []).map(t => t.raw || t.text || '').join('') || token.text || ''
+      const rawHeadingText =
+        (token.tokens || []).map(t => t.raw || t.text || '').join('') || token.text || ''
       const id = slugger.slug(rawHeadingText)
       return `<h${token.depth} id="${id}">${text}</h${token.depth}>\n`
     },
     code(token) {
       const text = token.text || ''
       const language = (token.lang || '').trim().toLowerCase()
-      let highlighted = ''
+      let highlighted
       const validLang = language && hljs.getLanguage(language) ? language : 'plaintext'
 
       if (validLang !== 'plaintext') {
@@ -122,20 +123,54 @@ export function renderMarkdownToHtml(rawMarkdown, options = {}) {
   return DOMPurify.sanitize(parsedHtml, {
     ADD_TAGS: [
       'input',
-      'math', 'semantics', 'annotation', 'annotation-xml',
-      'mrow', 'mi', 'mn', 'mo', 'ms', 'mspace', 'mtext',
-      'menclose', 'merror', 'mfenced', 'mfrac', 'mpadded',
-      'mphantom', 'mroot', 'mstyle', 'msqrt', 'msub',
-      'msubsup', 'msup', 'mtable', 'mtd', 'mtr', 'munder',
-      'munderover', 'mover'
+      'math',
+      'semantics',
+      'annotation',
+      'annotation-xml',
+      'mrow',
+      'mi',
+      'mn',
+      'mo',
+      'ms',
+      'mspace',
+      'mtext',
+      'menclose',
+      'merror',
+      'mfenced',
+      'mfrac',
+      'mpadded',
+      'mphantom',
+      'mroot',
+      'mstyle',
+      'msqrt',
+      'msub',
+      'msubsup',
+      'msup',
+      'mtable',
+      'mtd',
+      'mtr',
+      'munder',
+      'munderover',
+      'mover'
     ],
     ADD_ATTR: [
-      'target', 'rel', 'align', 'checked', 'disabled',
-      'data-task-index', 'data-code', 'type',
-      'aria-hidden', 'xmlns', 'display', 'mathvariant', 'encoding'
+      'target',
+      'rel',
+      'align',
+      'checked',
+      'disabled',
+      'data-task-index',
+      'data-code',
+      'type',
+      'aria-hidden',
+      'xmlns',
+      'display',
+      'mathvariant',
+      'encoding'
     ],
     FORBID_TAGS: ['style', 'script', 'iframe', 'form'],
-    ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i
+    ALLOWED_URI_REGEXP:
+      /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp):|[^a-z]|[a-z+.-]+(?:[^a-z+.:-]|$))/i
   })
 }
 

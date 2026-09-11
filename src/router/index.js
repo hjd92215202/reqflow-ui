@@ -24,7 +24,7 @@ const routes = [
       {
         path: 'matrix',
         component: () => import('@/views/WorkMatrix.vue')
-      }, 
+      },
       {
         path: 'wiki',
         component: () => import('@/views/WikiLibrary.vue')

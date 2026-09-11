@@ -9,23 +9,26 @@
       </div>
       <div class="titlebar-controls" @mousedown.stop>
         <!-- 顶部快捷服务器设置按钮 -->
-        <button class="control-btn" @click.stop="openServerConfigDialog" title="服务器设置">
+        <button class="control-btn" title="服务器设置" @click.stop="openServerConfigDialog">
           <el-icon :size="13"><Setting /></el-icon>
         </button>
-        <button class="control-btn" @click.stop="minimizeWindow" title="最小化">
+        <button class="control-btn" title="最小化" @click.stop="minimizeWindow">
           <svg width="10" height="10" viewBox="0 0 10 10">
             <path fill="currentColor" d="M1 5h8v1H1z" />
           </svg>
         </button>
         <!-- 最大化 / 还原按键 -->
-        <button class="control-btn" @click.stop="toggleMaximizeWindow" title="最大化 / 还原">
+        <button class="control-btn" title="最大化 / 还原" @click.stop="toggleMaximizeWindow">
           <svg width="10" height="10" viewBox="0 0 10 10">
             <path fill="none" stroke="currentColor" stroke-width="1" d="M1.5 1.5h7v7h-7z" />
           </svg>
         </button>
-        <button class="control-btn close-btn" @click.stop="closeWindow" title="关闭">
+        <button class="control-btn close-btn" title="关闭" @click.stop="closeWindow">
           <svg width="10" height="10" viewBox="0 0 10 10">
-            <path fill="currentColor" d="M1.707 1 1 1.707 4.293 5 1 8.293 1.707 9 5 5.707 8.293 9 9 8.293 5.707 5 9 1.707 8.293 1 5 4.293z" />
+            <path
+              fill="currentColor"
+              d="M1.707 1 1 1.707 4.293 5 1 8.293 1.707 9 5 5.707 8.293 9 9 8.293 5.707 5 9 1.707 8.293 1 5 4.293z"
+            />
           </svg>
         </button>
       </div>
@@ -38,7 +41,7 @@
         <h2 class="title">ReqFlow</h2>
         <p class="subtitle">私有化部署 · 工作需求事项记录系统</p>
       </div>
-      
+
       <el-tabs v-model="activeTab" stretch>
         <!-- 登录面板 -->
         <el-tab-pane label="账密登录" name="login">
@@ -47,10 +50,18 @@
               <el-input v-model="loginForm.username" placeholder="请输入用户名" />
             </el-form-item>
             <el-form-item label="密码">
-              <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" show-password @keyup.enter="handleLogin" />
+              <el-input
+                v-model="loginForm.password"
+                type="password"
+                placeholder="请输入密码"
+                show-password
+                @keyup.enter="handleLogin"
+              />
             </el-form-item>
-            <el-form-item style="margin-top: 25px;">
-              <el-button type="primary" :loading="loading" @click="handleLogin" style="width: 100%;">登 录</el-button>
+            <el-form-item style="margin-top: 25px">
+              <el-button type="primary" :loading="loading" style="width: 100%" @click="handleLogin"
+                >登 录</el-button
+              >
             </el-form-item>
           </el-form>
         </el-tab-pane>
@@ -65,10 +76,21 @@
               <el-input v-model="registerForm.nickname" placeholder="显示昵称（如：张三）" />
             </el-form-item>
             <el-form-item label="密码">
-              <el-input v-model="registerForm.password" type="password" placeholder="设置密码" show-password />
+              <el-input
+                v-model="registerForm.password"
+                type="password"
+                placeholder="设置密码"
+                show-password
+              />
             </el-form-item>
-            <el-form-item style="margin-top: 25px;">
-              <el-button type="success" :loading="loading" @click="handleRegister" style="width: 100%;">注 册</el-button>
+            <el-form-item style="margin-top: 25px">
+              <el-button
+                type="success"
+                :loading="loading"
+                style="width: 100%"
+                @click="handleRegister"
+                >注 册</el-button
+              >
             </el-form-item>
           </el-form>
         </el-tab-pane>
@@ -78,7 +100,9 @@
       <div class="server-status-bar" @click="openServerConfigDialog">
         <span :class="['server-status-dot', { connected: Boolean(userStore.serverUrl) }]"></span>
         <span class="server-status-text">
-          {{ userStore.serverUrl ? `服务地址: ${userStore.serverUrl}` : '未配置后端地址 (点击设置)' }}
+          {{
+            userStore.serverUrl ? `服务地址: ${userStore.serverUrl}` : '未配置后端地址 (点击设置)'
+          }}
         </span>
       </div>
     </el-card>
@@ -102,7 +126,8 @@
           />
         </el-form-item>
         <div class="server-dialog-tip">
-          💡 说明：系统会将数据保存在您指定的私有化后端实例中。首次设置保存后，下次启动将自动连接，无需重复输入。
+          💡
+          说明：系统会将数据保存在您指定的私有化后端实例中。首次设置保存后，下次启动将自动连接，无需重复输入。
         </div>
       </el-form>
       <template #footer>
@@ -154,15 +179,17 @@ const saveServerConfig = () => {
 // ----------------- 核心修复：精准分发双击最大化与单击拖拽 -----------------
 let lastClickTime = 0
 
-const handleTitlebarMouseDown = async (e) => {
+const handleTitlebarMouseDown = async e => {
   // 仅响应鼠标左键，忽略卡片内部、按钮、输入框
   if (e.button !== 0) return
-  if (e.target.closest('.login-card, .titlebar-controls, .el-dialog, button, input, select, textarea')) {
+  if (
+    e.target.closest('.login-card, .titlebar-controls, .el-dialog, button, input, select, textarea')
+  ) {
     return
   }
 
   const now = Date.now()
-  const isDoubleClick = e.detail === 2 || (now - lastClickTime < 350)
+  const isDoubleClick = e.detail === 2 || now - lastClickTime < 350
   lastClickTime = now
 
   try {
@@ -209,7 +236,7 @@ const handleLogin = async () => {
     ElMessage.warning('请填写用户名和密码')
     return
   }
-  
+
   loading.value = true
   try {
     const payload = {
@@ -237,12 +264,12 @@ const handleRegister = async () => {
     ElMessage.warning('用户名和密码为必填项')
     return
   }
-  
+
   loading.value = true
   try {
     const payload = {
       username: registerForm.value.username,
-      passwordHash: registerForm.value.password, 
+      passwordHash: registerForm.value.password,
       nickname: registerForm.value.nickname
     }
     await registerApi(payload)
@@ -360,7 +387,7 @@ const handleRegister = async () => {
 .title {
   text-align: center;
   margin: 0;
-  color: #409EFF;
+  color: #409eff;
   font-size: 20px;
 }
 
@@ -388,7 +415,7 @@ const handleRegister = async () => {
 }
 
 .server-status-bar:hover {
-  color: #409EFF;
+  color: #409eff;
 }
 
 .server-status-dot {

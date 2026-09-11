@@ -1,12 +1,18 @@
 <!-- src/components/markdown/MarkdownEditor.vue -->
 <template>
-  <div class="cm-editor-wrapper" ref="editorContainerRef"></div>
+  <div ref="editorContainerRef" class="cm-editor-wrapper"></div>
 </template>
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { EditorState } from '@codemirror/state'
-import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightActiveLine } from '@codemirror/view'
+import {
+  EditorView,
+  keymap,
+  lineNumbers,
+  highlightActiveLineGutter,
+  highlightActiveLine
+} from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
@@ -122,7 +128,7 @@ const initEditor = () => {
         ...historyKeymap,
         ...searchKeymap
       ]),
-      EditorView.updateListener.of((update) => {
+      EditorView.updateListener.of(update => {
         if (update.docChanged) {
           isDispatchingInternal = true
           const docString = update.state.doc.toString()
@@ -133,7 +139,8 @@ const initEditor = () => {
       EditorView.domEventHandlers({
         scroll: (event, editorView) => {
           const scroller = editorView.scrollDOM
-          const scrollPercentage = scroller.scrollTop / (scroller.scrollHeight - scroller.clientHeight || 1)
+          const scrollPercentage =
+            scroller.scrollTop / (scroller.scrollHeight - scroller.clientHeight || 1)
           emit('scroll-change', scrollPercentage)
         }
       })
@@ -164,7 +171,7 @@ const wrapSelection = (prefix, suffix, defaultPlaceholder = '') => {
   view.focus()
 }
 
-const insertBlock = (blockText) => {
+const insertBlock = blockText => {
   if (!view) return
   const { state } = view
   const { from, to } = state.selection.main
@@ -175,7 +182,7 @@ const insertBlock = (blockText) => {
   view.focus()
 }
 
-const scrollToRatio = (ratio) => {
+const scrollToRatio = ratio => {
   if (!view) return
   const scroller = view.scrollDOM
   scroller.scrollTop = ratio * (scroller.scrollHeight - scroller.clientHeight)
@@ -183,7 +190,7 @@ const scrollToRatio = (ratio) => {
 
 watch(
   () => props.modelValue,
-  (newVal) => {
+  newVal => {
     if (isDispatchingInternal || !view) return
     const currentDoc = view.state.doc.toString()
     if (newVal !== currentDoc) {

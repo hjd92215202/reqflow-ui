@@ -17,8 +17,8 @@
               placeholder="添加一条日常个人待办，按回车 (Enter) 快速发送..."
               size="large"
               class="quick-todo-input"
-              @keyup.enter="handleCreateTodo"
               clearable
+              @keyup.enter="handleCreateTodo"
             >
               <template #prefix>
                 <span class="input-icon">➕</span>
@@ -26,7 +26,12 @@
             </el-input>
 
             <div class="quick-todo-tools">
-              <el-select v-model="newTodoPriority" size="large" style="width: 110px;" placeholder="优先级">
+              <el-select
+                v-model="newTodoPriority"
+                size="large"
+                style="width: 110px"
+                placeholder="优先级"
+              >
                 <el-option label="高优 🔴" value="HIGH" />
                 <el-option label="中优 🟡" value="MEDIUM" />
                 <el-option label="低优 🔵" value="LOW" />
@@ -38,7 +43,7 @@
                 placeholder="截止时间"
                 size="large"
                 value-format="YYYY-MM-DD"
-                style="width: 140px;"
+                style="width: 140px"
               />
 
               <el-button type="primary" size="large" @click="handleCreateTodo">添 加</el-button>
@@ -52,8 +57,12 @@
             <!-- 分类隔离切换按键 (默认选中：日常待办) -->
             <el-radio-group v-model="categoryType" size="default">
               <el-radio-button value="ALL">全部分类 ({{ allTodos.length }})</el-radio-button>
-              <el-radio-button value="PERSONAL">📝 日常待办 ({{ personalTodosCount }})</el-radio-button>
-              <el-radio-button value="PROJECT">📋 需求待办 ({{ projectTodosCount }})</el-radio-button>
+              <el-radio-button value="PERSONAL"
+                >📝 日常待办 ({{ personalTodosCount }})</el-radio-button
+              >
+              <el-radio-button value="PROJECT"
+                >📋 需求待办 ({{ projectTodosCount }})</el-radio-button
+              >
             </el-radio-group>
 
             <!-- 状态筛选按键 (默认选中：进行中) -->
@@ -65,16 +74,23 @@
             </el-radio-group>
           </div>
 
-          <div class="todo-items-wrapper" v-loading="loading">
+          <div v-loading="loading" class="todo-items-wrapper">
             <template v-if="filteredTodos.length > 0">
               <div
                 v-for="item in paginatedTodos"
                 :key="item.isProjectTask ? `proj-${item.id}` : `pers-${item.id}`"
-                :class="['todo-item-row', { 'is-done': item.status === 'DONE', 'is-progress': item.status === 'IN_PROGRESS', 'is-project': item.isProjectTask }]"
+                :class="[
+                  'todo-item-row',
+                  {
+                    'is-done': item.status === 'DONE',
+                    'is-progress': item.status === 'IN_PROGRESS',
+                    'is-project': item.isProjectTask
+                  }
+                ]"
               >
                 <!-- 自定义打勾圆圈 -->
                 <div class="check-box-wrapper" @click="handleToggleStatus(item)">
-                  <span :class="['custom-check', { 'checked': item.status === 'DONE' }]">
+                  <span :class="['custom-check', { checked: item.status === 'DONE' }]">
                     <span v-if="item.status === 'DONE'" class="check-mark">✓</span>
                   </span>
                 </div>
@@ -83,17 +99,18 @@
                 <div class="todo-content-block" @click="openEditDialog(item)">
                   <span class="todo-title-text">{{ item.title }}</span>
                   <p v-if="item.description" class="todo-desc-text">{{ item.description }}</p>
-                  
+
                   <div class="todo-meta-tags">
                     <!-- 需求待办的项目关联徽章 (支持一键跳转) -->
-                    <el-tag 
-                      v-if="item.isProjectTask" 
-                      type="primary" 
-                      size="small" 
+                    <el-tag
+                      v-if="item.isProjectTask"
+                      type="primary"
+                      size="small"
                       class="project-badge"
                       @click.stop="goToMatrix(item)"
                     >
-                      📌 关联需求：[{{ item.requirementTitle || '未命名需求' }}] ➔ {{ item.stageTitle || '未命名阶段' }}
+                      📌 关联需求：[{{ item.requirementTitle || '未命名需求' }}] ➔
+                      {{ item.stageTitle || '未命名阶段' }}
                     </el-tag>
 
                     <!-- 状态 Tag -->
@@ -107,8 +124,8 @@
                     </el-tag>
 
                     <!-- 截止日期 Tag -->
-                    <span 
-                      v-if="item.dueDate" 
+                    <span
+                      v-if="item.dueDate"
                       :class="['date-tag', { 'is-overdue': isOverdue(item) }]"
                     >
                       📅 {{ item.dueDate }} {{ isOverdue(item) ? '(已逾期)' : '' }}
@@ -118,17 +135,28 @@
 
                 <!-- 右侧快捷操作面板 -->
                 <div class="todo-actions-block">
-                  <el-button type="primary" link size="small" @click="openEditDialog(item)">编辑</el-button>
-                  <el-button type="danger" link size="small" @click="handleDeleteTodo(item)">删除</el-button>
+                  <el-button type="primary" link size="small" @click="openEditDialog(item)"
+                    >编辑</el-button
+                  >
+                  <el-button type="danger" link size="small" @click="handleDeleteTodo(item)"
+                    >删除</el-button
+                  >
                 </div>
               </div>
             </template>
 
-            <el-empty v-else description="暂无该分类/状态下的待办事项，轻松一下吧！" :image-size="100" />
+            <el-empty
+              v-else
+              description="暂无该分类/状态下的待办事项，轻松一下吧！"
+              :image-size="100"
+            />
           </div>
 
           <!-- 待办中心底部分页组件 -->
-          <div class="pagination-wrapper" style="margin-top: 20px; display: flex; justify-content: flex-end;">
+          <div
+            class="pagination-wrapper"
+            style="margin-top: 20px; display: flex; justify-content: flex-end"
+          >
             <el-pagination
               v-model:current-page="todoCurrentPage"
               v-model:page-size="todoPageSize"
@@ -147,11 +175,11 @@
         <div class="sidebar-card">
           <h3 class="card-title">📊 完成进度分析</h3>
           <div class="progress-circle-box">
-            <el-progress 
-              type="circle" 
-              :percentage="completionPercent" 
-              :width="110" 
-              :stroke-width="8" 
+            <el-progress
+              type="circle"
+              :percentage="completionPercent"
+              :width="110"
+              :stroke-width="8"
               :color="customColors"
             />
           </div>
@@ -184,24 +212,28 @@
                 <span class="dist-label">📝 日常个人待办</span>
                 <span class="dist-val">{{ personalTodosCount }} 项</span>
               </div>
-              <el-progress 
-                :percentage="allTodos.length ? Math.round((personalTodosCount / allTodos.length) * 100) : 0" 
-                :show-text="false" 
-                :stroke-width="6" 
-                color="#e6a23c" 
+              <el-progress
+                :percentage="
+                  allTodos.length ? Math.round((personalTodosCount / allTodos.length) * 100) : 0
+                "
+                :show-text="false"
+                :stroke-width="6"
+                color="#e6a23c"
               />
             </div>
 
-            <div class="dist-item" style="margin-top: 14px;">
+            <div class="dist-item" style="margin-top: 14px">
               <div class="dist-row">
                 <span class="dist-label">📋 需求派生待办</span>
                 <span class="dist-val">{{ projectTodosCount }} 项</span>
               </div>
-              <el-progress 
-                :percentage="allTodos.length ? Math.round((projectTodosCount / allTodos.length) * 100) : 0" 
-                :show-text="false" 
-                :stroke-width="6" 
-                color="#2383e2" 
+              <el-progress
+                :percentage="
+                  allTodos.length ? Math.round((projectTodosCount / allTodos.length) * 100) : 0
+                "
+                :show-text="false"
+                :stroke-width="6"
+                color="#2383e2"
               />
             </div>
           </div>
@@ -213,7 +245,9 @@
             <span class="tip-icon">💡</span>
             <span class="tip-title">联动提示</span>
           </div>
-          <p class="tip-body">【需求待办】来自协同矩阵分配。新建与重置的待办默认处于【进行中】状态，勾选打勾后将自动同步为【已完成】。</p>
+          <p class="tip-body">
+            【需求待办】来自协同矩阵分配。新建与重置的待办默认处于【进行中】状态，勾选打勾后将自动同步为【已完成】。
+          </p>
         </div>
       </div>
     </div>
@@ -231,7 +265,7 @@
             <el-radio-button value="DONE">已完成</el-radio-button>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="详细内容" v-if="!editForm.isProjectTask">
+        <el-form-item v-if="!editForm.isProjectTask" label="详细内容">
           <el-input
             v-model="editForm.description"
             type="textarea"
@@ -239,7 +273,7 @@
             placeholder="添加待办事项的补充细节、备注说明或步骤清单..."
           />
         </el-form-item>
-        <el-form-item label="优先级" v-if="!editForm.isProjectTask">
+        <el-form-item v-if="!editForm.isProjectTask" label="优先级">
           <el-radio-group v-model="editForm.priority">
             <el-radio-button value="LOW">低</el-radio-button>
             <el-radio-button value="MEDIUM">中</el-radio-button>
@@ -252,7 +286,7 @@
             type="date"
             placeholder="选择截止时间"
             value-format="YYYY-MM-DD"
-            style="width: 100%;"
+            style="width: 100%"
           />
         </el-form-item>
       </el-form>
@@ -322,7 +356,9 @@ const personalTodosCount = computed(() => allTodos.value.filter(t => !t.isProjec
 const projectTodosCount = computed(() => allTodos.value.filter(t => t.isProjectTask).length)
 
 const pendingCount = computed(() => allTodos.value.filter(t => t.status === 'TODO').length)
-const inProgressCount = computed(() => allTodos.value.filter(t => t.status === 'IN_PROGRESS').length)
+const inProgressCount = computed(
+  () => allTodos.value.filter(t => t.status === 'IN_PROGRESS').length
+)
 const completedCount = computed(() => allTodos.value.filter(t => t.status === 'DONE').length)
 const completionPercent = computed(() => {
   const total = allTodos.value.length
@@ -389,11 +425,11 @@ const handleCreateTodo = async () => {
     newTodoDueDate.value = null
     todoCurrentPage.value = 1 // 跳转回首页展示
     await loadTodos()
-  } catch (error) { }
+  } catch (error) {}
 }
 
 // 快捷打勾/取消打勾 (取消打勾自动恢复为 IN_PROGRESS 进行中)
-const handleToggleStatus = async (item) => {
+const handleToggleStatus = async item => {
   const newStatus = item.status === 'DONE' ? 'IN_PROGRESS' : 'DONE'
   item.status = newStatus
   try {
@@ -404,7 +440,7 @@ const handleToggleStatus = async (item) => {
 }
 
 // 打开编辑弹窗
-const openEditDialog = (item) => {
+const openEditDialog = item => {
   editForm.value = {
     ...item,
     status: item.status || 'IN_PROGRESS',
@@ -424,24 +460,26 @@ const submitEditForm = async () => {
     ElMessage.success('更新成功')
     editDialogVisible.value = false
     await loadTodos()
-  } catch (error) { }
+  } catch (error) {}
 }
 
 // 删除待办
-const handleDeleteTodo = (item) => {
+const handleDeleteTodo = item => {
   ElMessageBox.confirm(
     item.isProjectTask ? '确定要移除此需求待办项吗？' : '确定要删除这条日常待办吗？',
     '提示',
     { type: 'warning' }
-  ).then(async () => {
-    await deleteTodoApi(item.id, item.isProjectTask)
-    ElMessage.success('删除成功')
-    await loadTodos()
-  }).catch(() => { })
+  )
+    .then(async () => {
+      await deleteTodoApi(item.id, item.isProjectTask)
+      ElMessage.success('删除成功')
+      await loadTodos()
+    })
+    .catch(() => {})
 }
 
 // 一键直达协同矩阵现场
-const goToMatrix = (item) => {
+const goToMatrix = item => {
   if (item.requirementId) {
     router.push({
       path: '/matrix',
@@ -451,31 +489,31 @@ const goToMatrix = (item) => {
 }
 
 // 辅助函数
-const isOverdue = (item) => {
+const isOverdue = item => {
   if (!item.dueDate || item.status === 'DONE') return false
   const today = new Date().toISOString().split('T')[0]
   return item.dueDate < today
 }
 
-const getPriorityTagType = (p) => {
+const getPriorityTagType = p => {
   if (p === 'HIGH') return 'danger'
   if (p === 'MEDIUM') return 'warning'
   return 'info'
 }
 
-const formatPriority = (p) => {
+const formatPriority = p => {
   if (p === 'HIGH') return '高优'
   if (p === 'MEDIUM') return '中优'
   return '低优'
 }
 
-const getStatusTagType = (s) => {
+const getStatusTagType = s => {
   if (s === 'DONE') return 'success'
   if (s === 'IN_PROGRESS') return 'warning'
   return 'info'
 }
 
-const formatStatus = (s) => {
+const formatStatus = s => {
   if (s === 'DONE') return '已完成'
   if (s === 'IN_PROGRESS') return '进行中'
   return '待处理'

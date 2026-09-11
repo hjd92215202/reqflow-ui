@@ -4,9 +4,9 @@
     <div
       ref="previewBodyRef"
       class="markdown-body"
-      v-html="renderedHtml"
       @click="handleContainerClick"
       @change="handleCheckboxChange"
+      v-html="renderedHtml"
     ></div>
   </div>
 </template>
@@ -37,7 +37,7 @@ const renderedHtml = computed(() => {
 })
 
 // 处理代码块复制事件
-const handleContainerClick = (e) => {
+const handleContainerClick = e => {
   const btn = e.target.closest('.code-copy-btn')
   if (btn) {
     const rawCode = decodeURIComponent(btn.getAttribute('data-code') || '')
@@ -55,7 +55,7 @@ const handleContainerClick = (e) => {
 }
 
 // 处理编辑态复选框点击联动
-const handleCheckboxChange = (e) => {
+const handleCheckboxChange = e => {
   if (!props.editableTask) return
   const target = e.target
   if (target && target.classList.contains('task-list-item-checkbox')) {

@@ -4,7 +4,7 @@ export function getRequirementsListApi(params) {
   return request({
     url: '/api/requirements',
     method: 'get',
-    params 
+    params
   })
 }
 

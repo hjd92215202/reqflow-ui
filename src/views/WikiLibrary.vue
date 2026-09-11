@@ -3,38 +3,56 @@
   <div class="wiki-workspace">
     <!-- 左侧文档与项目导航树 -->
     <div :class="['wiki-sidebar', { 'is-collapsed': isSidebarCollapsed }]">
-      <div class="sidebar-header" v-if="!isSidebarCollapsed">
+      <div v-if="!isSidebarCollapsed" class="sidebar-header">
         <span class="sidebar-title">📖 项目 Wiki 库</span>
         <div class="header-btns">
-          <el-button type="primary" size="small" @click="handleCreateNewDoc(null)">+ 新建</el-button>
-          <el-button link class="collapse-btn" @click="isSidebarCollapsed = true" title="收起侧边栏">
+          <el-button type="primary" size="small" @click="handleCreateNewDoc(null)"
+            >+ 新建</el-button
+          >
+          <el-button
+            link
+            class="collapse-btn"
+            title="收起侧边栏"
+            @click="isSidebarCollapsed = true"
+          >
             ◀
           </el-button>
         </div>
       </div>
 
       <!-- 快捷搜索 -->
-      <div class="search-box" v-if="!isSidebarCollapsed">
-        <el-input v-model="searchKeyword" placeholder="搜索文档标题或标签..." size="small" clearable>
+      <div v-if="!isSidebarCollapsed" class="search-box">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="搜索文档标题或标签..."
+          size="small"
+          clearable
+        >
           <template #prefix>🔍</template>
         </el-input>
       </div>
 
       <!-- 需求空间与文档列表 -->
-      <div class="doc-tree-list" v-loading="loading" v-if="!isSidebarCollapsed">
+      <div v-if="!isSidebarCollapsed" v-loading="loading" class="doc-tree-list">
         <div
-          :class="['tree-node-item', { active: activeReqFilter === null && (!currentDoc || !currentDoc.id) }]"
+          :class="[
+            'tree-node-item',
+            { active: activeReqFilter === null && (!currentDoc || !currentDoc.id) }
+          ]"
           @click="selectFilter(null)"
         >
           <span class="node-icon">🌐</span>
           <span class="node-label">全部文档 ({{ allDocs.length }})</span>
         </div>
 
-        <el-divider style="margin: 8px 0;" />
+        <el-divider style="margin: 8px 0" />
 
         <!-- 1. 关联需求经验库分类树 -->
         <div class="collapsible-section">
-          <div class="category-title clickable-title" @click="isReqCategoryCollapsed = !isReqCategoryCollapsed">
+          <div
+            class="category-title clickable-title"
+            @click="isReqCategoryCollapsed = !isReqCategoryCollapsed"
+          >
             <span>📌 需求项目经验库</span>
             <span :class="['arrow-icon', { 'is-collapsed': isReqCategoryCollapsed }]">▼</span>
           </div>
@@ -54,11 +72,14 @@
           </el-collapse-transition>
         </div>
 
-        <el-divider style="margin: 8px 0;" />
+        <el-divider style="margin: 8px 0" />
 
         <!-- 2. 文档列表 -->
         <div class="collapsible-section">
-          <div class="category-title clickable-title" @click="isDocListCollapsed = !isDocListCollapsed">
+          <div
+            class="category-title clickable-title"
+            @click="isDocListCollapsed = !isDocListCollapsed"
+          >
             <span>📄 文章列表 ({{ filteredDocs.length }})</span>
             <span :class="['arrow-icon', { 'is-collapsed': isDocListCollapsed }]">▼</span>
           </div>
@@ -73,11 +94,17 @@
                 <span class="doc-icon">📄</span>
                 <div class="doc-meta-info">
                   <span class="doc-title-text">{{ doc.title || '未命名文档' }}</span>
-                  <span class="doc-sub-info">{{ doc.creatorNickname || '系统' }} · {{ formatTime(doc.updatedAt) }}</span>
+                  <span class="doc-sub-info"
+                    >{{ doc.creatorNickname || '系统' }} · {{ formatTime(doc.updatedAt) }}</span
+                  >
                 </div>
               </div>
 
-              <el-empty v-if="filteredDocs.length === 0" description="暂无相关文档" :image-size="50" />
+              <el-empty
+                v-if="filteredDocs.length === 0"
+                description="暂无相关文档"
+                :image-size="50"
+              />
             </div>
           </el-collapse-transition>
         </div>
@@ -85,7 +112,7 @@
     </div>
 
     <!-- 右侧文档编辑与阅读主视口 -->
-    <div class="wiki-main-container" v-if="currentDoc">
+    <div v-if="currentDoc" class="wiki-main-container">
       <!-- 1. 顶栏操作与模式切换 -->
       <div class="doc-top-bar">
         <div class="top-bar-left">
@@ -93,8 +120,8 @@
             v-if="isSidebarCollapsed"
             link
             class="expand-sidebar-btn"
-            @click="isSidebarCollapsed = false"
             title="展开侧边栏"
+            @click="isSidebarCollapsed = false"
           >
             ▶ 展开目录
           </el-button>
@@ -113,8 +140,12 @@
             <el-radio-button value="preview">📖 预览</el-radio-button>
           </el-radio-group>
 
-          <el-button type="primary" plain size="default" @click="openShareModal">🔗 分享文档</el-button>
-          <el-button type="success" size="default" :loading="saving" @click="handleSaveDoc">💾 保存文档</el-button>
+          <el-button type="primary" plain size="default" @click="openShareModal"
+            >🔗 分享文档</el-button
+          >
+          <el-button type="success" size="default" :loading="saving" @click="handleSaveDoc"
+            >💾 保存文档</el-button
+          >
           <el-button type="danger" link size="small" @click="handleDeleteDoc">删除文章</el-button>
         </div>
       </div>
@@ -131,48 +162,90 @@
         <div class="doc-properties-bar">
           <div class="prop-item">
             <span class="prop-label">关联需求:</span>
-            <el-select v-model="currentDoc.requirementId" placeholder="无 (通用经验)" size="small" style="width: 220px;" clearable>
-              <el-option v-for="req in requirements" :key="req.id" :label="req.title" :value="req.id" />
+            <el-select
+              v-model="currentDoc.requirementId"
+              placeholder="无 (通用经验)"
+              size="small"
+              style="width: 220px"
+              clearable
+            >
+              <el-option
+                v-for="req in requirements"
+                :key="req.id"
+                :label="req.title"
+                :value="req.id"
+              />
             </el-select>
           </div>
 
           <div class="prop-item">
             <span class="prop-label">经验标签:</span>
-            <el-input v-model="currentDoc.tags" placeholder="多个用逗号隔开，如: 踩坑记录,架构方案" size="small" style="width: 280px;" />
+            <el-input
+              v-model="currentDoc.tags"
+              placeholder="多个用逗号隔开，如: 踩坑记录,架构方案"
+              size="small"
+              style="width: 280px"
+            />
           </div>
         </div>
 
         <!-- 3. Markdown 专业工具栏 -->
-        <div class="markdown-toolbar-bar" v-if="viewMode !== 'preview'">
+        <div v-if="viewMode !== 'preview'" class="markdown-toolbar-bar">
           <div class="tool-group">
             <span class="tool-group-label">快捷语法:</span>
             <el-button-group size="small">
-              <el-button @click="editorRef?.wrapSelection('**', '**', '粗体文字')" title="粗体"><b>B</b></el-button>
-              <el-button @click="editorRef?.wrapSelection('*', '*', '斜体文字')" title="斜体"><i>I</i></el-button>
-              <el-button @click="editorRef?.wrapSelection('~~', '~~', '删除文本')" title="删除线"><del>S</del></el-button>
-              <el-button @click="editorRef?.wrapSelection('### ', '', '小标题')" title="标题">H</el-button>
-              <el-button @click="editorRef?.wrapSelection('`', '`', 'code')" title="行内代码">&lt;/&gt;</el-button>
-              <el-button @click="insertCodeBlock" title="代码块">代码块</el-button>
-              <el-button @click="editorRef?.wrapSelection('> ', '', '引用说明...')" title="引用">”</el-button>
-              <el-button @click="editorRef?.wrapSelection('- [ ] ', '', '待办清单任务')" title="任务待办">☑️</el-button>
-              <el-button @click="editorRef?.wrapSelection('- ', '', '无序列表项')" title="列表">• 列表</el-button>
-              <el-button @click="insertTable" title="表格">📊 表格</el-button>
+              <el-button title="粗体" @click="editorRef?.wrapSelection('**', '**', '粗体文字')"
+                ><b>B</b></el-button
+              >
+              <el-button title="斜体" @click="editorRef?.wrapSelection('*', '*', '斜体文字')"
+                ><i>I</i></el-button
+              >
+              <el-button title="删除线" @click="editorRef?.wrapSelection('~~', '~~', '删除文本')"
+                ><del>S</del></el-button
+              >
+              <el-button title="标题" @click="editorRef?.wrapSelection('### ', '', '小标题')"
+                >H</el-button
+              >
+              <el-button title="行内代码" @click="editorRef?.wrapSelection('`', '`', 'code')"
+                >&lt;/&gt;</el-button
+              >
+              <el-button title="代码块" @click="insertCodeBlock">代码块</el-button>
+              <el-button title="引用" @click="editorRef?.wrapSelection('> ', '', '引用说明...')"
+                >”</el-button
+              >
+              <el-button
+                title="任务待办"
+                @click="editorRef?.wrapSelection('- [ ] ', '', '待办清单任务')"
+                >☑️</el-button
+              >
+              <el-button title="列表" @click="editorRef?.wrapSelection('- ', '', '无序列表项')"
+                >• 列表</el-button
+              >
+              <el-button title="表格" @click="insertTable">📊 表格</el-button>
             </el-button-group>
           </div>
 
           <div class="tool-group templates-group">
             <span class="tool-group-label">⚡️ 经验模板:</span>
-            <el-button size="small" link type="primary" @click="applyTemplate('TECH')">🛠️ 架构方案</el-button>
-            <el-button size="small" link type="warning" @click="applyTemplate('PIT')">⚠️ 排坑记录</el-button>
-            <el-button size="small" link type="success" @click="applyTemplate('REVIEW')">🎯 项目复盘</el-button>
-            <el-button size="small" link type="info" @click="applyTemplate('CHANGE')">📝 变更说明</el-button>
+            <el-button size="small" link type="primary" @click="applyTemplate('TECH')"
+              >🛠️ 架构方案</el-button
+            >
+            <el-button size="small" link type="warning" @click="applyTemplate('PIT')"
+              >⚠️ 排坑记录</el-button
+            >
+            <el-button size="small" link type="success" @click="applyTemplate('REVIEW')"
+              >🎯 项目复盘</el-button
+            >
+            <el-button size="small" link type="info" @click="applyTemplate('CHANGE')"
+              >📝 变更说明</el-button
+            >
           </div>
         </div>
       </div>
 
       <!-- 4. Markdown 编辑器 (CodeMirror 6) 与标准渲染预览视口 -->
       <div :class="['doc-content-workspace', `mode-${viewMode}`]">
-        <div class="editor-pane" v-show="viewMode === 'edit' || viewMode === 'split'">
+        <div v-show="viewMode === 'edit' || viewMode === 'split'" class="editor-pane">
           <MarkdownEditor
             ref="editorRef"
             v-model="currentDoc.content"
@@ -180,9 +253,13 @@
           />
         </div>
 
-        <div class="split-divider" v-if="viewMode === 'split'"></div>
+        <div v-if="viewMode === 'split'" class="split-divider"></div>
 
-        <div class="preview-pane" ref="previewPaneRef" v-show="viewMode === 'preview' || viewMode === 'split'">
+        <div
+          v-show="viewMode === 'preview' || viewMode === 'split'"
+          ref="previewPaneRef"
+          class="preview-pane"
+        >
           <MarkdownPreview
             :source="currentDoc.content"
             :editable-task="true"
@@ -193,18 +270,21 @@
     </div>
 
     <!-- 未选择文档时的占位视图 -->
-    <div class="empty-main-state" v-else>
-      <el-empty description="选择左侧文档进行阅读与编辑，或点击 [+ 新建文档] 开始沉淀" :image-size="120" />
+    <div v-else class="empty-main-state">
+      <el-empty
+        description="选择左侧文档进行阅读与编辑，或点击 [+ 新建文档] 开始沉淀"
+        :image-size="120"
+      />
     </div>
 
     <!-- 5. 只读分享链接弹窗 -->
     <el-dialog v-model="shareModalVisible" title="🔗 生成只读分享链接" width="480px" append-to-body>
-      <p style="font-size: 13px; color: #606266; margin-top: 0;">
+      <p style="font-size: 13px; color: #606266; margin-top: 0">
         复制此链接后发送给他人，对方无需登录系统即可在浏览器中只读查看此文档。
       </p>
       <el-input v-model="generatedShareUrl" readonly size="default">
         <template #append>
-          <el-button @click="copyShareUrl" type="primary">复制链接</el-button>
+          <el-button type="primary" @click="copyShareUrl">复制链接</el-button>
         </template>
       </el-input>
     </el-dialog>
@@ -215,7 +295,13 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
-import { getWikiListApi, createWikiApi, updateWikiApi, deleteWikiApi, getDocShareTokenApi } from '@/api/wiki'
+import {
+  getWikiListApi,
+  createWikiApi,
+  updateWikiApi,
+  deleteWikiApi,
+  getDocShareTokenApi
+} from '@/api/wiki'
 import { getRequirementsListApi } from '@/api/requirement'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import MarkdownEditor from '@/components/markdown/MarkdownEditor.vue'
@@ -255,22 +341,24 @@ const filteredDocs = computed(() => {
 
   if (searchKeyword.value && searchKeyword.value.trim()) {
     const kw = searchKeyword.value.toLowerCase()
-    list = list.filter(d => d && (
-      (d.title && String(d.title).toLowerCase().includes(kw)) ||
-      (d.tags && String(d.tags).toLowerCase().includes(kw))
-    ))
+    list = list.filter(
+      d =>
+        d &&
+        ((d.title && String(d.title).toLowerCase().includes(kw)) ||
+          (d.tags && String(d.tags).toLowerCase().includes(kw)))
+    )
   }
 
   return list
 })
 
-const getReqDocCount = (reqId) => {
+const getReqDocCount = reqId => {
   if (!Array.isArray(allDocs.value)) return 0
   return allDocs.value.filter(d => d && d.requirementId === reqId).length
 }
 
 // 分屏滚动同步
-const handleEditorScroll = (ratio) => {
+const handleEditorScroll = ratio => {
   if (viewMode.value !== 'split' || !previewPaneRef.value) return
   const el = previewPaneRef.value
   el.scrollTop = ratio * (el.scrollHeight - el.clientHeight)
@@ -325,7 +413,8 @@ const insertCodeBlock = () => {
 }
 
 const insertTable = () => {
-  const tableTemplate = '\n| 模块 / 功能 | 说明 | 负责人 | 状态 |\n|---|---|---|---|\n| 接口联调 | 核心数据拉取 | 张三 | 进行中 |\n'
+  const tableTemplate =
+    '\n| 模块 / 功能 | 说明 | 负责人 | 状态 |\n|---|---|---|---|\n| 接口联调 | 核心数据拉取 | 张三 | 进行中 |\n'
   editorRef.value?.insertBlock(tableTemplate)
 }
 
@@ -334,7 +423,8 @@ const loadData = async () => {
   loading.value = true
   try {
     const reqRes = await getRequirementsListApi({ page: 0, size: 200 })
-    requirements.value = (reqRes && reqRes.content) ? reqRes.content : (Array.isArray(reqRes) ? reqRes : [])
+    requirements.value =
+      reqRes && reqRes.content ? reqRes.content : Array.isArray(reqRes) ? reqRes : []
 
     const docsRes = await getWikiListApi()
     allDocs.value = Array.isArray(docsRes) ? docsRes : []
@@ -353,19 +443,20 @@ const loadData = async () => {
   }
 }
 
-const selectFilter = (reqId) => {
+const selectFilter = reqId => {
   activeReqFilter.value = reqId
 }
 
-const selectDoc = (doc) => {
+const selectDoc = doc => {
   currentDoc.value = { ...doc }
 }
 
-const handleCreateNewDoc = async (reqId) => {
+const handleCreateNewDoc = async reqId => {
   try {
     const newDoc = await createWikiApi({
       title: '未命名复盘文档',
-      content: '## 1. 概述\n在此记录实施要点与技术细节...\n\n- [ ] 关键技术项 1\n- [x] 已完成事项\n',
+      content:
+        '## 1. 概述\n在此记录实施要点与技术细节...\n\n- [ ] 关键技术项 1\n- [x] 已完成事项\n',
       requirementId: reqId || activeReqFilter.value,
       tags: '经验复盘'
     })
@@ -394,15 +485,17 @@ const handleSaveDoc = async () => {
 
 const handleDeleteDoc = () => {
   if (!currentDoc.value) return
-  ElMessageBox.confirm('确定要删除这篇 Wiki 文档吗？', '提示', { type: 'warning' }).then(async () => {
-    await deleteWikiApi(currentDoc.value.id)
-    ElMessage.success('已删除')
-    currentDoc.value = null
-    await loadData()
-  }).catch(() => {})
+  ElMessageBox.confirm('确定要删除这篇 Wiki 文档吗？', '提示', { type: 'warning' })
+    .then(async () => {
+      await deleteWikiApi(currentDoc.value.id)
+      ElMessage.success('已删除')
+      currentDoc.value = null
+      await loadData()
+    })
+    .catch(() => {})
 }
 
-const applyTemplate = (type) => {
+const applyTemplate = type => {
   if (!currentDoc.value) return
   const templates = {
     TECH: `## 🛠️ 技术方案 & 架构设计
@@ -464,7 +557,7 @@ const applyTemplate = (type) => {
   }
 }
 
-const formatTime = (timeStr) => {
+const formatTime = timeStr => {
   if (!timeStr || typeof timeStr !== 'string') return ''
   return timeStr.split('T')[0] || timeStr
 }

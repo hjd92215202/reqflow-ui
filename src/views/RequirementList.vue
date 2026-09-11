@@ -8,11 +8,11 @@
 
       <el-table
         ref="requirementTableRef"
+        v-loading="loading"
         :data="tableData"
-        style="width: 100%; margin-top: 15px;"
+        style="width: 100%; margin-top: 15px"
         border
         stripe
-        v-loading="loading"
         :row-class-name="tableRowClassName"
       >
         <!-- 核心优化：鼠标按住手柄实时拖动排序 -->
@@ -31,18 +31,25 @@
         </el-table-column>
 
         <el-table-column prop="title" label="需求标题" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="description" label="核心描述" min-width="180" show-overflow-tooltip />
+        <el-table-column
+          prop="description"
+          label="核心描述"
+          min-width="180"
+          show-overflow-tooltip
+        />
         <el-table-column label="排期起止" width="220">
           <template #default="scope">
-            <span class="date-text" v-if="scope.row.startDate || scope.row.endDate">
+            <span v-if="scope.row.startDate || scope.row.endDate" class="date-text">
               {{ scope.row.startDate || '未定' }} 至 {{ scope.row.endDate || '未定' }}
             </span>
-            <span class="date-text-none" v-else>暂无排期</span>
+            <span v-else class="date-text-none">暂无排期</span>
           </template>
         </el-table-column>
         <el-table-column prop="priority" label="优先级" width="90" align="center">
           <template #default="scope">
-            <el-tag :type="getPriorityTag(scope.row.priority)" size="small">{{ scope.row.priority }}</el-tag>
+            <el-tag :type="getPriorityTag(scope.row.priority)" size="small">{{
+              scope.row.priority
+            }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="进展状态" width="100" align="center">
@@ -56,9 +63,13 @@
         <!-- 阶段完成度 (迷你进度条与阶段徽章) -->
         <el-table-column label="阶段完成度" min-width="170" align="center">
           <template #default="scope">
-            <div v-if="stageStatsMap[scope.row.id] && stageStatsMap[scope.row.id].total > 0" class="progress-cell">
+            <div
+              v-if="stageStatsMap[scope.row.id] && stageStatsMap[scope.row.id].total > 0"
+              class="progress-cell"
+            >
               <span class="progress-badge-text">
-                📍 {{ stageStatsMap[scope.row.id].done }} / {{ stageStatsMap[scope.row.id].total }} 阶段已完成
+                📍 {{ stageStatsMap[scope.row.id].done }} /
+                {{ stageStatsMap[scope.row.id].total }} 阶段已完成
               </span>
               <el-progress
                 :percentage="stageStatsMap[scope.row.id].percent"
@@ -73,10 +84,18 @@
 
         <el-table-column label="操作面板" width="220" align="center" fixed="right">
           <template #default="scope">
-            <el-button size="small" link type="success" @click="goToWorkMatrix(scope.row.id)">矩阵与跟进</el-button>
-            <el-button size="small" link type="warning" @click="goToWiki(scope.row.id)">Wiki 沉淀</el-button>
-            <el-button size="small" link type="primary" @click="openEditDialog(scope.row)">编辑</el-button>
-            <el-button size="small" link type="danger" @click="handleDelete(scope.row.id)">删除</el-button>
+            <el-button size="small" link type="success" @click="goToWorkMatrix(scope.row.id)"
+              >矩阵与跟进</el-button
+            >
+            <el-button size="small" link type="warning" @click="goToWiki(scope.row.id)"
+              >Wiki 沉淀</el-button
+            >
+            <el-button size="small" link type="primary" @click="openEditDialog(scope.row)"
+              >编辑</el-button
+            >
+            <el-button size="small" link type="danger" @click="handleDelete(scope.row.id)"
+              >删除</el-button
+            >
           </template>
         </el-table-column>
       </el-table>
@@ -102,11 +121,23 @@
           <el-input v-model="form.title" placeholder="请输入需求标题" />
         </el-form-item>
         <el-form-item label="需求背景">
-          <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入核心背景或业务价值..." />
+          <el-input
+            v-model="form.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入核心背景或业务价值..."
+          />
         </el-form-item>
         <el-form-item label="计划起止">
-          <el-date-picker v-model="requirementDateRange" type="daterange" range-separator="至" start-placeholder="开始"
-            end-placeholder="截止" value-format="YYYY-MM-DD" style="width: 100%;" />
+          <el-date-picker
+            v-model="requirementDateRange"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始"
+            end-placeholder="截止"
+            value-format="YYYY-MM-DD"
+            style="width: 100%"
+          />
         </el-form-item>
         <el-form-item label="优先级">
           <el-radio-group v-model="form.priority">
@@ -115,8 +146,8 @@
             <el-radio-button value="HIGH">高</el-radio-button>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="主状态" v-if="isEdit">
-          <el-select v-model="form.status" style="width: 100%;">
+        <el-form-item v-if="isEdit" label="主状态">
+          <el-select v-model="form.status" style="width: 100%">
             <el-option label="待处理" value="TODO" />
             <el-option label="进行中" value="IN_PROGRESS" />
             <el-option label="测试中" value="TESTING" />
@@ -176,7 +207,7 @@ const form = ref({
 })
 
 // 应用本地保存的排序规则
-const applySavedRequirementOrder = (dataList) => {
+const applySavedRequirementOrder = dataList => {
   const savedOrderStr = localStorage.getItem('reqflow_requirement_order')
   if (!savedOrderStr) return dataList
   try {
@@ -211,7 +242,7 @@ const startRowDrag = (startIndex, event) => {
   document.body.style.cursor = 'grabbing'
   document.body.style.userSelect = 'none'
 
-  const handleMouseMove = (e) => {
+  const handleMouseMove = e => {
     if (activeDragIndex.value === null) return
 
     // 取得 Element Plus 表格中所有的 TR 节点
@@ -272,11 +303,11 @@ const loadRequirements = async () => {
 }
 
 // 统计各需求的阶段完成进度
-const loadRequirementStats = async (reqs) => {
+const loadRequirementStats = async reqs => {
   if (!reqs || reqs.length === 0) return
   const stats = {}
   await Promise.all(
-    reqs.map(async (req) => {
+    reqs.map(async req => {
       try {
         const stages = await getStagesApi(req.id)
         if (stages && stages.length > 0) {
@@ -295,33 +326,41 @@ const loadRequirementStats = async (reqs) => {
   stageStatsMap.value = stats
 }
 
-const handleSizeChange = (val) => {
+const handleSizeChange = val => {
   pageSize.value = val
   currentPage.value = 1
   loadRequirements()
 }
 
-const handleCurrentChange = (val) => {
+const handleCurrentChange = val => {
   currentPage.value = val
   loadRequirements()
 }
 
-const goToWorkMatrix = (reqId) => {
+const goToWorkMatrix = reqId => {
   router.push({ path: '/matrix', query: { reqId } })
 }
 
-const goToWiki = (reqId) => {
+const goToWiki = reqId => {
   router.push({ path: '/wiki', query: { reqId } })
 }
 
 const openCreateDialog = () => {
   isEdit.value = false
   requirementDateRange.value = []
-  form.value = { id: null, title: '', description: '', priority: 'MEDIUM', status: 'TODO', startDate: null, endDate: null }
+  form.value = {
+    id: null,
+    title: '',
+    description: '',
+    priority: 'MEDIUM',
+    status: 'TODO',
+    startDate: null,
+    endDate: null
+  }
   dialogVisible.value = true
 }
 
-const openEditDialog = (row) => {
+const openEditDialog = row => {
   isEdit.value = true
   form.value = { ...row }
   if (row.startDate && row.endDate) {
@@ -354,46 +393,58 @@ const submitForm = async () => {
     }
     dialogVisible.value = false
     loadRequirements()
-  } catch (error) { }
+  } catch (error) {}
 }
 
-const formatStatus = (status) => {
+const formatStatus = status => {
   const statusMap = {
-    'TODO': '待处理',
-    'IN_PROGRESS': '进行中',
-    'TESTING': '测试中',
-    'DONE': '已完成',
-    'SUSPENDED': '已挂起'
+    TODO: '待处理',
+    IN_PROGRESS: '进行中',
+    TESTING: '测试中',
+    DONE: '已完成',
+    SUSPENDED: '已挂起'
   }
   return statusMap[status] || status
 }
 
-const handleDelete = (id) => {
-  ElMessageBox.confirm('确定要删除该需求吗？其下关联的所有阶段及子任务信息也将一并清空。', '重要提示', {
-    type: 'warning'
-  }).then(async () => {
-    try {
-      await deleteRequirementApi(id)
-      ElMessage.success('删除成功')
-      loadRequirements()
-    } catch (error) { }
-  }).catch(() => { })
+const handleDelete = id => {
+  ElMessageBox.confirm(
+    '确定要删除该需求吗？其下关联的所有阶段及子任务信息也将一并清空。',
+    '重要提示',
+    {
+      type: 'warning'
+    }
+  )
+    .then(async () => {
+      try {
+        await deleteRequirementApi(id)
+        ElMessage.success('删除成功')
+        loadRequirements()
+      } catch (error) {}
+    })
+    .catch(() => {})
 }
 
-const getPriorityTag = (p) => {
+const getPriorityTag = p => {
   if (p === 'HIGH') return 'danger'
   if (p === 'MEDIUM') return 'warning'
   return 'info'
 }
 
-const getStatusTag = (s) => {
+const getStatusTag = s => {
   switch (s) {
-    case 'TODO': return 'info'
-    case 'IN_PROGRESS': return 'warning'
-    case 'TESTING': return 'primary'
-    case 'DONE': return 'success'
-    case 'SUSPENDED': return 'danger'
-    default: return 'info'
+    case 'TODO':
+      return 'info'
+    case 'IN_PROGRESS':
+      return 'warning'
+    case 'TESTING':
+      return 'primary'
+    case 'DONE':
+      return 'success'
+    case 'SUSPENDED':
+      return 'danger'
+    default:
+      return 'info'
   }
 }
 
@@ -413,7 +464,7 @@ onMounted(() => {
   background-color: #ffffff;
   border-radius: 4px;
   padding: 24px;
-  box-shadow: 0 1px 4px rgba(0, 21, 41, .08);
+  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
 }
 
 .table-toolbar {
