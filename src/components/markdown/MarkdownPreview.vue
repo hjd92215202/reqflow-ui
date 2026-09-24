@@ -11,24 +11,31 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, ref } from 'vue'
-import { renderMarkdownToHtml } from '@/composables/useMarkdown'
+import { renderMarkdownToHtml } from './useMarkdown'
 import { ElMessage } from 'element-plus'
 
-const props = defineProps({
-  source: {
-    type: String,
-    default: ''
-  },
-  editableTask: {
-    type: Boolean,
-    default: false
-  }
+export interface MarkdownPreviewProps {
+  source?: string
+  editableTask?: boolean
+}
+
+export interface TaskTogglePayload {
+  index: number
+  checked: boolean
+}
+
+const props = withDefaults(defineProps<MarkdownPreviewProps>(), {
+  source: '',
+  editableTask: false
 })
 
-const emit = defineEmits(['task-toggle'])
-const previewBodyRef = ref(null)
+const emit = defineEmits<{
+  (e: 'task-toggle', payload: TaskTogglePayload): void
+}>()
+
+const previewBodyRef = ref<HTMLDivElement | null>(null)
 
 const renderedHtml = computed(() => {
   return renderMarkdownToHtml(props.source, {
@@ -37,8 +44,9 @@ const renderedHtml = computed(() => {
 })
 
 // 处理代码块复制事件
-const handleContainerClick = e => {
-  const btn = e.target.closest('.code-copy-btn')
+const handleContainerClick = (e: MouseEvent) => {
+  const target = e.target as HTMLElement
+  const btn = target.closest('.code-copy-btn') as HTMLElement | null
   if (btn) {
     const rawCode = decodeURIComponent(btn.getAttribute('data-code') || '')
     if (rawCode) {
@@ -55,11 +63,11 @@ const handleContainerClick = e => {
 }
 
 // 处理编辑态复选框点击联动
-const handleCheckboxChange = e => {
+const handleCheckboxChange = (e: Event) => {
   if (!props.editableTask) return
-  const target = e.target
+  const target = e.target as HTMLInputElement | null
   if (target && target.classList.contains('task-list-item-checkbox')) {
-    const index = parseInt(target.getAttribute('data-task-index'), 10)
+    const index = parseInt(target.getAttribute('data-task-index') || '0', 10)
     emit('task-toggle', {
       index,
       checked: target.checked

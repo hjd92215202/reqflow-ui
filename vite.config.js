@@ -15,6 +15,9 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true, // Tauri 需要严格锁定端口
+    watch: {
+      ignored: ['**/src-tauri/**']
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:8080',

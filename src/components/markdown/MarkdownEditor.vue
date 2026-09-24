@@ -3,7 +3,7 @@
   <div ref="editorContainerRef" class="cm-editor-wrapper"></div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { EditorState } from '@codemirror/state'
 import {
@@ -18,21 +18,29 @@ import { markdown } from '@codemirror/lang-markdown'
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
 import { defaultHighlightStyle, syntaxHighlighting, bracketMatching } from '@codemirror/language'
 
-const props = defineProps({
-  modelValue: {
-    type: String,
-    default: ''
-  },
-  placeholder: {
-    type: String,
-    default: '在此撰写 Markdown 文档...'
-  }
+export interface MarkdownEditorProps {
+  modelValue?: string
+  placeholder?: string
+}
+
+export interface MarkdownEditorExpose {
+  wrapSelection: (prefix: string, suffix: string, defaultPlaceholder?: string) => void
+  insertBlock: (blockText: string) => void
+  scrollToRatio: (ratio: number) => void
+}
+
+const props = withDefaults(defineProps<MarkdownEditorProps>(), {
+  modelValue: '',
+  placeholder: '在此撰写 Markdown 文档...'
 })
 
-const emit = defineEmits(['update:modelValue', 'scroll-change'])
+const emit = defineEmits<{
+  (e: 'update:modelValue', value: string): void
+  (e: 'scroll-change', ratio: number): void
+}>()
 
-const editorContainerRef = ref(null)
-let view = null
+const editorContainerRef = ref<HTMLDivElement | null>(null)
+let view: EditorView | null = null
 let isDispatchingInternal = false
 
 // Notion/VSCode 清爽浅色编辑主题
@@ -137,7 +145,7 @@ const initEditor = () => {
         }
       }),
       EditorView.domEventHandlers({
-        scroll: (event, editorView) => {
+        scroll: (_event, editorView) => {
           const scroller = editorView.scrollDOM
           const scrollPercentage =
             scroller.scrollTop / (scroller.scrollHeight - scroller.clientHeight || 1)
@@ -154,7 +162,7 @@ const initEditor = () => {
 }
 
 // 供外部工具栏调用的安全原子插入函数
-const wrapSelection = (prefix, suffix, defaultPlaceholder = '') => {
+const wrapSelection = (prefix: string, suffix: string, defaultPlaceholder: string = '') => {
   if (!view) return
   const { state } = view
   const { from, to } = state.selection.main
@@ -171,7 +179,7 @@ const wrapSelection = (prefix, suffix, defaultPlaceholder = '') => {
   view.focus()
 }
 
-const insertBlock = blockText => {
+const insertBlock = (blockText: string) => {
   if (!view) return
   const { state } = view
   const { from, to } = state.selection.main
@@ -182,7 +190,7 @@ const insertBlock = blockText => {
   view.focus()
 }
 
-const scrollToRatio = ratio => {
+const scrollToRatio = (ratio: number) => {
   if (!view) return
   const scroller = view.scrollDOM
   scroller.scrollTop = ratio * (scroller.scrollHeight - scroller.clientHeight)
@@ -211,7 +219,7 @@ onBeforeUnmount(() => {
   }
 })
 
-defineExpose({
+defineExpose<MarkdownEditorExpose>({
   wrapSelection,
   insertBlock,
   scrollToRatio
