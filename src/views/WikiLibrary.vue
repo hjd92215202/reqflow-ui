@@ -1,887 +1,418 @@
-<!-- src/views/WikiLibrary.vue -->
 <template>
-  <div class="wiki-workspace">
-    <!-- 左侧文档与项目导航树 -->
-    <div :class="['wiki-sidebar', { 'is-collapsed': isSidebarCollapsed }]">
-      <div v-if="!isSidebarCollapsed" class="sidebar-header">
-        <span class="sidebar-title">📖 项目 Wiki 库</span>
-        <div class="header-btns">
-          <el-button type="primary" size="small" @click="handleCreateNewDoc(null)"
-            >+ 新建</el-button
-          >
-          <el-button
-            link
-            class="collapse-btn"
-            title="收起侧边栏"
-            @click="isSidebarCollapsed = true"
-          >
-            ◀
-          </el-button>
+  <div class="wiki">
+    <aside class="wiki-side">
+      <div class="wiki-head">
+        <div>
+          <div class="eyebrow">KNOWLEDGE</div>
+          <h1>知识库</h1>
+        </div>
+        <el-button type="primary" size="small" @click="createDoc">新建</el-button>
+      </div>
+      <el-input v-model="search" placeholder="搜索标题 / 标签" clearable class="search"
+        ><template #prefix>⌕</template></el-input
+      >
+      <div class="filters">
+        <button :class="{ active: reqFilter === null }" @click="reqFilter = null">
+          全部文档 <span>{{ docs.length }}</span></button
+        ><button
+          v-for="r in requirements"
+          :key="r.id"
+          :class="{ active: reqFilter === r.id }"
+          @click="reqFilter = r.id"
+        >
+          {{ r.title }} <span>{{ count(r.id) }}</span>
+        </button>
+      </div>
+      <div class="doc-list">
+        <button
+          v-for="d in filtered"
+          :key="d.id"
+          :class="['doc-row', { active: current?.id === d.id }]"
+          @click="select(d)"
+        >
+          <span class="doc-type">DOC</span>
+          <div>
+            <strong>{{ d.title || '未命名文档' }}</strong
+            ><span>{{ d.tags || '未分类' }} · {{ format(d.updatedAt) }}</span>
+          </div></button
+        ><el-empty v-if="!filtered.length" description="暂无文档" />
+      </div>
+    </aside>
+    <main class="editor">
+      <div v-if="current" class="editor-top">
+        <div>
+          <span class="context">{{ current.requirementTitle || '全局知识' }}</span>
+          <h2>{{ current.title }}</h2>
+          <p>{{ current.creatorNickname || '系统' }} · {{ format(current.updatedAt) }}</p>
+        </div>
+        <div class="actions">
+          <div class="view-tabs">
+            <button :class="{ active: mode === 'edit' }" @click="mode = 'edit'">编辑</button
+            ><button :class="{ active: mode === 'split' }" @click="mode = 'split'">分屏</button
+            ><button :class="{ active: mode === 'preview' }" @click="mode = 'preview'">阅读</button>
+          </div>
+          <el-button @click="share">分享</el-button
+          ><el-button type="primary" :loading="saving" @click="save">保存</el-button>
         </div>
       </div>
-
-      <!-- 快捷搜索 -->
-      <div v-if="!isSidebarCollapsed" class="search-box">
-        <el-input
-          v-model="searchKeyword"
-          placeholder="搜索文档标题或标签..."
-          size="small"
+      <div v-if="current" class="properties">
+        <el-input v-model="current.title" class="title-edit" placeholder="文档标题" /><el-select
+          v-model="current.requirementId"
           clearable
-        >
-          <template #prefix>🔍</template>
-        </el-input>
+          placeholder="关联需求"
+          ><el-option
+            v-for="r in requirements"
+            :key="r.id"
+            :label="r.title"
+            :value="r.id" /></el-select
+        ><el-input v-model="current.tags" placeholder="标签：架构方案,踩坑记录" />
       </div>
-
-      <!-- 需求空间与文档列表 -->
-      <div v-if="!isSidebarCollapsed" v-loading="loading" class="doc-tree-list">
-        <div
-          :class="[
-            'tree-node-item',
-            { active: activeReqFilter === null && (!currentDoc || !currentDoc.id) }
-          ]"
-          @click="selectFilter(null)"
-        >
-          <span class="node-icon">🌐</span>
-          <span class="node-label">全部文档 ({{ allDocs.length }})</span>
+      <div v-if="current" class="doc-body" :class="`mode-${mode}`">
+        <div v-show="mode !== 'preview'" class="editor-pane">
+          <MarkdownEditor ref="editorRef" v-model="current.content" />
         </div>
-
-        <el-divider style="margin: 8px 0" />
-
-        <!-- 1. 关联需求经验库分类树 -->
-        <div class="collapsible-section">
-          <div
-            class="category-title clickable-title"
-            @click="isReqCategoryCollapsed = !isReqCategoryCollapsed"
-          >
-            <span>📌 需求项目经验库</span>
-            <span :class="['arrow-icon', { 'is-collapsed': isReqCategoryCollapsed }]">▼</span>
-          </div>
-          <el-collapse-transition>
-            <div v-show="!isReqCategoryCollapsed" class="section-content">
-              <div
-                v-for="req in requirements"
-                :key="req.id"
-                :class="['tree-node-item', { active: activeReqFilter === req.id }]"
-                @click="selectFilter(req.id)"
-              >
-                <span class="node-icon">📁</span>
-                <span class="node-label">{{ req.title }}</span>
-                <span class="doc-count-badge">{{ getReqDocCount(req.id) }}</span>
-              </div>
-            </div>
-          </el-collapse-transition>
-        </div>
-
-        <el-divider style="margin: 8px 0" />
-
-        <!-- 2. 文档列表 -->
-        <div class="collapsible-section">
-          <div
-            class="category-title clickable-title"
-            @click="isDocListCollapsed = !isDocListCollapsed"
-          >
-            <span>📄 文章列表 ({{ filteredDocs.length }})</span>
-            <span :class="['arrow-icon', { 'is-collapsed': isDocListCollapsed }]">▼</span>
-          </div>
-          <el-collapse-transition>
-            <div v-show="!isDocListCollapsed" class="section-content">
-              <div
-                v-for="doc in filteredDocs"
-                :key="doc.id"
-                :class="['doc-item-row', { active: currentDoc && currentDoc.id === doc.id }]"
-                @click="selectDoc(doc)"
-              >
-                <span class="doc-icon">📄</span>
-                <div class="doc-meta-info">
-                  <span class="doc-title-text">{{ doc.title || '未命名文档' }}</span>
-                  <span class="doc-sub-info"
-                    >{{ doc.creatorNickname || '系统' }} · {{ formatTime(doc.updatedAt) }}</span
-                  >
-                </div>
-              </div>
-
-              <el-empty
-                v-if="filteredDocs.length === 0"
-                description="暂无相关文档"
-                :image-size="50"
-              />
-            </div>
-          </el-collapse-transition>
-        </div>
-      </div>
-    </div>
-
-    <!-- 右侧文档编辑与阅读主视口 -->
-    <div v-if="currentDoc" class="wiki-main-container">
-      <!-- 1. 顶栏操作与模式切换 -->
-      <div class="doc-top-bar">
-        <div class="top-bar-left">
-          <el-button
-            v-if="isSidebarCollapsed"
-            link
-            class="expand-sidebar-btn"
-            title="展开侧边栏"
-            @click="isSidebarCollapsed = false"
-          >
-            ▶ 展开目录
-          </el-button>
-
-          <el-tag v-if="currentDoc.requirementTitle" type="primary" size="small">
-            📌 关联需求：{{ currentDoc.requirementTitle }}
-          </el-tag>
-          <el-tag v-else type="info" size="small">🌐 全局实践文档</el-tag>
-          <span class="author-info">👤 作者: {{ currentDoc.creatorNickname || '管理员' }}</span>
-        </div>
-
-        <div class="top-bar-actions">
-          <el-radio-group v-model="viewMode" size="small" class="view-mode-switch">
-            <el-radio-button value="edit">✏️ 编辑</el-radio-button>
-            <el-radio-button value="split">🌗 分屏</el-radio-button>
-            <el-radio-button value="preview">📖 预览</el-radio-button>
-          </el-radio-group>
-
-          <el-button type="primary" plain size="default" @click="openShareModal"
-            >🔗 分享文档</el-button
-          >
-          <el-button type="success" size="default" :loading="saving" @click="handleSaveDoc"
-            >💾 保存文档</el-button
-          >
-          <el-button type="danger" link size="small" @click="handleDeleteDoc">删除文章</el-button>
-        </div>
-      </div>
-
-      <!-- 2. 标题与属性配置栏 -->
-      <div class="doc-header-editor">
-        <el-input
-          v-model="currentDoc.title"
-          placeholder="输入文档标题..."
-          class="doc-title-input"
-          size="large"
-        />
-
-        <div class="doc-properties-bar">
-          <div class="prop-item">
-            <span class="prop-label">关联需求:</span>
-            <el-select
-              v-model="currentDoc.requirementId"
-              placeholder="无 (通用经验)"
-              size="small"
-              style="width: 220px"
-              clearable
-            >
-              <el-option
-                v-for="req in requirements"
-                :key="req.id"
-                :label="req.title"
-                :value="req.id"
-              />
-            </el-select>
-          </div>
-
-          <div class="prop-item">
-            <span class="prop-label">经验标签:</span>
-            <el-input
-              v-model="currentDoc.tags"
-              placeholder="多个用逗号隔开，如: 踩坑记录,架构方案"
-              size="small"
-              style="width: 280px"
-            />
-          </div>
-        </div>
-
-        <!-- 3. Markdown 专业工具栏 -->
-        <div v-if="viewMode !== 'preview'" class="markdown-toolbar-bar">
-          <div class="tool-group">
-            <span class="tool-group-label">快捷语法:</span>
-            <el-button-group size="small">
-              <el-button title="粗体" @click="editorRef?.wrapSelection('**', '**', '粗体文字')"
-                ><b>B</b></el-button
-              >
-              <el-button title="斜体" @click="editorRef?.wrapSelection('*', '*', '斜体文字')"
-                ><i>I</i></el-button
-              >
-              <el-button title="删除线" @click="editorRef?.wrapSelection('~~', '~~', '删除文本')"
-                ><del>S</del></el-button
-              >
-              <el-button title="标题" @click="editorRef?.wrapSelection('### ', '', '小标题')"
-                >H</el-button
-              >
-              <el-button title="行内代码" @click="editorRef?.wrapSelection('`', '`', 'code')"
-                >&lt;/&gt;</el-button
-              >
-              <el-button title="代码块" @click="insertCodeBlock">代码块</el-button>
-              <el-button title="引用" @click="editorRef?.wrapSelection('> ', '', '引用说明...')"
-                >”</el-button
-              >
-              <el-button
-                title="任务待办"
-                @click="editorRef?.wrapSelection('- [ ] ', '', '待办清单任务')"
-                >☑️</el-button
-              >
-              <el-button title="列表" @click="editorRef?.wrapSelection('- ', '', '无序列表项')"
-                >• 列表</el-button
-              >
-              <el-button title="表格" @click="insertTable">📊 表格</el-button>
-            </el-button-group>
-          </div>
-
-          <div class="tool-group templates-group">
-            <span class="tool-group-label">⚡️ 经验模板:</span>
-            <el-button size="small" link type="primary" @click="applyTemplate('TECH')"
-              >🛠️ 架构方案</el-button
-            >
-            <el-button size="small" link type="warning" @click="applyTemplate('PIT')"
-              >⚠️ 排坑记录</el-button
-            >
-            <el-button size="small" link type="success" @click="applyTemplate('REVIEW')"
-              >🎯 项目复盘</el-button
-            >
-            <el-button size="small" link type="info" @click="applyTemplate('CHANGE')"
-              >📝 变更说明</el-button
-            >
-          </div>
-        </div>
-      </div>
-
-      <!-- 4. Markdown 编辑器 (CodeMirror 6) 与标准渲染预览视口 -->
-      <div :class="['doc-content-workspace', `mode-${viewMode}`]">
-        <div v-show="viewMode === 'edit' || viewMode === 'split'" class="editor-pane">
-          <MarkdownEditor
-            ref="editorRef"
-            v-model="currentDoc.content"
-            @scroll-change="handleEditorScroll"
-          />
-        </div>
-
-        <div v-if="viewMode === 'split'" class="split-divider"></div>
-
-        <div
-          v-show="viewMode === 'preview' || viewMode === 'split'"
-          ref="previewPaneRef"
-          class="preview-pane"
-        >
+        <div v-if="mode === 'split'" class="split"></div>
+        <div v-show="mode !== 'edit'" class="preview-pane">
           <MarkdownPreview
-            :source="currentDoc.content"
+            :source="current.content"
             :editable-task="true"
-            @task-toggle="handleTaskToggle"
+            @task-toggle="toggleTask"
           />
         </div>
       </div>
-    </div>
-
-    <!-- 未选择文档时的占位视图 -->
-    <div v-else class="empty-main-state">
-      <el-empty
-        description="选择左侧文档进行阅读与编辑，或点击 [+ 新建文档] 开始沉淀"
-        :image-size="120"
-      />
-    </div>
-
-    <!-- 5. 只读分享链接弹窗 -->
-    <el-dialog v-model="shareModalVisible" title="🔗 生成只读分享链接" width="480px" append-to-body>
-      <p style="font-size: 13px; color: #606266; margin-top: 0">
-        复制此链接后发送给他人，对方无需登录系统即可在浏览器中只读查看此文档。
-      </p>
-      <el-input v-model="generatedShareUrl" readonly size="default">
-        <template #append>
-          <el-button type="primary" @click="copyShareUrl">复制链接</el-button>
-        </template>
-      </el-input>
-    </el-dialog>
+      <div v-else class="empty-doc">
+        <el-empty description="从左侧选择一篇知识文档，或创建第一篇" />
+      </div>
+    </main>
   </div>
+  <el-dialog v-model="shareVisible" title="分享文档" width="470px"
+    ><p class="share-tip">生成只读链接，对方无需登录即可查看。</p>
+    <el-input v-model="shareUrl" readonly /><template #footer
+      ><el-button @click="shareVisible = false">关闭</el-button
+      ><el-button type="primary" @click="copy">复制链接</el-button></template
+    ></el-dialog
+  >
 </template>
-
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { useUserStore } from '@/store/user'
-import {
-  getWikiListApi,
-  createWikiApi,
-  updateWikiApi,
-  deleteWikiApi,
-  getDocShareTokenApi
-} from '@/api/wiki'
+import { ElMessage } from 'element-plus'
+import { getWikiListApi, createWikiApi, updateWikiApi, getDocShareTokenApi } from '@/api/wiki'
 import { getRequirementsListApi } from '@/api/requirement'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { useUserStore } from '@/store/user'
 import MarkdownEditor from '@/components/markdown/MarkdownEditor.vue'
 import MarkdownPreview from '@/components/markdown/MarkdownPreview.vue'
-
-const route = useRoute()
-const userStore = useUserStore()
-
-const loading = ref(false)
-const saving = ref(false)
-
-const allDocs = ref([])
-const requirements = ref([])
-const activeReqFilter = ref(null)
-const searchKeyword = ref('')
-
-const currentDoc = ref(null)
-const editorRef = ref(null)
-const previewPaneRef = ref(null)
-
-const viewMode = ref('split')
-
-const isSidebarCollapsed = ref(false)
-const isReqCategoryCollapsed = ref(false)
-const isDocListCollapsed = ref(false)
-
-const shareModalVisible = ref(false)
-const generatedShareUrl = ref('')
-
-const filteredDocs = computed(() => {
-  if (!Array.isArray(allDocs.value)) return []
-  let list = allDocs.value
-
-  if (activeReqFilter.value !== null) {
-    list = list.filter(d => d && d.requirementId === activeReqFilter.value)
-  }
-
-  if (searchKeyword.value && searchKeyword.value.trim()) {
-    const kw = searchKeyword.value.toLowerCase()
-    list = list.filter(
-      d =>
-        d &&
-        ((d.title && String(d.title).toLowerCase().includes(kw)) ||
-          (d.tags && String(d.tags).toLowerCase().includes(kw)))
-    )
-  }
-
-  return list
-})
-
-const getReqDocCount = reqId => {
-  if (!Array.isArray(allDocs.value)) return 0
-  return allDocs.value.filter(d => d && d.requirementId === reqId).length
-}
-
-// 分屏滚动同步
-const handleEditorScroll = ratio => {
-  if (viewMode.value !== 'split' || !previewPaneRef.value) return
-  const el = previewPaneRef.value
-  el.scrollTop = ratio * (el.scrollHeight - el.clientHeight)
-}
-
-// 预览区交互勾选任务列表时，同步更新源码
-const handleTaskToggle = ({ index, checked }) => {
-  if (!currentDoc.value || !currentDoc.value.content) return
-  const lines = currentDoc.value.content.split('\n')
-  let currentTaskIdx = 0
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    if (/^\s*-\s*\[([ xX])\]\s+/.test(line)) {
-      if (currentTaskIdx === index) {
-        lines[i] = checked
-          ? line.replace(/^(\s*-\s*\[)[ xX](\]\s+)/, '$1x$2')
-          : line.replace(/^(\s*-\s*\[)[ xX](\]\s+)/, '$1 $2')
-        break
-      }
-      currentTaskIdx++
-    }
-  }
-  currentDoc.value.content = lines.join('\n')
-}
-
-// 分享弹窗
-const openShareModal = async () => {
-  if (!currentDoc.value?.id) return
-  const serverUrl = userStore.serverUrl || 'http://localhost:8080'
-
+const route = useRoute(),
+  userStore = useUserStore(),
+  docs = ref([]),
+  requirements = ref([]),
+  current = ref(null),
+  search = ref(''),
+  reqFilter = ref(route.query.reqId ? Number(route.query.reqId) : null),
+  mode = ref('split'),
+  saving = ref(false),
+  shareVisible = ref(false),
+  shareUrl = ref(''),
+  editorRef = ref(null)
+const filtered = computed(() =>
+  docs.value.filter(
+    d =>
+      (reqFilter.value === null || d.requirementId === reqFilter.value) &&
+      (!search.value.trim() ||
+        `${d.title || ''} ${d.tags || ''}`.toLowerCase().includes(search.value.toLowerCase()))
+  )
+)
+const count = id => docs.value.filter(d => d.requirementId === id).length
+const format = s => (s ? String(s).split('T')[0] : '')
+const select = d => (current.value = { ...d })
+const createDoc = async () => {
   try {
-    const res = await getDocShareTokenApi(currentDoc.value.id)
-    const token = res.shareToken || res
-    generatedShareUrl.value = `${serverUrl.replace(/\/$/, '')}/share/wiki/${token}`
-    shareModalVisible.value = true
-  } catch (error) {
-    ElMessage.error('获取分享链接失败')
-  }
-}
-
-const copyShareUrl = () => {
-  navigator.clipboard.writeText(generatedShareUrl.value).then(() => {
-    ElMessage.success('安全分享链接已复制到剪贴板！')
-    shareModalVisible.value = false
-  })
-}
-
-// 工具栏辅助插入
-const insertCodeBlock = () => {
-  editorRef.value?.wrapSelection('```javascript\n', '\n```', '// 在此输入代码...')
-}
-
-const insertTable = () => {
-  const tableTemplate =
-    '\n| 模块 / 功能 | 说明 | 负责人 | 状态 |\n|---|---|---|---|\n| 接口联调 | 核心数据拉取 | 张三 | 进行中 |\n'
-  editorRef.value?.insertBlock(tableTemplate)
-}
-
-// 数据加载与保存
-const loadData = async () => {
-  loading.value = true
-  try {
-    const reqRes = await getRequirementsListApi({ page: 0, size: 200 })
-    requirements.value =
-      reqRes && reqRes.content ? reqRes.content : Array.isArray(reqRes) ? reqRes : []
-
-    const docsRes = await getWikiListApi()
-    allDocs.value = Array.isArray(docsRes) ? docsRes : []
-
-    const queryReqId = route.query.reqId
-    if (queryReqId) {
-      activeReqFilter.value = Number(queryReqId)
-    }
-
-    if (allDocs.value.length > 0 && !currentDoc.value) {
-      currentDoc.value = { ...allDocs.value[0] }
-    }
-  } catch (e) {
-  } finally {
-    loading.value = false
-  }
-}
-
-const selectFilter = reqId => {
-  activeReqFilter.value = reqId
-}
-
-const selectDoc = doc => {
-  currentDoc.value = { ...doc }
-}
-
-const handleCreateNewDoc = async reqId => {
-  try {
-    const newDoc = await createWikiApi({
-      title: '未命名复盘文档',
-      content:
-        '## 1. 概述\n在此记录实施要点与技术细节...\n\n- [ ] 关键技术项 1\n- [x] 已完成事项\n',
-      requirementId: reqId || activeReqFilter.value,
-      tags: '经验复盘'
+    const d = await createWikiApi({
+      title: '新知识文档',
+      content: '# 新知识文档\n\n记录可复用的实践、架构和复盘。',
+      requirementId: reqFilter.value,
+      tags: '实践'
     })
-    ElMessage.success('已新建文档')
-    await loadData()
-    currentDoc.value = newDoc
-  } catch (e) {}
+    await load()
+    current.value = { ...d }
+  } catch {}
 }
-
-const handleSaveDoc = async () => {
-  if (!currentDoc.value) return
-  if (!currentDoc.value.title || !currentDoc.value.title.trim()) {
-    ElMessage.warning('文档标题不能为空')
-    return
-  }
+const save = async () => {
+  if (!current.value) return
   saving.value = true
   try {
-    await updateWikiApi(currentDoc.value.id, currentDoc.value)
-    ElMessage.success('文档保存成功')
-    await loadData()
-  } catch (e) {
+    await updateWikiApi(current.value.id, current.value)
+    await load()
+    ElMessage.success('已保存')
+  } catch {
   } finally {
     saving.value = false
   }
 }
-
-const handleDeleteDoc = () => {
-  if (!currentDoc.value) return
-  ElMessageBox.confirm('确定要删除这篇 Wiki 文档吗？', '提示', { type: 'warning' })
-    .then(async () => {
-      await deleteWikiApi(currentDoc.value.id)
-      ElMessage.success('已删除')
-      currentDoc.value = null
-      await loadData()
-    })
-    .catch(() => {})
+const share = async () => {
+  if (!current.value) return
+  try {
+    const r = await getDocShareTokenApi(current.value.id)
+    const token = r.shareToken || r
+    shareUrl.value = `${userStore.serverUrl.replace(/\/$/, '')}/share/wiki/${token}`
+    shareVisible.value = true
+  } catch {}
 }
-
-const applyTemplate = type => {
-  if (!currentDoc.value) return
-  const templates = {
-    TECH: `## 🛠️ 技术方案 & 架构设计
-
-### 1. 业务背景
-简要说明本次需求的业务价值与背景...
-
-### 2. 技术架构与流程
-* **数据库变更**: 新增字段 / 数据表说明
-* **核心接口设计**: API 接口及参数逻辑
-
-\`\`\`json
-{
-  "api": "/api/demo",
-  "method": "POST"
-}
-\`\`\`
-
-### 3. 风险评估与应对
-* 风险点 1: 应对措施...`,
-
-    PIT: `## ⚠️ 踩坑与排坑记录
-
-### 1. 问题现象
-说明排查过程中遇到的 Exception / Bug 现象...
-
-### 2. 原因深度分析
-剖析导致该问题的根本原因...
-
-### 3. 最终解决方案
-给出可复用的修复代码或配置调整...`,
-
-    REVIEW: `## 🎯 项目实施复盘总结
-
-### 1. 目标达成情况
-- [x] 功能点 1 按时上线
-- [ ] 功能点 2 延期说明
-
-### 2. 经验与做得好的
-本次实施中值得团队推广的最佳实践...
-
-### 3. 待改进与改进措施
-流程中的不足及下阶段改进动作...`,
-
-    CHANGE: `## 📝 需求变更说明记录
-
-### 1. 变更原因
-说明业务方或技术侧发起的变更缘由...
-
-### 2. 影响范围与排期调整
-| 影响模块 | 原定排期 | 调整后排期 | 责任人 |
-|---|---|---|---|
-| 核心接口 | 2026-08-01 | 2026-08-05 | 研发A |`
+const copy = () =>
+  navigator.clipboard.writeText(shareUrl.value).then(() => {
+    ElMessage.success('链接已复制')
+    shareVisible.value = false
+  })
+const toggleTask = ({ index, checked }) => {
+  const lines = current.value.content.split('\n')
+  let i = 0
+  for (let n = 0; n < lines.length; n++) {
+    if (/^\s*-\s*\[[ xX]\]\s+/.test(lines[n])) {
+      if (i === index) {
+        lines[n] = checked
+          ? lines[n].replace(/^([^-]*-\s*\[)[ xX](\])/, '$1x$2')
+          : lines[n].replace(/^([^-]*-\s*\[)[ xX](\])/, '$1 $2')
+        break
+      }
+      i++
+    }
   }
-
-  if (templates[type]) {
-    currentDoc.value.content = (currentDoc.value.content || '') + '\n\n' + templates[type]
-    ElMessage.success('已套用模板')
-  }
+  current.value.content = lines.join('\n')
 }
-
-const formatTime = timeStr => {
-  if (!timeStr || typeof timeStr !== 'string') return ''
-  return timeStr.split('T')[0] || timeStr
+const load = async () => {
+  try {
+    const rr = await getRequirementsListApi({ page: 0, size: 200 })
+    requirements.value = rr?.content || rr || []
+    docs.value = (await getWikiListApi()) || []
+    if (reqFilter.value === null && route.query.reqId) reqFilter.value = Number(route.query.reqId)
+    if (!current.value && filtered.value.length) current.value = { ...filtered.value[0] }
+  } catch {}
 }
-
-onMounted(() => {
-  loadData()
-})
+onMounted(load)
 </script>
-
 <style scoped>
-.wiki-workspace {
-  flex: 1;
-  display: flex;
+.wiki {
   height: 100%;
-  background-color: #f5f7fa;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
   overflow: hidden;
-  position: relative;
 }
-
-.wiki-sidebar {
-  width: 280px;
-  background-color: #ffffff;
-  border-right: 1px solid rgba(55, 53, 47, 0.09);
+.wiki-side {
+  background: #fff;
+  border-right: 1px solid var(--rf-border);
   display: flex;
   flex-direction: column;
-  padding: 16px;
-  flex-shrink: 0;
-  transition: all 0.2s ease-in-out;
-  box-sizing: border-box;
+  padding: 18px 12px;
+  min-width: 0;
 }
-
-.wiki-sidebar.is-collapsed {
-  width: 0 !important;
-  padding: 0 !important;
-  border-right: none !important;
-  overflow: hidden !important;
-}
-
-.sidebar-header {
+.wiki-head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
+  align-items: flex-start;
+  padding: 0 6px 14px;
 }
-
-.header-btns {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.eyebrow {
+  font-size: 9px;
+  letter-spacing: 1px;
+  font-weight: 800;
+  color: var(--rf-text-3);
+  margin-bottom: 5px;
 }
-
-.collapse-btn {
-  padding: 0 4px;
-  color: #8c8c8c;
-  font-size: 11px;
+.wiki-head h1 {
+  margin: 0;
+  font-size: 20px;
 }
-
-.collapse-btn:hover {
-  color: #2383e2;
+.search {
+  margin: 0 4px 12px;
+  width: auto;
 }
-
-.sidebar-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: #37352f;
-}
-
-.search-box {
-  margin-bottom: 12px;
-}
-
-.doc-tree-list {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.clickable-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 4px;
-  user-select: none;
-  transition: background-color 0.15s ease;
-}
-
-.clickable-title:hover {
-  background-color: rgba(55, 53, 47, 0.05);
-  color: #37352f;
-}
-
-.arrow-icon {
-  font-size: 10px;
-  color: #8c8c8c;
-  transition: transform 0.2s ease;
-}
-
-.arrow-icon.is-collapsed {
-  transform: rotate(-90deg);
-}
-
-.category-title {
-  font-size: 11px;
-  font-weight: 700;
-  color: #8c8c8c;
-  margin: 4px 0;
-}
-
-.section-content {
+.filters {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  max-height: 180px;
+  overflow: auto;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--rf-border);
 }
-
-.tree-node-item,
-.doc-item-row {
+.filters button {
   display: flex;
-  align-items: center;
-  padding: 7px 10px;
-  border-radius: 4px;
+  justify-content: space-between;
+  border: 0;
+  background: transparent;
+  padding: 7px 8px;
+  border-radius: 6px;
+  color: var(--rf-text-2);
+  font-size: 11px;
+  text-align: left;
   cursor: pointer;
-  transition: background-color 0.15s ease;
 }
-
-.tree-node-item:hover,
-.doc-item-row:hover {
-  background-color: rgba(55, 53, 47, 0.05);
+.filters button:hover {
+  background: var(--rf-subtle);
 }
-
-.tree-node-item.active,
-.doc-item-row.active {
-  background-color: #e0f0ff;
-  color: #2383e2;
+.filters button.active {
+  background: var(--rf-brand-soft);
+  color: var(--rf-brand);
 }
-
-.node-icon,
-.doc-icon {
-  margin-right: 8px;
+.filters span {
+  color: var(--rf-text-3);
+}
+.doc-list {
+  overflow: auto;
+  padding-top: 8px;
+}
+.doc-row {
+  display: flex;
+  gap: 9px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 9px 7px;
+  border-radius: 7px;
+  color: var(--rf-text-2);
+  cursor: pointer;
+}
+.doc-row:hover {
+  background: #f7f8fa;
+}
+.doc-row.active {
+  background: #eef1ff;
+}
+.doc-type {
+  font: 800 8px ui-monospace;
+  color: var(--rf-brand);
+  padding-top: 3px;
+}
+.doc-row strong,
+.doc-row span {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.doc-row strong {
+  font-size: 11px;
+  color: var(--rf-text);
+}
+.doc-row div span {
+  font-size: 9px;
+  color: var(--rf-text-3);
+  margin-top: 3px;
+}
+.editor {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+.editor-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 20px 26px 13px;
+  border-bottom: 1px solid var(--rf-border);
+  background: #fff;
+}
+.context {
+  font-size: 9px;
+  color: var(--rf-brand);
+  font-weight: 800;
+}
+.editor-top h2 {
+  font-size: 20px;
+  margin: 4px 0;
+}
+.editor-top p {
+  margin: 0;
+  font-size: 10px;
+  color: var(--rf-text-3);
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.view-tabs {
+  display: flex;
+  border: 1px solid var(--rf-border);
+  border-radius: 7px;
+  padding: 2px;
+  background: #fafbfc;
+}
+.view-tabs button {
+  border: 0;
+  background: transparent;
+  padding: 6px 9px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--rf-text-2);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.view-tabs button.active {
+  background: #fff;
+  color: var(--rf-text);
+  box-shadow: 0 1px 3px rgba(20, 28, 40, 0.05);
+}
+.properties {
+  display: grid;
+  grid-template-columns: 1fr 210px 240px;
+  gap: 8px;
+  padding: 10px 26px;
+  border-bottom: 1px solid var(--rf-border);
+  background: #fff;
+}
+.title-edit :deep(.el-input__inner) {
   font-size: 14px;
+  font-weight: 700;
 }
-
-.node-label {
-  font-size: 13px;
-  font-weight: 500;
+.doc-body {
   flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.doc-count-badge {
-  font-size: 11px;
-  background: #f0f0f0;
-  padding: 1px 6px;
-  border-radius: 10px;
-  color: #8c8c8c;
-}
-
-.doc-meta-info {
+  min-height: 0;
   display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  background: #fff;
 }
-
-.doc-title-text {
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.doc-sub-info {
-  font-size: 11px;
-  color: #8c8c8c;
-  margin-top: 2px;
-}
-
-.wiki-main-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background-color: #ffffff;
-  padding: 20px 28px;
-  overflow: hidden;
-}
-
-.doc-top-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid rgba(55, 53, 47, 0.08);
-  padding-bottom: 12px;
-  margin-bottom: 14px;
-  flex-shrink: 0;
-}
-
-.top-bar-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.expand-sidebar-btn {
-  font-size: 12px;
-  color: #2383e2;
-  font-weight: 600;
-  padding: 0;
-}
-
-.author-info {
-  font-size: 12px;
-  color: #8c8c8c;
-}
-
-.top-bar-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.doc-header-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 12px;
-  flex-shrink: 0;
-}
-
-.doc-title-input :deep(.el-input__wrapper) {
-  box-shadow: none !important;
-  padding-left: 0 !important;
-}
-
-.doc-title-input :deep(.el-input__inner) {
-  font-size: 22px !important;
-  font-weight: 700 !important;
-  color: #37352f !important;
-}
-
-.doc-properties-bar {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  background-color: #fcfcfb;
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: 1px solid rgba(55, 53, 47, 0.06);
-}
-
-.prop-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.prop-label {
-  font-size: 12px;
-  color: #8c8c8c;
-}
-
-.markdown-toolbar-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: #f9f9f8;
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: 1px solid rgba(55, 53, 47, 0.06);
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.tool-group {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.tool-group-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: #8c8c8c;
-}
-
-.doc-content-workspace {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-  border: 1px solid rgba(55, 53, 47, 0.1);
-  border-radius: 6px;
-  background-color: #ffffff;
-}
-
-.editor-pane {
-  flex: 1;
-  display: flex;
-  height: 100%;
-  overflow: hidden;
-}
-
-.split-divider {
-  width: 1px;
-  background-color: rgba(55, 53, 47, 0.1);
-}
-
+.editor-pane,
 .preview-pane {
   flex: 1;
-  height: 100%;
-  overflow-y: auto;
-  padding: 20px 24px;
-  background-color: #ffffff;
-  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
 }
-
-.empty-main-state {
+.split {
+  width: 1px;
+  background: var(--rf-border);
+}
+.preview-pane {
+  overflow: auto;
+  padding: 22px 28px;
+}
+.empty-doc {
+  display: grid;
+  place-items: center;
   flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: #ffffff;
+}
+.share-tip {
+  font-size: 12px;
+  color: var(--rf-text-2);
+}
+@media (max-width: 900px) {
+  .wiki {
+    grid-template-columns: 250px 1fr;
+  }
+  .properties {
+    grid-template-columns: 1fr;
+  }
+  .actions .el-button {
+    display: none;
+  }
+}
+@media (max-width: 680px) {
+  .wiki {
+    grid-template-columns: 1fr;
+  }
+  .wiki-side {
+    display: none;
+  }
 }
 </style>

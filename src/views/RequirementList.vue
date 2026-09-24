@@ -1,172 +1,180 @@
+<!-- src/views/RequirementList.vue -->
 <template>
-  <div class="workspace">
-    <div class="content-card">
-      <div class="table-toolbar">
-        <span class="table-title">需求事项库</span>
-        <el-button type="primary" @click="openCreateDialog">录入新需求</el-button>
+  <div class="page">
+    <!-- 统一顶栏 -->
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">REQUIREMENTS</div>
+        <h1>需求</h1>
+        <p>所有业务目标、里程碑和工程知识资产的统一列表视图。</p>
       </div>
+      <el-button type="primary" size="small" @click="openCreate">+ 新建需求</el-button>
+    </div>
 
-      <el-table
-        ref="requirementTableRef"
-        v-loading="loading"
-        :data="tableData"
-        style="width: 100%; margin-top: 15px"
-        border
-        stripe
-        :row-class-name="tableRowClassName"
+    <!-- 顶栏工具条 -->
+    <div class="toolbar">
+      <el-input
+        v-model="keyword"
+        clearable
+        size="small"
+        placeholder="搜索需求标题或描述..."
+        style="max-width: 320px"
       >
-        <!-- 核心优化：鼠标按住手柄实时拖动排序 -->
-        <el-table-column width="60" align="center" label="排序">
-          <template #default="scope">
-            <div class="drag-handle-wrapper">
-              <span
-                class="drag-handle"
-                title="按住此手柄上下滑动调整顺序"
-                @mousedown="startRowDrag(scope.$index, $event)"
-              >
-                ⋮⋮
+        <template #prefix>⌕</template>
+      </el-input>
+
+      <div class="filters">
+        <button
+          v-for="f in filters"
+          :key="f.value"
+          :class="{ active: statusFilter === f.value }"
+          @click="statusFilter = f.value"
+        >
+          {{ f.label }}
+        </button>
+      </div>
+    </div>
+
+    <!-- 需求表格主体 -->
+    <div class="table-container surface">
+      <el-table
+        v-loading="loading"
+        :data="filteredList"
+        row-key="id"
+        height="100%"
+        class="req-table"
+        @row-click="handleRowClick"
+      >
+        <el-table-column label="需求名称" min-width="280">
+          <template #default="{ row }">
+            <div class="req-title-cell">
+              <div class="req-title-row">
+                <strong class="title-text" :title="row.title">{{ row.title }}</strong>
+              </div>
+              <span class="desc-text" :title="row.description || '暂无描述'">
+                {{ row.description || '暂无需求背景或业务价值说明' }}
               </span>
             </div>
           </template>
         </el-table-column>
 
-        <el-table-column prop="title" label="需求标题" min-width="150" show-overflow-tooltip />
-        <el-table-column
-          prop="description"
-          label="核心描述"
-          min-width="180"
-          show-overflow-tooltip
-        />
-        <el-table-column label="排期起止" width="220">
-          <template #default="scope">
-            <span v-if="scope.row.startDate || scope.row.endDate" class="date-text">
-              {{ scope.row.startDate || '未定' }} 至 {{ scope.row.endDate || '未定' }}
+        <el-table-column label="优先级" width="100" align="center">
+          <template #default="{ row }">
+            <StatusChip :status="row.priority" />
+          </template>
+        </el-table-column>
+
+        <el-table-column label="状态" width="110" align="center">
+          <template #default="{ row }">
+            <StatusChip :status="row.status" />
+          </template>
+        </el-table-column>
+
+        <el-table-column label="起止排期" width="220" align="center">
+          <template #default="{ row }">
+            <span class="date-text">
+              {{ row.startDate || '未定' }} 至 {{ row.endDate || '未定' }}
             </span>
-            <span v-else class="date-text-none">暂无排期</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="priority" label="优先级" width="90" align="center">
-          <template #default="scope">
-            <el-tag :type="getPriorityTag(scope.row.priority)" size="small">{{
-              scope.row.priority
-            }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="进展状态" width="100" align="center">
-          <template #default="scope">
-            <el-tag :type="getStatusTag(scope.row.status)" size="small">
-              {{ formatStatus(scope.row.status) }}
-            </el-tag>
           </template>
         </el-table-column>
 
-        <!-- 阶段完成度 (迷你进度条与阶段徽章) -->
-        <el-table-column label="阶段完成度" min-width="170" align="center">
-          <template #default="scope">
-            <div
-              v-if="stageStatsMap[scope.row.id] && stageStatsMap[scope.row.id].total > 0"
-              class="progress-cell"
-            >
-              <span class="progress-badge-text">
-                📍 {{ stageStatsMap[scope.row.id].done }} /
-                {{ stageStatsMap[scope.row.id].total }} 阶段已完成
-              </span>
-              <el-progress
-                :percentage="stageStatsMap[scope.row.id].percent"
-                :status="stageStatsMap[scope.row.id].percent === 100 ? 'success' : ''"
-                :stroke-width="6"
-                :show-text="false"
-              />
+        <el-table-column label="完成度" width="160" align="center">
+          <template #default="{ row }">
+            <div class="progress-cell">
+              <div class="progress-bar">
+                <i :style="{ width: (row.__percent || 0) + '%' }"></i>
+              </div>
+              <span class="percent-label">{{ row.__percent || 0 }}%</span>
             </div>
-            <span v-else class="date-text-none">暂无阶段</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="操作面板" width="220" align="center" fixed="right">
-          <template #default="scope">
-            <el-button size="small" link type="success" @click="goToWorkMatrix(scope.row.id)"
-              >矩阵与跟进</el-button
-            >
-            <el-button size="small" link type="warning" @click="goToWiki(scope.row.id)"
-              >Wiki 沉淀</el-button
-            >
-            <el-button size="small" link type="primary" @click="openEditDialog(scope.row)"
-              >编辑</el-button
-            >
-            <el-button size="small" link type="danger" @click="handleDelete(scope.row.id)"
-              >删除</el-button
-            >
+        <el-table-column label="操作" width="170" align="right">
+          <template #default="{ row }">
+            <div class="actions-cell" @click.stop>
+              <el-button link type="primary" size="small" @click="open(row)"> 进入 ➔ </el-button>
+              <el-button link size="small" @click="openEdit(row)"> 编辑 </el-button>
+              <el-button link type="danger" size="small" @click="handleDelete(row)">
+                删除
+              </el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
 
-      <!-- 分页组件 -->
+      <!-- 分页吸底 -->
       <div class="pagination-wrapper">
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next"
           :total="total"
+          size="small"
           @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
+          @current-change="handlePageChange"
         />
       </div>
     </div>
 
-    <!-- 需求新建/修改弹窗 -->
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '修改需求' : '录入新需求'" width="550px">
-      <el-form :model="form" label-width="90px">
+    <!-- 新建/编辑弹窗 -->
+    <el-dialog
+      v-model="dialogVisible"
+      :title="editing ? '编辑需求' : '新建需求'"
+      width="520px"
+      destroy-on-close
+    >
+      <el-form :model="form" label-position="top">
         <el-form-item label="需求名称" required>
-          <el-input v-model="form.title" placeholder="请输入需求标题" />
+          <el-input v-model="form.title" placeholder="例如：支付系统重构" />
         </el-form-item>
-        <el-form-item label="需求背景">
+        <el-form-item label="为什么做？(业务背景与目标)">
           <el-input
             v-model="form.description"
             type="textarea"
-            :rows="3"
-            placeholder="请输入核心背景或业务价值..."
+            :rows="4"
+            placeholder="描述业务背景与成功指标。"
           />
         </el-form-item>
-        <el-form-item label="计划起止">
-          <el-date-picker
-            v-model="requirementDateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始"
-            end-placeholder="截止"
-            value-format="YYYY-MM-DD"
-            style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item label="优先级">
-          <el-radio-group v-model="form.priority">
-            <el-radio-button value="LOW">低</el-radio-button>
-            <el-radio-button value="MEDIUM">中</el-radio-button>
-            <el-radio-button value="HIGH">高</el-radio-button>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item v-if="isEdit" label="主状态">
-          <el-select v-model="form.status" style="width: 100%">
+        <div class="form-grid">
+          <el-form-item label="优先级">
+            <el-select v-model="form.priority">
+              <el-option label="P1 (高)" value="HIGH" />
+              <el-option label="P2 (中)" value="MEDIUM" />
+              <el-option label="P3 (低)" value="LOW" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="目标交付日期">
+            <el-date-picker
+              v-model="form.endDate"
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="截止日期"
+            />
+          </el-form-item>
+        </div>
+        <el-form-item v-if="editing" label="需求状态">
+          <el-select v-model="form.status">
             <el-option label="待处理" value="TODO" />
             <el-option label="进行中" value="IN_PROGRESS" />
             <el-option label="测试中" value="TESTING" />
-            <el-option label="已上线" value="DONE" />
+            <el-option label="已完成" value="DONE" />
             <el-option label="已挂起" value="SUSPENDED" />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitForm">保存</el-button>
+        <el-button type="primary" @click="save">保存</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getRequirementsListApi,
   createRequirementApi,
@@ -174,27 +182,27 @@ import {
   deleteRequirementApi
 } from '@/api/requirement'
 import { getStagesApi } from '@/api/stage'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import StatusChip from '@/components/workspace/StatusChip.vue'
 
 const router = useRouter()
-
-const tableData = ref([])
 const loading = ref(false)
-const dialogVisible = ref(false)
-const isEdit = ref(false)
-const requirementDateRange = ref([])
-const requirementTableRef = ref(null)
-
-// 各需求下的阶段完成统计映射表
-const stageStatsMap = ref({})
-
-// 分页状态
+const requirements = ref([])
+const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
-const total = ref(0)
+const keyword = ref('')
+const statusFilter = ref('ALL')
 
-// 正在拖拽的行索引标识
-const activeDragIndex = ref(null)
+const dialogVisible = ref(false)
+const editing = ref(false)
+
+const filters = [
+  { value: 'ALL', label: '全部' },
+  { value: 'IN_PROGRESS', label: '进行中' },
+  { value: 'TODO', label: '待处理' },
+  { value: 'SUSPENDED', label: '挂起' },
+  { value: 'DONE', label: '已完成' }
+]
 
 const form = ref({
   id: null,
@@ -206,148 +214,23 @@ const form = ref({
   endDate: null
 })
 
-// 应用本地保存的排序规则
-const applySavedRequirementOrder = dataList => {
-  const savedOrderStr = localStorage.getItem('reqflow_requirement_order')
-  if (!savedOrderStr) return dataList
-  try {
-    const orderIds = JSON.parse(savedOrderStr)
-    const orderMap = new Map(orderIds.map((id, index) => [id, index]))
-    return dataList.sort((a, b) => {
-      const indexA = orderMap.has(a.id) ? orderMap.get(a.id) : Infinity
-      const indexB = orderMap.has(b.id) ? orderMap.get(b.id) : Infinity
-      return indexA - indexB
-    })
-  } catch (e) {
-    return dataList
-  }
+const filteredList = computed(() => {
+  const q = keyword.value.trim().toLowerCase()
+  return requirements.value.filter(r => {
+    const textMatch = !q || `${r.title} ${r.description || ''}`.toLowerCase().includes(q)
+    const statusMatch = statusFilter.value === 'ALL' || r.status === statusFilter.value
+    return textMatch && statusMatch
+  })
+})
+
+const handleRowClick = row => open(row)
+
+const open = r => {
+  router.push(`/requirement/${r.id}`)
 }
 
-// 持久化保存排序规则
-const saveRequirementOrder = () => {
-  const orderIds = tableData.value.map(item => item.id)
-  localStorage.setItem('reqflow_requirement_order', JSON.stringify(orderIds))
-}
-
-const tableRowClassName = ({ rowIndex }) => {
-  return activeDragIndex.value === rowIndex ? 'dragging-row' : ''
-}
-
-// ----------------- 核心：鼠标按住手柄滑动实时拖拽排序 -----------------
-const startRowDrag = (startIndex, event) => {
-  event.preventDefault()
-  event.stopPropagation()
-
-  activeDragIndex.value = startIndex
-  document.body.style.cursor = 'grabbing'
-  document.body.style.userSelect = 'none'
-
-  const handleMouseMove = e => {
-    if (activeDragIndex.value === null) return
-
-    // 取得 Element Plus 表格中所有的 TR 节点
-    const rows = document.querySelectorAll('.workspace .el-table__body-wrapper tbody tr')
-    rows.forEach((rowEl, targetIndex) => {
-      const rect = rowEl.getBoundingClientRect()
-      // 判断当前鼠标 Y 坐标是否落在某个 TR 的上下边界内
-      if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
-        if (activeDragIndex.value !== targetIndex) {
-          // 实时交换数组项
-          const movedItem = tableData.value.splice(activeDragIndex.value, 1)[0]
-          tableData.value.splice(targetIndex, 0, movedItem)
-          activeDragIndex.value = targetIndex
-        }
-      }
-    })
-  }
-
-  const handleMouseUp = () => {
-    document.body.style.cursor = ''
-    document.body.style.userSelect = ''
-    window.removeEventListener('mousemove', handleMouseMove)
-    window.removeEventListener('mouseup', handleMouseUp)
-
-    if (activeDragIndex.value !== null) {
-      saveRequirementOrder()
-      ElMessage.success('需求展示顺序已更新')
-      activeDragIndex.value = null
-    }
-  }
-
-  window.addEventListener('mousemove', handleMouseMove)
-  window.addEventListener('mouseup', handleMouseUp)
-}
-
-// ----------------- 需求列表数据加载 -----------------
-const loadRequirements = async () => {
-  loading.value = true
-  try {
-    const res = await getRequirementsListApi({
-      page: currentPage.value - 1,
-      size: pageSize.value
-    })
-    let list = []
-    if (res && res.content !== undefined) {
-      list = res.content
-      total.value = res.totalElements || 0
-    } else if (Array.isArray(res)) {
-      list = res
-      total.value = res.length
-    }
-    tableData.value = applySavedRequirementOrder(list)
-    await loadRequirementStats(tableData.value)
-  } catch (error) {
-  } finally {
-    loading.value = false
-  }
-}
-
-// 统计各需求的阶段完成进度
-const loadRequirementStats = async reqs => {
-  if (!reqs || reqs.length === 0) return
-  const stats = {}
-  await Promise.all(
-    reqs.map(async req => {
-      try {
-        const stages = await getStagesApi(req.id)
-        if (stages && stages.length > 0) {
-          const done = stages.filter(s => s.status === 'DONE').length
-          const total = stages.length
-          const percent = Math.round((done / total) * 100)
-          stats[req.id] = { total, done, percent }
-        } else {
-          stats[req.id] = { total: 0, done: 0, percent: 0 }
-        }
-      } catch (e) {
-        stats[req.id] = { total: 0, done: 0, percent: 0 }
-      }
-    })
-  )
-  stageStatsMap.value = stats
-}
-
-const handleSizeChange = val => {
-  pageSize.value = val
-  currentPage.value = 1
-  loadRequirements()
-}
-
-const handleCurrentChange = val => {
-  currentPage.value = val
-  loadRequirements()
-}
-
-const goToWorkMatrix = reqId => {
-  router.push({ path: '/matrix', query: { reqId } })
-}
-
-const goToWiki = reqId => {
-  router.push({ path: '/wiki', query: { reqId } })
-}
-
-const openCreateDialog = () => {
-  isEdit.value = false
-  requirementDateRange.value = []
+const openCreate = () => {
+  editing.value = false
   form.value = {
     id: null,
     title: '',
@@ -360,225 +243,292 @@ const openCreateDialog = () => {
   dialogVisible.value = true
 }
 
-const openEditDialog = row => {
-  isEdit.value = true
-  form.value = { ...row }
-  if (row.startDate && row.endDate) {
-    requirementDateRange.value = [row.startDate, row.endDate]
-  } else {
-    requirementDateRange.value = []
-  }
+const openEdit = r => {
+  editing.value = true
+  form.value = { ...r }
   dialogVisible.value = true
 }
 
-const submitForm = async () => {
-  if (!form.value.title.trim()) {
-    ElMessage.warning('需求标题不能为空')
-    return
-  }
-  if (requirementDateRange.value && requirementDateRange.value.length === 2) {
-    form.value.startDate = requirementDateRange.value[0]
-    form.value.endDate = requirementDateRange.value[1]
-  } else {
-    form.value.startDate = null
-    form.value.endDate = null
-  }
-  try {
-    if (isEdit.value) {
-      await updateRequirementApi(form.value.id, form.value)
-      ElMessage.success('更新成功')
-    } else {
-      await createRequirementApi(form.value)
-      ElMessage.success('录入成功')
-    }
-    dialogVisible.value = false
-    loadRequirements()
-  } catch (error) {}
-}
-
-const formatStatus = status => {
-  const statusMap = {
-    TODO: '待处理',
-    IN_PROGRESS: '进行中',
-    TESTING: '测试中',
-    DONE: '已完成',
-    SUSPENDED: '已挂起'
-  }
-  return statusMap[status] || status
-}
-
-const handleDelete = id => {
-  ElMessageBox.confirm(
-    '确定要删除该需求吗？其下关联的所有阶段及子任务信息也将一并清空。',
-    '重要提示',
-    {
-      type: 'warning'
-    }
-  )
+const handleDelete = r => {
+  ElMessageBox.confirm(`确定彻底删除需求「${r.title}」吗？关联阶段与任务将同步移除。`, '删除需求', {
+    confirmButtonText: '确定删除',
+    cancelButtonText: '取消',
+    type: 'warning'
+  })
     .then(async () => {
-      try {
-        await deleteRequirementApi(id)
-        ElMessage.success('删除成功')
-        loadRequirements()
-      } catch (error) {}
+      await deleteRequirementApi(r.id)
+      ElMessage.success('需求已删除')
+      await load()
     })
     .catch(() => {})
 }
 
-const getPriorityTag = p => {
-  if (p === 'HIGH') return 'danger'
-  if (p === 'MEDIUM') return 'warning'
-  return 'info'
+const save = async () => {
+  if (!form.value.title.trim()) return ElMessage.warning('请输入需求名称')
+  try {
+    if (editing.value) {
+      await updateRequirementApi(form.value.id, form.value)
+      ElMessage.success('需求已更新')
+    } else {
+      await createRequirementApi(form.value)
+      ElMessage.success('需求已创建')
+    }
+    dialogVisible.value = false
+    await load()
+  } catch {}
 }
 
-const getStatusTag = s => {
-  switch (s) {
-    case 'TODO':
-      return 'info'
-    case 'IN_PROGRESS':
-      return 'warning'
-    case 'TESTING':
-      return 'primary'
-    case 'DONE':
-      return 'success'
-    case 'SUSPENDED':
-      return 'danger'
-    default:
-      return 'info'
+const handlePageChange = val => {
+  currentPage.value = val
+  load()
+}
+
+const handleSizeChange = val => {
+  pageSize.value = val
+  currentPage.value = 1
+  load()
+}
+
+const load = async () => {
+  loading.value = true
+  try {
+    const res = await getRequirementsListApi({
+      page: currentPage.value - 1,
+      size: pageSize.value
+    })
+
+    let list = []
+    if (res && res.content) {
+      list = res.content
+      total.value = res.totalElements
+    } else if (Array.isArray(res)) {
+      list = res
+      total.value = res.length
+    }
+
+    await Promise.all(
+      list.map(async item => {
+        try {
+          const stages = await getStagesApi(item.id)
+          item.__percent = stages?.length
+            ? Math.round((stages.filter(s => s.status === 'DONE').length / stages.length) * 100)
+            : 0
+        } catch {
+          item.__percent = 0
+        }
+      })
+    )
+
+    requirements.value = list
+  } catch {
+    requirements.value = []
+    total.value = 0
+  } finally {
+    loading.value = false
   }
 }
 
-onMounted(() => {
-  loadRequirements()
-})
+onMounted(load)
 </script>
 
 <style scoped>
-.workspace {
-  flex: 1;
-  padding: 24px;
-  overflow-y: auto;
+.page {
+  height: 100%;
+  padding: 20px 28px 24px;
+  max-width: 1560px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.content-card {
-  background-color: #ffffff;
-  border-radius: 4px;
-  padding: 24px;
-  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
-}
-
-.table-toolbar {
+.page-head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  min-height: 52px;
+  flex-shrink: 0;
 }
 
-.table-title {
-  font-size: 16px;
-  font-weight: bold;
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  font-weight: 800;
+  color: var(--rf-text-3);
+  margin-bottom: 6px;
 }
 
-/* 拖拽手柄样式与高亮反馈 */
-.drag-handle-wrapper {
+.page-head h1 {
+  margin: 0;
+  font-size: 26px;
+  letter-spacing: -0.5px;
+}
+
+.page-head p {
+  font-size: 13px;
+  color: var(--rf-text-2);
+  margin: 6px 0 0;
+}
+
+.toolbar {
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+  height: 38px;
+  flex-shrink: 0;
 }
 
-.drag-handle {
-  font-size: 16px;
-  color: #909399;
-  cursor: grab;
-  user-select: none;
-  padding: 4px 8px;
-  border-radius: 4px;
+.filters {
+  display: flex;
+  gap: 3px;
+  background: #fff;
+  border: 1px solid var(--rf-border);
+  padding: 3px;
+  border-radius: 8px;
+}
+
+.filters button {
+  border: 0;
+  background: transparent;
+  padding: 5px 12px;
+  border-radius: 6px;
+  color: var(--rf-text-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
   transition: all 0.15s ease;
 }
 
-.drag-handle:hover {
-  background-color: rgba(35, 131, 226, 0.12);
-  color: #2383e2;
+.filters button:hover {
+  background: #f7f8fa;
 }
 
-.drag-handle:active {
-  cursor: grabbing;
+.filters button.active {
+  background: var(--rf-subtle);
+  color: var(--rf-text);
 }
 
-:deep(.dragging-row) {
-  background-color: #e6f7ff !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+.surface {
+  background: #fff;
+  border: 1px solid var(--rf-border);
+  border-radius: 12px;
+}
+
+.table-container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.req-table {
+  width: 100%;
+  flex: 1;
+  cursor: pointer;
+}
+
+.req-table :deep(.el-table__row) {
+  transition: background-color 0.15s ease;
+}
+
+.req-table :deep(.el-table__row:hover) {
+  background-color: #fafbff !important;
+}
+
+.req-title-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.req-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title-text {
+  font-size: 13.5px;
+  color: var(--rf-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.desc-text {
+  font-size: 11px;
+  color: var(--rf-text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 480px;
 }
 
 .date-text {
-  font-size: 13px;
-  color: #606266;
+  font-size: 11px;
+  color: var(--rf-text-2);
 }
 
-.date-text-none {
-  font-size: 13px;
-  color: #c0c4cc;
-  font-style: italic;
-}
-
-/* 进度条单元格样式 */
 .progress-cell {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 8px;
   padding: 0 4px;
 }
 
-.progress-badge-text {
-  font-size: 11px;
-  color: #606266;
-  font-weight: 500;
-  white-space: nowrap;
+.progress-bar {
+  flex: 1;
+  height: 5px;
+  background: #edf0f2;
+  border-radius: 99px;
+  overflow: hidden;
 }
 
-/* 分页容器位置样式 */
-.pagination-wrapper {
-  margin-top: 20px;
+.progress-bar i {
+  display: block;
+  height: 100%;
+  background: var(--rf-brand);
+  border-radius: 99px;
+}
+
+.percent-label {
+  font-size: 11px;
+  color: var(--rf-text-2);
+  width: 34px;
+  text-align: right;
+}
+
+.actions-cell {
   display: flex;
   justify-content: flex-end;
+  gap: 4px;
 }
 
-:deep(.el-table .el-table__cell) {
-  padding: 12px 0 !important;
+.pagination-wrapper {
+  height: 48px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  border-top: 1px solid var(--rf-border);
+  background: #fff;
+  flex-shrink: 0;
 }
 
-:deep(.el-tag) {
-  font-size: 11px !important;
-  height: 20px !important;
-  line-height: 20px !important;
-  padding: 0 8px !important;
-  border: none !important;
-  border-radius: 3px !important;
-  font-weight: 500;
-  letter-spacing: 0.3px;
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
-:deep(.el-tag--success) {
-  background-color: #e2f5ec !important;
-  color: #0d7c50 !important;
-}
-
-:deep(.el-tag--warning) {
-  background-color: #fdecc8 !important;
-  color: #b36b00 !important;
-}
-
-:deep(.el-tag--danger) {
-  background-color: #ffe2dd !important;
-  color: #df4331 !important;
-}
-
-:deep(.el-tag--info) {
-  background-color: #eeeeee !important;
-  color: #555555 !important;
-}
-
-:deep(.el-tag--primary) {
-  background-color: #e0f0ff !important;
-  color: #0f73da !important;
+.form-grid .el-date-editor,
+.form-grid .el-select {
+  width: 100%;
 }
 </style>

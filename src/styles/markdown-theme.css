@@ -1,206 +1,149 @@
 /* src/styles/markdown-theme.css */
 @import 'github-markdown-css/github-markdown.css';
 @import 'highlight.js/styles/github.css';
-@import 'katex/dist/katex.min.css'; /* 引入 KaTeX 官方排版字体与样式 */
+@import 'katex/dist/katex.min.css';
 
-/* 基础 markdown-body 容器样式覆盖 */
+/* 全局预览容器基准 */
 .markdown-body {
-  background-color: transparent !important;
+  background: transparent !important;
   font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif,
-    'Apple Color Emoji', 'Segoe UI Emoji';
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    'PingFang SC',
+    'Hiragino Sans GB',
+    'Microsoft YaHei',
+    sans-serif;
   font-size: 14.5px;
-  line-height: 1.7;
-  color: #24292f;
+  line-height: 1.75;
+  color: #1f2329;
   word-break: break-word;
 }
 
-/* 保证行内公式与正文基线优雅对齐 */
-.markdown-body .katex {
-  font-size: 1.05em;
-  text-rendering: auto;
-}
-
-.markdown-body .katex-display {
-  margin: 1em 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 4px 0;
-}
-
-/* 修复标题颜色：标题为深黑，链接才显示品牌蓝 */
+/* 标题样式：优雅间距与细分割线 */
 .markdown-body h1,
 .markdown-body h2,
 .markdown-body h3,
-.markdown-body h4,
-.markdown-body h5,
-.markdown-body h6 {
-  color: #24292f !important;
-  font-weight: 600;
+.markdown-body h4 {
+  color: #1f2329 !important;
+  font-weight: 700;
+  line-height: 1.4;
   margin-top: 24px;
   margin-bottom: 14px;
-  line-height: 1.35;
 }
 
-.markdown-body h1 {
-  font-size: 1.75em;
-  padding-bottom: 0.3em;
-  border-bottom: 1px solid #d0d7de;
-}
-
+.markdown-body h1,
 .markdown-body h2 {
-  font-size: 1.35em;
-  padding-bottom: 0.3em;
-  border-bottom: 1px solid #d0d7de;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb !important;
 }
 
-.markdown-body h3 {
-  font-size: 1.15em;
-}
-
+/* 链接色 */
 .markdown-body a {
-  color: #0969da !important;
+  color: #4f6bff !important;
   text-decoration: none;
 }
-
 .markdown-body a:hover {
   text-decoration: underline;
 }
 
-/* 行内代码 */
+/* 1. 修复行内代码样式：去除刺眼红字，恢复为标准的 Notion/GitHub 浅灰底深色字 */
 .markdown-body code:not(pre code):not(.katex code) {
-  padding: 0.2em 0.4em;
-  margin: 0;
-  font-size: 85%;
-  white-space: break-spaces;
-  background-color: rgba(175, 184, 193, 0.2);
-  border-radius: 6px;
+  background: rgba(175, 184, 193, 0.2) !important;
+  color: #24292f !important;
+  padding: 2px 6px !important;
+  font-size: 85% !important;
+  border-radius: 4px !important;
   font-family:
-    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
-  color: #cf222e;
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace !important;
 }
 
-/* 代码块外层包裹 */
+/* 2. 核心修复：现代化卡片式代码块容器 */
 .markdown-body .code-block-wrap {
   position: relative;
-  margin: 16px 0;
-  border-radius: 6px;
-  border: 1px solid #d0d7de;
-  background-color: #f6f8fa;
+  margin: 18px 0;
+  border: 1px solid #e1e4e8;
+  border-radius: 8px;
   overflow: hidden;
+  background: #f8f9fb;
 }
 
+/* 3. 代码块顶栏：整洁对齐、去除奇怪的浮动 */
 .markdown-body .code-block-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 4px 12px;
-  background-color: #f6f8fa;
-  border-bottom: 1px solid #d0d7de;
-  font-size: 12px;
-  color: #57606a;
-  font-family: ui-monospace, SFMono-Regular, monospace;
+  padding: 6px 14px;
+  background: #f1f3f5;
+  border-bottom: 1px solid #e1e4e8;
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #667085;
+  user-select: none;
 }
 
+.markdown-body .code-lang-tag {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #475467;
+}
+
+/* 4. 修复复制按钮：从浏览器原生灰按钮改为扁平小标签 */
 .markdown-body .code-copy-btn {
-  background: transparent;
-  border: 1px solid #d0d7de;
-  border-radius: 4px;
-  color: #57606a;
+  border: 1px solid #d0d5dd;
+  background: #ffffff;
+  color: #344054;
   cursor: pointer;
   font-size: 11px;
-  padding: 2px 8px;
+  font-weight: 500;
+  padding: 2px 9px;
+  border-radius: 4px;
+  line-height: 18px;
   transition: all 0.15s ease;
+  outline: none;
 }
 
 .markdown-body .code-copy-btn:hover {
-  background-color: #ffffff;
-  color: #0969da;
-  border-color: #0969da;
+  background: #f2f4f7;
+  border-color: #98a2b3;
+  color: #101828;
 }
 
+/* 5. 内部 PRE 消除重复边框，自然镶嵌 */
 .markdown-body .code-block-wrap pre {
   margin: 0 !important;
   padding: 14px 16px !important;
-  background-color: #ffffff !important;
+  background: #ffffff !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
   overflow-x: auto;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.markdown-body .code-block-wrap pre code {
-  background: transparent !important;
-  padding: 0 !important;
-  color: #24292f;
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
-}
-
-/* GFM 表格样式 */
-.markdown-body table {
-  display: block;
-  width: max-content;
-  max-width: 100%;
-  overflow: auto;
-  border-collapse: collapse;
-  margin: 16px 0;
-}
-
-.markdown-body table th,
-.markdown-body table td {
-  padding: 8px 14px;
-  border: 1px solid #d0d7de;
-  font-size: 13.5px;
-  line-height: 1.5;
-}
-
-.markdown-body table th {
-  background-color: #f6f8fa;
-  font-weight: 600;
-}
-
-.markdown-body table tr:nth-child(2n) {
-  background-color: #f6f8fa;
-}
-
-.markdown-body table th[align='center'],
-.markdown-body table td[align='center'] {
-  text-align: center;
-}
-
-.markdown-body table th[align='right'],
-.markdown-body table td[align='right'] {
-  text-align: right;
-}
-
-.markdown-body table th[align='left'],
-.markdown-body table td[align='left'] {
-  text-align: left;
 }
 
 /* 引用块 */
 .markdown-body blockquote {
-  padding: 0 1em;
-  color: #57606a;
-  border-left: 0.25em solid #d0d7de;
-  margin: 16px 0;
-  background-color: transparent;
+  padding: 0 16px;
+  border-left: 3px solid #cbd2ff;
+  color: #667085;
+  margin: 14px 0;
 }
 
-/* 任务列表 */
-.markdown-body .task-list-item {
-  list-style-type: none;
+/* 表格样式 */
+.markdown-body table th {
+  background: #f8f9fb;
+}
+.markdown-body table th,
+.markdown-body table td {
+  border-color: #e5e7eb;
+  padding: 8px 14px;
 }
 
-.markdown-body .task-list-item-checkbox {
-  margin: 0 0.4em 0.2em -1.4em;
-  vertical-align: middle;
-  cursor: pointer;
-}
-
-/* 提示空内容 */
+/* 空预览提示 */
 .markdown-body .empty-preview-hint {
-  color: #8c8c8c;
-  text-align: center;
+  color: #98a2b3;
   padding: 60px 0;
-  font-style: italic;
+  text-align: center;
 }

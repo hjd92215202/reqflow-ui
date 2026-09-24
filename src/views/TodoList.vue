@@ -1,306 +1,240 @@
+<!-- src/views/TodoList.vue -->
 <template>
-  <div class="todo-workspace">
-    <div class="todo-container">
-      <!-- 左侧核心操作区域 (占 70% 宽度) -->
-      <div class="main-content-left">
-        <!-- 1. 顶栏标题 -->
-        <div class="page-title-bar">
-          <h2 class="page-title">✅ 我的待办中心</h2>
-          <p class="page-desc">聚焦个人日常任务与需求协同事项，高效管理工作节奏</p>
-        </div>
-
-        <!-- 2. 极速输入栏 -->
-        <div class="quick-input-card">
-          <div class="quick-input-row">
-            <el-input
-              v-model="newTodoTitle"
-              placeholder="添加一条日常个人待办，按回车 (Enter) 快速发送..."
-              size="large"
-              class="quick-todo-input"
-              clearable
-              @keyup.enter="handleCreateTodo"
-            >
-              <template #prefix>
-                <span class="input-icon">➕</span>
-              </template>
-            </el-input>
-
-            <div class="quick-todo-tools">
-              <el-select
-                v-model="newTodoPriority"
-                size="large"
-                style="width: 110px"
-                placeholder="优先级"
-              >
-                <el-option label="高优 🔴" value="HIGH" />
-                <el-option label="中优 🟡" value="MEDIUM" />
-                <el-option label="低优 🔵" value="LOW" />
-              </el-select>
-
-              <el-date-picker
-                v-model="newTodoDueDate"
-                type="date"
-                placeholder="截止时间"
-                size="large"
-                value-format="YYYY-MM-DD"
-                style="width: 140px"
-              />
-
-              <el-button type="primary" size="large" @click="handleCreateTodo">添 加</el-button>
-            </div>
-          </div>
-        </div>
-
-        <!-- 3. 待办过滤标签与列表 -->
-        <div class="todo-list-card">
-          <div class="list-toolbar-row">
-            <!-- 分类隔离切换按键 (默认选中：日常待办) -->
-            <el-radio-group v-model="categoryType" size="default">
-              <el-radio-button value="ALL">全部分类 ({{ allTodos.length }})</el-radio-button>
-              <el-radio-button value="PERSONAL"
-                >📝 日常待办 ({{ personalTodosCount }})</el-radio-button
-              >
-              <el-radio-button value="PROJECT"
-                >📋 需求待办 ({{ projectTodosCount }})</el-radio-button
-              >
-            </el-radio-group>
-
-            <!-- 状态筛选按键 (默认选中：进行中) -->
-            <el-radio-group v-model="activeTab" size="small">
-              <el-radio-button value="ALL">全部</el-radio-button>
-              <el-radio-button value="IN_PROGRESS">进行中</el-radio-button>
-              <el-radio-button value="PENDING">待处理</el-radio-button>
-              <el-radio-button value="COMPLETED">已完成</el-radio-button>
-            </el-radio-group>
-          </div>
-
-          <div v-loading="loading" class="todo-items-wrapper">
-            <template v-if="filteredTodos.length > 0">
-              <div
-                v-for="item in paginatedTodos"
-                :key="item.isProjectTask ? `proj-${item.id}` : `pers-${item.id}`"
-                :class="[
-                  'todo-item-row',
-                  {
-                    'is-done': item.status === 'DONE',
-                    'is-progress': item.status === 'IN_PROGRESS',
-                    'is-project': item.isProjectTask
-                  }
-                ]"
-              >
-                <!-- 自定义打勾圆圈 -->
-                <div class="check-box-wrapper" @click="handleToggleStatus(item)">
-                  <span :class="['custom-check', { checked: item.status === 'DONE' }]">
-                    <span v-if="item.status === 'DONE'" class="check-mark">✓</span>
-                  </span>
-                </div>
-
-                <!-- 标题与基本信息 -->
-                <div class="todo-content-block" @click="openEditDialog(item)">
-                  <span class="todo-title-text">{{ item.title }}</span>
-                  <p v-if="item.description" class="todo-desc-text">{{ item.description }}</p>
-
-                  <div class="todo-meta-tags">
-                    <!-- 需求待办的项目关联徽章 (支持一键跳转) -->
-                    <el-tag
-                      v-if="item.isProjectTask"
-                      type="primary"
-                      size="small"
-                      class="project-badge"
-                      @click.stop="goToMatrix(item)"
-                    >
-                      📌 关联需求：[{{ item.requirementTitle || '未命名需求' }}] ➔
-                      {{ item.stageTitle || '未命名阶段' }}
-                    </el-tag>
-
-                    <!-- 状态 Tag -->
-                    <el-tag :type="getStatusTagType(item.status)" size="small">
-                      {{ formatStatus(item.status) }}
-                    </el-tag>
-
-                    <!-- 优先级 Tag -->
-                    <el-tag :type="getPriorityTagType(item.priority)" size="small">
-                      {{ formatPriority(item.priority) }}
-                    </el-tag>
-
-                    <!-- 截止日期 Tag -->
-                    <span
-                      v-if="item.dueDate"
-                      :class="['date-tag', { 'is-overdue': isOverdue(item) }]"
-                    >
-                      📅 {{ item.dueDate }} {{ isOverdue(item) ? '(已逾期)' : '' }}
-                    </span>
-                  </div>
-                </div>
-
-                <!-- 右侧快捷操作面板 -->
-                <div class="todo-actions-block">
-                  <el-button type="primary" link size="small" @click="openEditDialog(item)"
-                    >编辑</el-button
-                  >
-                  <el-button type="danger" link size="small" @click="handleDeleteTodo(item)"
-                    >删除</el-button
-                  >
-                </div>
-              </div>
-            </template>
-
-            <el-empty
-              v-else
-              description="暂无该分类/状态下的待办事项，轻松一下吧！"
-              :image-size="100"
-            />
-          </div>
-
-          <!-- 待办中心底部分页组件 -->
-          <div
-            class="pagination-wrapper"
-            style="margin-top: 20px; display: flex; justify-content: flex-end"
-          >
-            <el-pagination
-              v-model:current-page="todoCurrentPage"
-              v-model:page-size="todoPageSize"
-              :page-sizes="[5, 10, 20, 50]"
-              layout="total, sizes, prev, pager, next, jumper"
-              :total="filteredTodos.length"
-              @size-change="todoCurrentPage = 1"
-            />
-          </div>
-        </div>
+  <div class="page">
+    <!-- 统一顶栏 -->
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">MY WORK</div>
+        <h1>我的待办</h1>
+        <p>把所有与你有关的个人备忘与需求任务放在同一个工作视图里。</p>
       </div>
-
-      <!-- 右侧辅助概览看板 (占 30% 宽度) -->
-      <div class="sidebar-right">
-        <!-- 概览进度卡片 -->
-        <div class="sidebar-card">
-          <h3 class="card-title">📊 完成进度分析</h3>
-          <div class="progress-circle-box">
-            <el-progress
-              type="circle"
-              :percentage="completionPercent"
-              :width="110"
-              :stroke-width="8"
-              :color="customColors"
-            />
-          </div>
-          <div class="stats-grid">
-            <div class="stat-cell">
-              <span class="stat-val warning-val">{{ inProgressCount }}</span>
-              <span class="stat-lbl">进行中</span>
-            </div>
-            <div class="stat-cell">
-              <span class="stat-val">{{ pendingCount }}</span>
-              <span class="stat-lbl">待处理</span>
-            </div>
-            <div class="stat-cell">
-              <span class="stat-val success-val">{{ completedCount }}</span>
-              <span class="stat-lbl">已完成</span>
-            </div>
-            <div class="stat-cell">
-              <span class="stat-val">{{ allTodos.length }}</span>
-              <span class="stat-lbl">总项数</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 待办类型分布卡片 -->
-        <div class="sidebar-card">
-          <h3 class="card-title">📌 待办类型分布</h3>
-          <div class="distribution-list">
-            <div class="dist-item">
-              <div class="dist-row">
-                <span class="dist-label">📝 日常个人待办</span>
-                <span class="dist-val">{{ personalTodosCount }} 项</span>
-              </div>
-              <el-progress
-                :percentage="
-                  allTodos.length ? Math.round((personalTodosCount / allTodos.length) * 100) : 0
-                "
-                :show-text="false"
-                :stroke-width="6"
-                color="#e6a23c"
-              />
-            </div>
-
-            <div class="dist-item" style="margin-top: 14px">
-              <div class="dist-row">
-                <span class="dist-label">📋 需求派生待办</span>
-                <span class="dist-val">{{ projectTodosCount }} 项</span>
-              </div>
-              <el-progress
-                :percentage="
-                  allTodos.length ? Math.round((projectTodosCount / allTodos.length) * 100) : 0
-                "
-                :show-text="false"
-                :stroke-width="6"
-                color="#2383e2"
-              />
-            </div>
-          </div>
-        </div>
-
-        <!-- 高效提示卡片 -->
-        <div class="sidebar-card tip-card">
-          <div class="tip-header">
-            <span class="tip-icon">💡</span>
-            <span class="tip-title">联动提示</span>
-          </div>
-          <p class="tip-body">
-            【需求待办】来自协同矩阵分配。新建与重置的待办默认处于【进行中】状态，勾选打勾后将自动同步为【已完成】。
-          </p>
-        </div>
+      <div class="head-actions">
+        <el-button size="small" @click="quickFocus">聚焦今天</el-button>
       </div>
     </div>
 
-    <!-- 修改待办对话框 -->
-    <el-dialog v-model="editDialogVisible" title="修改待办事项" width="480px" append-to-body>
-      <el-form :model="editForm" label-width="80px">
-        <el-form-item label="待办标题" required>
-          <el-input v-model="editForm.title" placeholder="请输入待办标题..." />
-        </el-form-item>
-        <el-form-item label="待办状态">
-          <el-radio-group v-model="editForm.status">
-            <el-radio-button value="TODO">待处理</el-radio-button>
-            <el-radio-button value="IN_PROGRESS">进行中</el-radio-button>
-            <el-radio-button value="DONE">已完成</el-radio-button>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item v-if="!editForm.isProjectTask" label="详细内容">
-          <el-input
-            v-model="editForm.description"
-            type="textarea"
-            :rows="3"
-            placeholder="添加待办事项的补充细节、备注说明或步骤清单..."
+    <!-- 核心布局：锁定 600px 统一视觉高度 -->
+    <section class="work-grid">
+      <!-- 左侧主工作台 (固定 600px) -->
+      <div class="surface work-main">
+        <!-- 快速加入 -->
+        <div class="quick">
+          <div class="quick-title">快速加入待办</div>
+          <div class="quick-row">
+            <el-input
+              v-model="title"
+              size="small"
+              placeholder="记录一个待办事项，按 Enter 添加..."
+              @keyup.enter="create"
+            >
+              <template #prefix>＋</template>
+            </el-input>
+            <el-select v-model="priority" size="small" style="width: 100px">
+              <el-option label="P1 (高)" value="HIGH" />
+              <el-option label="P2 (中)" value="MEDIUM" />
+              <el-option label="P3 (低)" value="LOW" />
+            </el-select>
+            <el-date-picker
+              v-model="due"
+              size="small"
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="截止日期"
+              style="width: 130px"
+            />
+            <el-button type="primary" size="small" @click="create">添加</el-button>
+          </div>
+        </div>
+
+        <!-- 视图切换 Tab -->
+        <div class="view-tabs">
+          <button
+            v-for="f in filters"
+            :key="f.value"
+            :class="{ active: filter === f.value }"
+            @click="filter = f.value"
+          >
+            {{ f.label }} <span>{{ filterCount(f.value) }}</span>
+          </button>
+        </div>
+
+        <!-- 待办事项列表区 -->
+        <div v-loading="loading" class="task-list">
+          <div
+            v-for="item in paginatedTodos"
+            :key="`${item.isProjectTask ? 'p' : 'm'}-${item.id}`"
+            class="task-row"
+            @click="edit(item)"
+          >
+            <button
+              class="checkbox"
+              :class="{ done: item.status === 'DONE' }"
+              title="切换完成状态"
+              @click.stop="toggle(item)"
+            >
+              {{ item.status === 'DONE' ? '✓' : '' }}
+            </button>
+
+            <div class="task-main">
+              <div class="task-title-line">
+                <strong :class="{ doneText: item.status === 'DONE' }">{{ item.title }}</strong>
+                <el-tooltip
+                  v-if="item.description"
+                  :content="item.description"
+                  placement="top"
+                  :show-after="200"
+                >
+                  <span class="desc-badge" @click.stop="edit(item)">📝 备注</span>
+                </el-tooltip>
+              </div>
+
+              <div class="task-sub-info">
+                <span class="source-tag">
+                  {{
+                    item.isProjectTask
+                      ? `${item.requirementTitle || '需求'} · ${item.stageTitle || '阶段'}`
+                      : '个人事项'
+                  }}
+                </span>
+                <span v-if="item.description" class="desc-preview-text">
+                  - {{ item.description }}
+                </span>
+              </div>
+            </div>
+
+            <StatusChip :status="item.priority" />
+
+            <span :class="['due', { overdue: overdue(item) }]">
+              {{ item.dueDate || '—' }}
+            </span>
+
+            <el-button text type="danger" size="small" @click.stop="remove(item)"> 删除 </el-button>
+          </div>
+
+          <div v-if="!filtered.length && !loading" class="empty-wrap">
+            <el-empty description="没有符合条件的工作项" />
+          </div>
+        </div>
+
+        <!-- 底部分页控制器 (固定吸底 48px) -->
+        <div class="task-pagination-wrapper">
+          <el-pagination
+            v-model:current-page="currentPage"
+            v-model:page-size="pageSize"
+            :page-sizes="[10, 15, 20]"
+            layout="total, sizes, prev, pager, next"
+            :total="filtered.length"
+            size="small"
+            @size-change="currentPage = 1"
           />
+        </div>
+      </div>
+
+      <!-- 右侧指标看板 (固定 600px) -->
+      <aside class="side">
+        <div class="surface score">
+          <div class="section-title">完成进度</div>
+          <div class="score-big">{{ completion }}<small>%</small></div>
+          <div class="bar"><i :style="{ width: completion + '%' }"></i></div>
+          <div class="mini-stats">
+            <div>
+              <b>{{ active }}</b>
+              <span>进行中</span>
+            </div>
+            <div>
+              <b>{{ pending }}</b>
+              <span>待处理</span>
+            </div>
+            <div>
+              <b>{{ completed }}</b>
+              <span>已完成</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="surface attention-card">
+          <div class="section-title">需要关注</div>
+          <div class="attention">
+            <div>
+              <strong class="text-danger">{{ overdueCount }}</strong>
+              <span>已逾期</span>
+            </div>
+            <div>
+              <strong class="text-warning">{{ dueSoon }}</strong>
+              <span>3天内到期</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <!-- 编辑弹窗 -->
+    <el-dialog v-model="dialogVisible" title="工作项详情与备注" width="500px" destroy-on-close>
+      <el-form :model="editForm" label-position="top">
+        <div v-if="editForm.isProjectTask" class="project-ctx-banner">
+          <div>
+            <span class="ctx-title">📌 需求任务关联</span>
+            <p>{{ editForm.requirementTitle || '需求' }} ➔ {{ editForm.stageTitle || '阶段' }}</p>
+          </div>
+          <el-button link type="primary" size="small" @click="jumpToRequirement(editForm)">
+            进入该需求矩阵 ➔
+          </el-button>
+        </div>
+
+        <el-form-item label="待办标题" required>
+          <el-input v-model="editForm.title" placeholder="待办事项名称" />
         </el-form-item>
-        <el-form-item v-if="!editForm.isProjectTask" label="优先级">
-          <el-radio-group v-model="editForm.priority">
-            <el-radio-button value="LOW">低</el-radio-button>
-            <el-radio-button value="MEDIUM">中</el-radio-button>
-            <el-radio-button value="HIGH">高</el-radio-button>
-          </el-radio-group>
-        </el-form-item>
+
+        <div class="form-row-two">
+          <el-form-item label="状态">
+            <el-select v-model="editForm.status" style="width: 100%">
+              <el-option label="待处理" value="TODO" />
+              <el-option label="进行中" value="IN_PROGRESS" />
+              <el-option label="已完成" value="DONE" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="优先级">
+            <el-select v-model="editForm.priority" style="width: 100%">
+              <el-option label="P1 (高)" value="HIGH" />
+              <el-option label="P2 (中)" value="MEDIUM" />
+              <el-option label="P3 (低)" value="LOW" />
+            </el-select>
+          </el-form-item>
+        </div>
+
         <el-form-item label="截止日期">
           <el-date-picker
             v-model="editForm.dueDate"
             type="date"
-            placeholder="选择截止时间"
             value-format="YYYY-MM-DD"
+            placeholder="设置截止日期"
             style="width: 100%"
           />
         </el-form-item>
+
+        <el-form-item label="📝 详细备注 / 说明">
+          <el-input
+            v-model="editForm.description"
+            type="textarea"
+            :rows="4"
+            placeholder="在此记录该待办的具体说明、备忘要求、链接或相关进展..."
+          />
+        </el-form-item>
       </el-form>
+
       <template #footer>
-        <el-button @click="editDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitEditForm">保存</el-button>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveEdit">保存修改</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getMyTodosApi,
   createTodoApi,
@@ -308,556 +242,525 @@ import {
   toggleTodoApi,
   deleteTodoApi
 } from '@/api/todo'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import StatusChip from '@/components/workspace/StatusChip.vue'
 
 const router = useRouter()
-
 const loading = ref(false)
-const allTodos = ref([])
-// 默认展示【日常待办】
-const categoryType = ref('PERSONAL') // ALL, PERSONAL, PROJECT
-// 默认展示【进行中】事项
-const activeTab = ref('IN_PROGRESS') // ALL, IN_PROGRESS, PENDING, COMPLETED
+const todos = ref([])
+const title = ref('')
+const priority = ref('MEDIUM')
+const due = ref(null)
+const filter = ref('ACTIVE')
 
-// 新建输入框绑定
-const newTodoTitle = ref('')
-const newTodoPriority = ref('MEDIUM')
-const newTodoDueDate = ref(null)
+const currentPage = ref(1)
+const pageSize = ref(10)
 
-// 待办分页状态
-const todoCurrentPage = ref(1)
-const todoPageSize = ref(10)
+const dialogVisible = ref(false)
+const editForm = ref({})
 
-// 监听分类与状态过滤按键切换，自动重置页码回到第 1 页
-watch([categoryType, activeTab], () => {
-  todoCurrentPage.value = 1
-})
-
-// 编辑弹窗绑定
-const editDialogVisible = ref(false)
-const editForm = ref({
-  id: null,
-  title: '',
-  description: '',
-  priority: 'MEDIUM',
-  dueDate: null,
-  status: 'IN_PROGRESS',
-  isProjectTask: false
-})
-
-const customColors = [
-  { color: '#f56c6c', percentage: 20 },
-  { color: '#e6a23c', percentage: 60 },
-  { color: '#2383e2', percentage: 100 }
+const filters = [
+  { value: 'ALL', label: '全部' },
+  { value: 'TODAY', label: '今天' },
+  { value: 'ACTIVE', label: '进行中' },
+  { value: 'PENDING', label: '待处理' },
+  { value: 'DONE', label: '已完成' },
+  { value: 'OVERDUE', label: '逾期' }
 ]
 
-// 统计计算属性
-const personalTodosCount = computed(() => allTodos.value.filter(t => !t.isProjectTask).length)
-const projectTodosCount = computed(() => allTodos.value.filter(t => t.isProjectTask).length)
+const today = () => new Date().toISOString().slice(0, 10)
+const overdue = x => Boolean(x.dueDate && x.status !== 'DONE' && x.dueDate < today())
 
-const pendingCount = computed(() => allTodos.value.filter(t => t.status === 'TODO').length)
-const inProgressCount = computed(
-  () => allTodos.value.filter(t => t.status === 'IN_PROGRESS').length
-)
-const completedCount = computed(() => allTodos.value.filter(t => t.status === 'DONE').length)
-const completionPercent = computed(() => {
-  const total = allTodos.value.length
-  return total > 0 ? Math.round((completedCount.value / total) * 100) : 0
+const filtered = computed(() => {
+  return todos.value.filter(x => {
+    if (filter.value === 'ALL') return true
+    if (filter.value === 'ACTIVE') return x.status === 'IN_PROGRESS'
+    if (filter.value === 'PENDING') return x.status === 'TODO'
+    if (filter.value === 'DONE') return x.status === 'DONE'
+    if (filter.value === 'OVERDUE') return overdue(x)
+    if (filter.value === 'TODAY') return x.status !== 'DONE' && x.dueDate === today()
+    return true
+  })
 })
 
-// 分类与状态双重过滤计算属性
-const filteredTodos = computed(() => {
-  let list = allTodos.value
-
-  // 1. 分类隔离过滤
-  if (categoryType.value === 'PERSONAL') {
-    list = list.filter(t => !t.isProjectTask)
-  } else if (categoryType.value === 'PROJECT') {
-    list = list.filter(t => t.isProjectTask)
-  }
-
-  // 2. 状态过滤
-  if (activeTab.value === 'IN_PROGRESS') {
-    return list.filter(t => t.status === 'IN_PROGRESS')
-  }
-  if (activeTab.value === 'PENDING') {
-    return list.filter(t => t.status === 'TODO')
-  }
-  if (activeTab.value === 'COMPLETED') {
-    return list.filter(t => t.status === 'DONE')
-  }
-  return list
-})
-
-// 当前页实际渲染展示的待办列表切片
 const paginatedTodos = computed(() => {
-  const start = (todoCurrentPage.value - 1) * todoPageSize.value
-  const end = start + todoPageSize.value
-  return filteredTodos.value.slice(start, end)
+  const start = (currentPage.value - 1) * pageSize.value
+  return filtered.value.slice(start, start + pageSize.value)
 })
 
-// 加载待办列表
-const loadTodos = async () => {
+const active = computed(() => todos.value.filter(x => x.status === 'IN_PROGRESS').length)
+const pending = computed(() => todos.value.filter(x => x.status === 'TODO').length)
+const completed = computed(() => todos.value.filter(x => x.status === 'DONE').length)
+const completion = computed(() => {
+  return todos.value.length ? Math.round((completed.value / todos.value.length) * 100) : 0
+})
+
+const overdueCount = computed(() => todos.value.filter(overdue).length)
+const dueSoon = computed(() => {
+  const d = new Date()
+  d.setDate(d.getDate() + 3)
+  const max = d.toISOString().slice(0, 10)
+  return todos.value.filter(
+    x => x.status !== 'DONE' && x.dueDate && x.dueDate >= today() && x.dueDate <= max
+  ).length
+})
+
+const filterCount = v => {
+  if (v === 'ALL') return todos.value.length
+  if (v === 'TODAY')
+    return todos.value.filter(x => x.status !== 'DONE' && x.dueDate === today()).length
+  if (v === 'ACTIVE') return active.value
+  if (v === 'PENDING') return pending.value
+  if (v === 'DONE') return completed.value
+  if (v === 'OVERDUE') return overdueCount.value
+  return 0
+}
+
+const quickFocus = () => {
+  filter.value = 'TODAY'
+}
+
+const load = async () => {
   loading.value = true
   try {
-    allTodos.value = await getMyTodosApi()
-  } catch (error) {
+    todos.value = (await getMyTodosApi()) || []
+  } catch {
+    todos.value = []
   } finally {
     loading.value = false
   }
 }
 
-// 新建个人日常待办 (默认写入 IN_PROGRESS 进行中)
-const handleCreateTodo = async () => {
-  if (!newTodoTitle.value.trim()) {
-    ElMessage.warning('请输入待办事项内容')
-    return
-  }
+const create = async () => {
+  if (!title.value.trim()) return ElMessage.warning('请输入待办名称')
   try {
     await createTodoApi({
-      title: newTodoTitle.value.trim(),
-      priority: newTodoPriority.value,
-      dueDate: newTodoDueDate.value,
+      title: title.value.trim(),
+      priority: priority.value,
+      dueDate: due.value,
       status: 'IN_PROGRESS'
     })
-    ElMessage.success('待办已加入「进行中」')
-    newTodoTitle.value = ''
-    newTodoDueDate.value = null
-    todoCurrentPage.value = 1 // 跳转回首页展示
-    await loadTodos()
-  } catch (error) {}
+    title.value = ''
+    due.value = null
+    ElMessage.success('待办已创建')
+    await load()
+  } catch {}
 }
 
-// 快捷打勾/取消打勾 (取消打勾自动恢复为 IN_PROGRESS 进行中)
-const handleToggleStatus = async item => {
-  const newStatus = item.status === 'DONE' ? 'IN_PROGRESS' : 'DONE'
-  item.status = newStatus
+const toggle = async item => {
+  const targetStatus = item.status === 'DONE' ? 'IN_PROGRESS' : 'DONE'
+  item.status = targetStatus
   try {
     await toggleTodoApi(item.id, item.isProjectTask)
-  } catch (error) {
-    await loadTodos()
+  } catch {
+    await load()
   }
 }
 
-// 打开编辑弹窗
-const openEditDialog = item => {
-  editForm.value = {
-    ...item,
-    status: item.status || 'IN_PROGRESS',
-    description: item.description || ''
-  }
-  editDialogVisible.value = true
-}
-
-// 提交修改
-const submitEditForm = async () => {
-  if (!editForm.value.title.trim()) {
-    ElMessage.warning('待办内容不可为空')
-    return
-  }
-  try {
-    await updateTodoApi(editForm.value.id, editForm.value)
-    ElMessage.success('更新成功')
-    editDialogVisible.value = false
-    await loadTodos()
-  } catch (error) {}
-}
-
-// 删除待办
-const handleDeleteTodo = item => {
-  ElMessageBox.confirm(
-    item.isProjectTask ? '确定要移除此需求待办项吗？' : '确定要删除这条日常待办吗？',
-    '提示',
-    { type: 'warning' }
-  )
+const remove = async item => {
+  ElMessageBox.confirm(`确定要删除待办「${item.title}」吗？`, '删除待办', { type: 'warning' })
     .then(async () => {
       await deleteTodoApi(item.id, item.isProjectTask)
-      ElMessage.success('删除成功')
-      await loadTodos()
+      ElMessage.success('已删除')
+      await load()
     })
     .catch(() => {})
 }
 
-// 一键直达协同矩阵现场
-const goToMatrix = item => {
+const edit = item => {
+  editForm.value = {
+    ...item,
+    description: item.description || ''
+  }
+  dialogVisible.value = true
+}
+
+const saveEdit = async () => {
+  if (!editForm.value.title?.trim()) {
+    return ElMessage.warning('待办名称不可为空')
+  }
+  try {
+    await updateTodoApi(editForm.value.id, editForm.value)
+    ElMessage.success('待办已保存')
+    dialogVisible.value = false
+    await load()
+  } catch {}
+}
+
+const jumpToRequirement = item => {
   if (item.requirementId) {
+    dialogVisible.value = false
     router.push({
-      path: '/matrix',
-      query: { reqId: item.requirementId }
+      path: `/requirement/${item.requirementId}`,
+      query: { tab: 'execution' }
     })
   }
 }
 
-// 辅助函数
-const isOverdue = item => {
-  if (!item.dueDate || item.status === 'DONE') return false
-  const today = new Date().toISOString().split('T')[0]
-  return item.dueDate < today
-}
-
-const getPriorityTagType = p => {
-  if (p === 'HIGH') return 'danger'
-  if (p === 'MEDIUM') return 'warning'
-  return 'info'
-}
-
-const formatPriority = p => {
-  if (p === 'HIGH') return '高优'
-  if (p === 'MEDIUM') return '中优'
-  return '低优'
-}
-
-const getStatusTagType = s => {
-  if (s === 'DONE') return 'success'
-  if (s === 'IN_PROGRESS') return 'warning'
-  return 'info'
-}
-
-const formatStatus = s => {
-  if (s === 'DONE') return '已完成'
-  if (s === 'IN_PROGRESS') return '进行中'
-  return '待处理'
-}
-
-onMounted(() => {
-  loadTodos()
-})
+watch(
+  () => filter.value,
+  () => {
+    currentPage.value = 1
+  }
+)
+onMounted(load)
 </script>
 
 <style scoped>
-/* 整个画布铺满视口，采用双栏 Flex 布局 */
-.todo-workspace {
-  flex: 1;
-  padding: 24px;
-  overflow-y: auto;
-  background-color: #f5f7fa;
-  display: flex;
-  justify-content: center;
-}
-
-.todo-container {
-  width: 100%;
-  max-width: 1380px;
-  display: flex;
-  gap: 20px;
-  align-items: flex-start;
-}
-
-/* 左侧主体 70% */
-.main-content-left {
-  flex: 1;
+.page {
+  height: 100%;
+  padding: 20px 28px 24px;
+  max-width: 1560px;
+  margin: 0 auto;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  min-width: 0;
-}
-
-.page-title-bar {
-  margin-bottom: 4px;
-}
-
-.page-title {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  color: #37352f;
-}
-
-.page-desc {
-  margin: 4px 0 0 0;
-  font-size: 13px;
-  color: #8c8c8c;
-}
-
-.quick-input-card {
-  background: #ffffff;
-  border-radius: 8px;
-  padding: 16px 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.quick-input-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.quick-todo-input {
-  flex: 1;
-}
-
-.quick-todo-tools {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.todo-list-card {
-  background: #ffffff;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  min-height: 480px;
-}
-
-.list-toolbar-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.todo-items-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.todo-item-row {
-  display: flex;
-  align-items: center;
-  padding: 12px 14px;
-  border-radius: 6px;
-  border: 1px solid rgba(55, 53, 47, 0.08);
-  background-color: #ffffff;
-  transition: all 0.15s ease-in-out;
-}
-
-.todo-item-row.is-project {
-  border-left: 3px solid #2383e2;
-}
-
-.todo-item-row:hover {
-  background-color: #fcfcfb;
-  border-color: #2383e2;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
-}
-
-.todo-item-row.is-done {
-  opacity: 0.6;
-  background-color: #fafafa;
-}
-
-.todo-item-row.is-done .todo-title-text {
-  text-decoration: line-through;
-  color: #8c8c8c;
-}
-
-.check-box-wrapper {
-  cursor: pointer;
-  padding: 4px;
-  margin-right: 12px;
-  display: flex;
-  align-items: center;
-}
-
-.custom-check {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px solid #d9d9d9;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
-}
-
-.custom-check:hover {
-  border-color: #2383e2;
-}
-
-.custom-check.checked {
-  background-color: #0d7c50;
-  border-color: #0d7c50;
-}
-
-.check-mark {
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: bold;
-}
-
-.todo-content-block {
-  flex: 1;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.todo-title-text {
-  font-size: 14px;
-  color: #37352f;
-  font-weight: 500;
-}
-
-/* 待办详细描述文本 preview 样式 */
-.todo-desc-text {
-  margin: 2px 0 2px 0;
-  font-size: 12px;
-  color: #8c8c8c;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-all;
   overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
 }
 
-.todo-meta-tags {
+.page-head {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 2px;
-}
-
-.project-badge {
-  cursor: pointer;
-  transition: opacity 0.15s ease;
-}
-
-.project-badge:hover {
-  opacity: 0.85;
-}
-
-.date-tag {
-  font-size: 11px;
-  color: #8c8c8c;
-  background-color: #f5f5f5;
-  padding: 2px 6px;
-  border-radius: 3px;
-}
-
-.date-tag.is-overdue {
-  color: #df4331;
-  background-color: #ffe2dd;
-  font-weight: 600;
-}
-
-.todo-actions-block {
-  display: flex;
-  gap: 8px;
-}
-
-/* 右侧边栏 30% */
-.sidebar-right {
-  width: 310px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  min-height: 52px;
   flex-shrink: 0;
 }
 
-.sidebar-card {
-  background: #ffffff;
-  border-radius: 8px;
-  padding: 18px 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.card-title {
-  margin: 0 0 14px 0;
-  font-size: 14px;
-  font-weight: 700;
-  color: #37352f;
-}
-
-.progress-circle-box {
-  display: flex;
-  justify-content: center;
-  padding: 10px 0 16px 0;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  border-top: 1px solid rgba(55, 53, 47, 0.08);
-  padding-top: 12px;
-}
-
-.stat-cell {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.stat-val {
-  font-size: 15px;
-  font-weight: 700;
-  color: #37352f;
-}
-
-.warning-val {
-  color: #e6a23c;
-}
-
-.success-val {
-  color: #0d7c50;
-}
-
-.stat-lbl {
-  font-size: 11px;
-  color: #8c8c8c;
-  margin-top: 2px;
-  white-space: nowrap;
-}
-
-.distribution-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.dist-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  font-weight: 800;
+  color: var(--rf-text-3);
   margin-bottom: 6px;
 }
 
-.dist-label {
-  font-size: 12px;
-  color: #37352f;
+.page-head h1 {
+  margin: 0;
+  font-size: 26px;
+  letter-spacing: -0.5px;
 }
 
-.dist-val {
-  font-size: 12px;
-  font-weight: 600;
-  color: #8c8c8c;
+.page-head p {
+  margin: 6px 0 0;
+  color: var(--rf-text-2);
+  font-size: 13px;
 }
 
-.tip-card {
-  background-color: #f7f9fc;
-  border: 1px solid #e1e9f5;
+/* 核心布局：全局锁定 600px 统一视觉高度 */
+.work-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 14px;
 }
 
-.tip-header {
+.surface {
+  background: #fff;
+  border: 1px solid var(--rf-border);
+  border-radius: 12px;
+}
+
+.work-main {
+  height: 100%;
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.quick {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--rf-border);
+  flex-shrink: 0;
+}
+
+.quick-title {
+  font-size: 12px;
+  font-weight: 800;
   margin-bottom: 8px;
 }
 
-.tip-icon {
+.quick-row {
+  display: grid;
+  grid-template-columns: 1fr 100px 130px auto;
+  gap: 8px;
+}
+
+.view-tabs {
+  display: flex;
+  gap: 3px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--rf-border);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.view-tabs button {
+  border: 0;
+  background: transparent;
+  padding: 5px 10px;
+  color: var(--rf-text-2);
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.view-tabs button span {
+  color: var(--rf-text-3);
+  margin-left: 3px;
+}
+
+.view-tabs button.active {
+  background: var(--rf-subtle);
+  color: var(--rf-text);
+}
+
+.task-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.task-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto 90px 45px;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 18px;
+  border-bottom: 1px solid #f0f1f3;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.task-row:hover {
+  background: #fafbff;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid #cfd4da;
+  background: #fff;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.checkbox.done {
+  background: var(--rf-success) !important;
+  border-color: var(--rf-success) !important;
+}
+
+.task-main {
+  min-width: 0;
+}
+
+.task-title-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-title-line strong {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.desc-badge {
+  font-size: 9.5px;
+  color: var(--rf-brand);
+  background: var(--rf-brand-soft);
+  padding: 1px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.task-sub-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  font-size: 11px;
+}
+
+.source-tag {
+  color: var(--rf-text-3);
+  white-space: nowrap;
+}
+
+.desc-preview-text {
+  color: var(--rf-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.doneText {
+  text-decoration: line-through;
+  color: var(--rf-text-3);
+}
+
+.due {
+  font-size: 11px;
+  color: var(--rf-text-3);
+}
+
+.overdue {
+  color: var(--rf-danger);
+  font-weight: 700;
+}
+
+.empty-wrap {
+  padding: 60px 0;
+}
+
+.task-pagination-wrapper {
+  height: 48px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  border-top: 1px solid var(--rf-border);
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.side {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.section-title {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--rf-border);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.score {
+  flex-shrink: 0;
+  padding-bottom: 12px;
+}
+
+.score-big {
+  padding: 16px 18px 8px;
+  font-size: 34px;
+  font-weight: 800;
+}
+
+.score-big small {
+  font-size: 14px;
+}
+
+.bar {
+  margin: 0 18px;
+  height: 7px;
+  background: #eef0f3;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.bar i {
+  display: block;
+  height: 100%;
+  background: var(--rf-brand);
+}
+
+.mini-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 14px 12px 2px;
+}
+
+.mini-stats div {
+  text-align: center;
+}
+
+.mini-stats b {
+  display: block;
   font-size: 16px;
 }
 
-.tip-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #2383e2;
+.mini-stats span {
+  display: block;
+  color: var(--rf-text-3);
+  font-size: 10px;
+  margin-top: 3px;
 }
 
-.tip-body {
-  margin: 0;
+.attention-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.attention {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  padding: 18px 12px;
+}
+
+.attention div {
+  text-align: center;
+}
+
+.attention strong {
+  display: block;
+  font-size: 26px;
+}
+
+.attention span {
+  font-size: 11px;
+  color: var(--rf-text-3);
+}
+
+.text-danger {
+  color: var(--rf-danger);
+}
+
+.text-warning {
+  color: var(--rf-warning);
+}
+
+.project-ctx-banner {
+  background: #f4f6fa;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.project-ctx-banner .ctx-title {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--rf-brand);
+}
+
+.project-ctx-banner p {
+  margin: 2px 0 0;
   font-size: 12px;
-  color: #606266;
-  line-height: 1.6;
+  font-weight: 600;
+  color: var(--rf-text);
+}
+
+.form-row-two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 </style>

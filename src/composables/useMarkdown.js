@@ -102,7 +102,7 @@ export function renderMarkdownToHtml(rawMarkdown, options = {}) {
         <div class="code-block-wrap">
           <div class="code-block-header">
             <span class="code-lang-tag">${langLabel}</span>
-            <button class="code-copy-btn" type="button" data-code="${encodeURIComponent(text)}">📋 复制</button>
+            <button class="code-copy-btn" type="button" data-code="${encodeURIComponent(text)}">复制</button>
           </div>
           <pre><code class="hljs language-${validLang}">${highlighted}</code></pre>
         </div>

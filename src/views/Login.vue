@@ -1,451 +1,254 @@
 <template>
-  <!-- 整个登录容器背景均支持拖拽与双击最大化 -->
-  <div class="login-container" @mousedown="handleTitlebarMouseDown">
-    <!-- 顶部登录页极简控制栏 -->
-    <div class="login-titlebar">
-      <div class="titlebar-brand">
-        <img src="@/assets/logo.png" class="brand-logo" alt="ReqFlow Logo" />
-        <span class="brand-title">ReqFlow</span>
+  <div class="login-shell">
+    <div class="login-brand">
+      <img src="@/assets/logo.png" />
+      <div><strong>ReqFlow</strong><span>ENGINEERING WORKSPACE</span></div>
+    </div>
+    <div class="login-card">
+      <div class="intro">
+        <div class="logo-mark"><img src="@/assets/logo.png" /></div>
+        <h1>欢迎回来</h1>
+        <p>连接你的私有化工作空间，继续推进需求。</p>
       </div>
-      <div class="titlebar-controls" @mousedown.stop>
-        <!-- 顶部快捷服务器设置按钮 -->
-        <button class="control-btn" title="服务器设置" @click.stop="openServerConfigDialog">
-          <el-icon :size="13"><Setting /></el-icon>
-        </button>
-        <button class="control-btn" title="最小化" @click.stop="minimizeWindow">
-          <svg width="10" height="10" viewBox="0 0 10 10">
-            <path fill="currentColor" d="M1 5h8v1H1z" />
-          </svg>
-        </button>
-        <!-- 最大化 / 还原按键 -->
-        <button class="control-btn" title="最大化 / 还原" @click.stop="toggleMaximizeWindow">
-          <svg width="10" height="10" viewBox="0 0 10 10">
-            <path fill="none" stroke="currentColor" stroke-width="1" d="M1.5 1.5h7v7h-7z" />
-          </svg>
-        </button>
-        <button class="control-btn close-btn" title="关闭" @click.stop="closeWindow">
-          <svg width="10" height="10" viewBox="0 0 10 10">
-            <path
-              fill="currentColor"
-              d="M1.707 1 1 1.707 4.293 5 1 8.293 1.707 9 5 5.707 8.293 9 9 8.293 5.707 5 9 1.707 8.293 1 5 4.293z"
-            />
-          </svg>
-        </button>
+      <div class="tabs">
+        <button :class="{ active: mode === 'login' }" @click="mode = 'login'">登录</button
+        ><button :class="{ active: mode === 'register' }" @click="mode = 'register'">注册</button>
+      </div>
+      <el-form
+        v-if="mode === 'login'"
+        :model="login"
+        label-position="top"
+        @submit.prevent="submitLogin"
+        ><el-form-item label="用户名"
+          ><el-input v-model="login.username" placeholder="请输入用户名" /></el-form-item
+        ><el-form-item label="密码"
+          ><el-input
+            v-model="login.password"
+            type="password"
+            show-password
+            placeholder="请输入密码"
+            @keyup.enter="submitLogin" /></el-form-item
+        ><el-button type="primary" class="submit" :loading="loading" @click="submitLogin"
+          >进入工作空间</el-button
+        ></el-form
+      ><el-form v-else :model="register" label-position="top"
+        ><el-form-item label="用户名"><el-input v-model="register.username" /></el-form-item
+        ><el-form-item label="昵称"><el-input v-model="register.nickname" /></el-form-item
+        ><el-form-item label="密码"
+          ><el-input v-model="register.password" type="password" show-password /></el-form-item
+        ><el-button type="primary" class="submit" :loading="loading" @click="submitRegister"
+          >创建账户</el-button
+        ></el-form
+      >
+      <div class="server">
+        <span class="dot" :class="{ on: !!userStore.serverUrl }"></span>
+        <div>
+          <strong>{{ userStore.serverUrl ? '已连接私有节点' : '尚未配置服务端' }}</strong
+          ><small>{{ userStore.serverUrl || '点击设置一个后端地址' }}</small>
+        </div>
+        <el-button text @click="serverVisible = true">设置</el-button>
       </div>
     </div>
-
-    <!-- 登录卡片 (@mousedown.stop 阻止冒泡，避免卡片内打字误触窗口拖动) -->
-    <el-card class="login-card" @mousedown.stop>
-      <div class="login-header-box">
-        <img src="@/assets/logo.png" class="login-main-logo" alt="ReqFlow" />
-        <h2 class="title">ReqFlow</h2>
-        <p class="subtitle">私有化部署 · 工作需求事项记录系统</p>
-      </div>
-
-      <el-tabs v-model="activeTab" stretch>
-        <!-- 登录面板 -->
-        <el-tab-pane label="账密登录" name="login">
-          <el-form :model="loginForm" label-position="top">
-            <el-form-item label="用户名">
-              <el-input v-model="loginForm.username" placeholder="请输入用户名" />
-            </el-form-item>
-            <el-form-item label="密码">
-              <el-input
-                v-model="loginForm.password"
-                type="password"
-                placeholder="请输入密码"
-                show-password
-                @keyup.enter="handleLogin"
-              />
-            </el-form-item>
-            <el-form-item style="margin-top: 25px">
-              <el-button type="primary" :loading="loading" style="width: 100%" @click="handleLogin"
-                >登 录</el-button
-              >
-            </el-form-item>
-          </el-form>
-        </el-tab-pane>
-
-        <!-- 注册面板 -->
-        <el-tab-pane label="注册账户" name="register">
-          <el-form :model="registerForm" label-position="top">
-            <el-form-item label="用户名">
-              <el-input v-model="registerForm.username" placeholder="创建系统用户名" />
-            </el-form-item>
-            <el-form-item label="昵称">
-              <el-input v-model="registerForm.nickname" placeholder="显示昵称（如：张三）" />
-            </el-form-item>
-            <el-form-item label="密码">
-              <el-input
-                v-model="registerForm.password"
-                type="password"
-                placeholder="设置密码"
-                show-password
-              />
-            </el-form-item>
-            <el-form-item style="margin-top: 25px">
-              <el-button
-                type="success"
-                :loading="loading"
-                style="width: 100%"
-                @click="handleRegister"
-                >注 册</el-button
-              >
-            </el-form-item>
-          </el-form>
-        </el-tab-pane>
-      </el-tabs>
-
-      <!-- 底部服务器状态与快捷修改栏 -->
-      <div class="server-status-bar" @click="openServerConfigDialog">
-        <span :class="['server-status-dot', { connected: Boolean(userStore.serverUrl) }]"></span>
-        <span class="server-status-text">
-          {{
-            userStore.serverUrl ? `服务地址: ${userStore.serverUrl}` : '未配置后端地址 (点击设置)'
-          }}
-        </span>
-      </div>
-    </el-card>
-
-    <!-- 服务器地址配置独立弹窗 -->
-    <el-dialog
-      v-model="serverConfigVisible"
-      title="⚙️ 服务器连接设置"
-      width="420px"
-      append-to-body
-      :close-on-click-modal="false"
-      @mousedown.stop
+    <el-dialog v-model="serverVisible" title="服务端连接" width="430px"
+      ><el-form label-position="top"
+        ><el-form-item label="Server URL"
+          ><el-input
+            v-model="serverUrl"
+            placeholder="http://192.168.1.100:8080"
+            @keyup.enter="saveServer" /></el-form-item></el-form
+      ><template #footer
+        ><el-button @click="serverVisible = false">取消</el-button
+        ><el-button type="primary" @click="saveServer">保存</el-button></template
+      ></el-dialog
     >
-      <el-form label-position="top">
-        <el-form-item label="后端服务地址 (Server URL)">
-          <el-input
-            v-model="tempServerUrl"
-            placeholder="例如: http://192.168.1.100:8080 或 http://localhost:8080"
-            clearable
-            @keyup.enter="saveServerConfig"
-          />
-        </el-form-item>
-        <div class="server-dialog-tip">
-          💡
-          说明：系统会将数据保存在您指定的私有化后端实例中。首次设置保存后，下次启动将自动连接，无需重复输入。
-        </div>
-      </el-form>
-      <template #footer>
-        <el-button @click="serverConfigVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveServerConfig">保存配置</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
-
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { loginApi, registerApi } from '@/api/auth'
 import { useUserStore } from '@/store/user'
-import { ElMessage } from 'element-plus'
-import { Setting } from '@element-plus/icons-vue'
-import { getCurrentWindow } from '@tauri-apps/api/window'
-
-const router = useRouter()
-const userStore = useUserStore()
-
-const activeTab = ref('login')
-const loading = ref(false)
-
-// 账密表单
-const loginForm = ref({ username: '', password: '' })
-const registerForm = ref({ username: '', password: '', nickname: '' })
-
-// 服务器配置弹窗状态
-const serverConfigVisible = ref(false)
-const tempServerUrl = ref('')
-
-const openServerConfigDialog = () => {
-  tempServerUrl.value = userStore.serverUrl || ''
-  serverConfigVisible.value = true
+const router = useRouter(),
+  userStore = useUserStore(),
+  mode = ref('login'),
+  loading = ref(false),
+  serverVisible = ref(false),
+  serverUrl = ref(userStore.serverUrl || ''),
+  login = ref({ username: '', password: '' }),
+  register = ref({ username: '', password: '', nickname: '' })
+const saveServer = () => {
+  if (!serverUrl.value.trim()) return
+  userStore.setServerUrl(serverUrl.value)
+  serverVisible.value = false
+  ElMessage.success('服务端已保存')
 }
-
-const saveServerConfig = () => {
-  if (!tempServerUrl.value.trim()) {
-    ElMessage.warning('服务器地址不能为空')
-    return
-  }
-  userStore.setServerUrl(tempServerUrl.value)
-  ElMessage.success('服务器地址已更新')
-  serverConfigVisible.value = false
-}
-
-// ----------------- 核心修复：精准分发双击最大化与单击拖拽 -----------------
-let lastClickTime = 0
-
-const handleTitlebarMouseDown = async e => {
-  // 仅响应鼠标左键，忽略卡片内部、按钮、输入框
-  if (e.button !== 0) return
-  if (
-    e.target.closest('.login-card, .titlebar-controls, .el-dialog, button, input, select, textarea')
-  ) {
-    return
-  }
-
-  const now = Date.now()
-  const isDoubleClick = e.detail === 2 || now - lastClickTime < 350
-  lastClickTime = now
-
-  try {
-    const appWindow = getCurrentWindow()
-    if (isDoubleClick) {
-      lastClickTime = 0
-      await appWindow.toggleMaximize()
-    } else {
-      await appWindow.startDragging()
-    }
-  } catch (err) {}
-}
-
-const minimizeWindow = async () => {
-  try {
-    const appWindow = getCurrentWindow()
-    await appWindow.minimize()
-  } catch (err) {}
-}
-
-const toggleMaximizeWindow = async () => {
-  try {
-    const appWindow = getCurrentWindow()
-    await appWindow.toggleMaximize()
-  } catch (err) {}
-}
-
-const closeWindow = async () => {
-  try {
-    const appWindow = getCurrentWindow()
-    await appWindow.close()
-  } catch (err) {}
-}
-
-// ----------------- 登录 / 注册业务逻辑 -----------------
-const handleLogin = async () => {
+const submitLogin = async () => {
   if (!userStore.serverUrl) {
-    ElMessage.warning('请先设置服务器连接地址')
-    openServerConfigDialog()
+    serverVisible.value = true
     return
   }
-
-  if (!loginForm.value.username || !loginForm.value.password) {
-    ElMessage.warning('请填写用户名和密码')
-    return
-  }
-
+  if (!login.value.username || !login.value.password) return ElMessage.warning('请填写用户名和密码')
   loading.value = true
   try {
-    const payload = {
-      username: loginForm.value.username,
-      password: loginForm.value.password
-    }
-    const data = await loginApi(payload)
+    const data = await loginApi(login.value)
     userStore.setUserInfo(data.token, data.nickname, userStore.serverUrl)
-    ElMessage.success('登录成功')
-    router.push('/requirements')
-  } catch (error) {
+    router.push('/workspace')
+  } catch {
   } finally {
     loading.value = false
   }
 }
-
-const handleRegister = async () => {
+const submitRegister = async () => {
   if (!userStore.serverUrl) {
-    ElMessage.warning('请先设置服务器连接地址')
-    openServerConfigDialog()
+    serverVisible.value = true
     return
   }
-
-  if (!registerForm.value.username || !registerForm.value.password) {
-    ElMessage.warning('用户名和密码为必填项')
-    return
-  }
-
   loading.value = true
   try {
-    const payload = {
-      username: registerForm.value.username,
-      passwordHash: registerForm.value.password,
-      nickname: registerForm.value.nickname
-    }
-    await registerApi(payload)
-    ElMessage.success('注册成功，请使用新账户登录')
-    activeTab.value = 'login'
-    loginForm.value.username = registerForm.value.username
-  } catch (error) {
+    await registerApi({
+      username: register.value.username,
+      passwordHash: register.value.password,
+      nickname: register.value.nickname
+    })
+    ElMessage.success('账户创建成功')
+    login.value.username = register.value.username
+    mode.value = 'login'
+  } catch {
   } finally {
     loading.value = false
   }
 }
 </script>
-
 <style scoped>
-.login-container {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  width: 100vw;
-  background-color: #f0f2f5;
+.login-shell {
+  height: 100%;
+  background: radial-gradient(circle at 20% 15%, #f0f3ff 0, #f6f7f9 28%, #f6f7f9 100%);
+  display: grid;
+  place-items: center;
   position: relative;
-  overflow: hidden;
-  user-select: none;
 }
-
-/* 顶部独立拖拽控制栏 */
-.login-titlebar {
+.login-brand {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 32px;
+  left: 28px;
+  top: 24px;
   display: flex;
-  justify-content: space-between;
+  gap: 10px;
   align-items: center;
-  padding: 0 0 0 12px;
-  z-index: 100;
 }
-
-.titlebar-brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #37352f;
+.login-brand img {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
 }
-
-.brand-logo {
-  width: 16px;
-  height: 16px;
-  object-fit: contain;
-  border-radius: 3px;
+.login-brand strong {
+  display: block;
+  font-size: 13px;
 }
-
-.brand-title {
-  letter-spacing: 0.5px;
+.login-brand span {
+  display: block;
+  color: var(--rf-text-3);
+  font-size: 8px;
+  letter-spacing: 1px;
+  margin-top: 2px;
 }
-
-.titlebar-controls {
-  display: flex;
-  align-items: center;
-  height: 100%;
-}
-
-.control-btn {
-  width: 42px;
-  height: 100%;
-  border: none;
-  background: transparent;
-  color: #5f5e5b;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background-color 0.12s ease;
-}
-
-.control-btn:hover {
-  background-color: rgba(55, 53, 47, 0.08);
-  color: #37352f;
-}
-
-.control-btn.close-btn:hover {
-  background-color: #e81123;
-  color: #ffffff;
-}
-
-/* 登录卡片 */
 .login-card {
-  width: 400px;
-  padding: 15px;
-  z-index: 10;
-  cursor: default;
-  border-radius: 8px;
+  width: 390px;
+  background: #fff;
+  border: 1px solid var(--rf-border);
+  border-radius: 14px;
+  padding: 28px;
+  box-shadow: 0 20px 50px rgba(20, 28, 40, 0.09);
 }
-
-.login-header-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.login-main-logo {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-  border-radius: 10px;
-  margin-bottom: 6px;
-}
-
-.title {
+.intro {
   text-align: center;
+}
+.logo-mark {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: var(--rf-brand-soft);
+  display: grid;
+  place-items: center;
+  margin: 0 auto 14px;
+}
+.logo-mark img {
+  width: 26px;
+  height: 26px;
+}
+.intro h1 {
+  font-size: 21px;
   margin: 0;
-  color: #409eff;
-  font-size: 20px;
 }
-
-.subtitle {
-  text-align: center;
-  margin-top: 4px;
-  margin-bottom: 16px;
-  font-size: 12.5px;
-  color: #909399;
+.intro p {
+  margin: 6px 0 20px;
+  font-size: 12px;
+  color: var(--rf-text-2);
 }
-
-/* 底部服务器状态栏 */
-.server-status-bar {
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px dashed #e4e7ed;
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--rf-subtle);
+  padding: 3px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+.tabs button {
+  border: 0;
+  background: transparent;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--rf-text-2);
+  cursor: pointer;
+}
+.tabs button.active {
+  background: #fff;
+  color: var(--rf-text);
+  box-shadow: 0 1px 4px rgba(20, 28, 40, 0.06);
+}
+.submit {
+  width: 100%;
+  margin-top: 6px;
+  height: 40px;
+}
+.server {
+  margin-top: 20px;
+  padding: 10px 11px;
+  border: 1px solid var(--rf-border);
+  border-radius: 8px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #909399;
-  cursor: pointer;
-  transition: color 0.15s ease;
+  gap: 9px;
 }
-
-.server-status-bar:hover {
-  color: #409eff;
-}
-
-.server-status-dot {
+.server .dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background-color: #f56c6c;
-  display: inline-block;
-  flex-shrink: 0;
+  background: #cbd0d7;
 }
-
-.server-status-dot.connected {
-  background-color: #67c23a;
+.server .dot.on {
+  background: var(--rf-success);
+  box-shadow: 0 0 0 4px var(--rf-success-soft);
 }
-
-.server-status-text {
-  max-width: 300px;
+.server div {
+  flex: 1;
+  min-width: 0;
+}
+.server strong,
+.server small {
+  display: block;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
-
-.server-edit-icon {
-  font-size: 13px;
+.server strong {
+  font-size: 10px;
 }
-
-.server-dialog-tip {
-  font-size: 12px;
-  color: #909399;
-  line-height: 1.6;
-  margin-top: 4px;
+.server small {
+  font-size: 9px;
+  color: var(--rf-text-3);
+  margin-top: 2px;
 }
 </style>
