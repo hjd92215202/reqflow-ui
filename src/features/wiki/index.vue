@@ -42,7 +42,13 @@
             <el-radio-button value="split">🌗 分屏</el-radio-button>
             <el-radio-button value="preview">📖 预览</el-radio-button>
           </el-radio-group>
-          <el-button type="primary" plain size="default" @click="shareModalVisible = true">
+          <el-button
+            type="primary"
+            plain
+            size="default"
+            :loading="sharing"
+            @click="handleOneClickShare"
+          >
             🔗 分享文档
           </el-button>
           <el-button type="success" size="default" :loading="saving" @click="handleSaveDoc">
@@ -122,7 +128,7 @@
         </div>
       </div>
 
-      <!-- 5. 核心升级：反向链接与工程上下文透视卡片 (Backlinks) -->
+      <!-- 5. 反向链接与工程上下文透视卡片 (Backlinks) -->
       <WikiBacklinksCard
         :current-doc="currentDoc"
         :requirements="requirements"
@@ -138,28 +144,34 @@
         :image-size="120"
       />
     </div>
-
-    <!-- 6. 16位安全令牌只读分享弹窗 -->
-    <WikiShareModal v-model="shareModalVisible" :doc-id="currentDoc?.id" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { getWikiListApi, createWikiApi, updateWikiApi, deleteWikiApi } from './api'
+import {
+  getWikiListApi,
+  createWikiApi,
+  updateWikiApi,
+  deleteWikiApi,
+  getDocShareTokenApi
+} from './api'
 import { getRequirementsListApi } from '@/features/requirement/api'
+import { useUserStore } from '@/store/user'
 import type { WikiDocument, Requirement } from '@/types'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import MarkdownEditor, { type MarkdownEditorExpose } from '@/components/markdown/MarkdownEditor.vue'
 import MarkdownPreview, { type TaskTogglePayload } from '@/components/markdown/MarkdownPreview.vue'
 import WikiSidebar from './components/WikiSidebar.vue'
 import WikiToolbar from './components/WikiToolbar.vue'
-import WikiShareModal from './components/WikiShareModal.vue'
 import WikiBacklinksCard from './components/WikiBacklinksCard.vue'
 
 const route = useRoute()
+const userStore = useUserStore()
+
 const saving = ref(false)
+const sharing = ref(false)
 const allDocs = ref<WikiDocument[]>([])
 const requirements = ref<Requirement[]>([])
 const activeReqFilter = ref<number | null>(null)
@@ -167,7 +179,6 @@ const searchKeyword = ref('')
 const currentDoc = ref<WikiDocument | null>(null)
 const viewMode = ref<'edit' | 'split' | 'preview'>('split')
 const isSidebarCollapsed = ref(false)
-const shareModalVisible = ref(false)
 
 const editorRef = ref<MarkdownEditorExpose | null>(null)
 const previewPaneRef = ref<HTMLDivElement | null>(null)
@@ -227,6 +238,33 @@ const handleRequirementChange = (reqId: number | null) => {
     currentDoc.value.requirementTitle = matched ? matched.title : ''
   } else {
     currentDoc.value.requirementTitle = ''
+  }
+}
+
+// 核心优化：一键静默生成并直接写入系统剪贴板，彻底干掉弹窗
+const handleOneClickShare = async () => {
+  if (!currentDoc.value?.id) {
+    ElMessage.warning('请先选择或保存当前文档')
+    return
+  }
+
+  sharing.value = true
+  try {
+    const res = await getDocShareTokenApi(currentDoc.value.id)
+    const baseUrl = userStore.serverUrl
+      ? userStore.serverUrl.replace(/\/$/, '')
+      : 'http://localhost:8080'
+    const fullShareUrl = `${baseUrl}/share/wiki/${res.shareToken}`
+
+    await navigator.clipboard.writeText(fullShareUrl)
+    ElMessage.success({
+      message: '🔗 安全只读分享链接已直接复制到剪贴板！',
+      duration: 3000
+    })
+  } catch (err) {
+    ElMessage.error('生成分享链接失败')
+  } finally {
+    sharing.value = false
   }
 }
 

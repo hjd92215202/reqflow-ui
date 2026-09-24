@@ -62,7 +62,7 @@
                   {{ scope.row.title }}
                 </span>
 
-                <!-- 核心升级：依赖阻塞智能告警徽章 -->
+                <!-- 依赖阻塞智能告警徽章 -->
                 <el-tooltip
                   v-if="getBlockedInfo(scope.row).isBlocked"
                   :content="`⚠️ 依赖阻塞: 需等待前置任务 [${getBlockedInfo(scope.row).blockingNames}] 完成`"
@@ -111,7 +111,7 @@
           </template>
         </el-table-column>
 
-        <!-- 3. 负责人列 (双击原地改人) -->
+        <!-- 3. 负责人列 -->
         <el-table-column
           label="负责人"
           width="135"
@@ -213,7 +213,7 @@
           </template>
         </el-table-column>
 
-        <!-- 7. 操作列 (支持依赖管理与删除) -->
+        <!-- 7. 操作列 -->
         <el-table-column label="操作" width="120" align="center">
           <template #default="scope">
             <el-button type="primary" link size="small" @click="openDepManager(scope.row)">
@@ -244,7 +244,7 @@
         <el-button type="primary" size="small" @click="handleQuickAdd">确定添加</el-button>
       </div>
 
-      <!-- 底部分页 -->
+      <!-- 底部分页（明确展示一级任务项计数） -->
       <div class="pagination-wrapper" style="margin-top: 15px">
         <el-pagination
           v-model:current-page="taskCurrentPage"
@@ -253,7 +253,11 @@
           layout="total, sizes, prev, pager, next, jumper"
           :total="filteredTasks.length"
           @size-change="taskCurrentPage = 1"
-        />
+        >
+          <template #total>
+            <span>共 {{ filteredTasks.length }} 个根任务项</span>
+          </template>
+        </el-pagination>
       </div>
     </div>
 

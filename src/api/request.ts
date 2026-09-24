@@ -25,7 +25,7 @@ service.interceptors.request.use(
       config.headers['Authorization'] = `Bearer ${userStore.token}`
     }
 
-    // v2.0 增量：全局请求头透传当前项目集 ID（如果已选中）
+    // 全局请求头透传当前项目集 ID（如果已选中）
     if (workspaceStore.activeProjectId) {
       config.headers['X-Project-Id'] = String(workspaceStore.activeProjectId)
     }
@@ -40,23 +40,27 @@ service.interceptors.request.use(
 // 3. 响应拦截器
 service.interceptors.response.use(
   response => {
-    // 后端直出业务数据，直接解包返回
     return response.data
   },
   error => {
     const userStore = useUserStore()
+    const isPublicShareRoute = window.location.hash.includes('/share/wiki/')
+
     if (error.response && error.response.status === 401) {
-      userStore.clearUserInfo()
-      ElMessage.error('会话已过期，请重新登录')
-      window.location.hash = '#/login'
+      // 核心修复：如果是外部公开免登录分享页面，切勿强制重定向到登录页
+      if (!isPublicShareRoute) {
+        userStore.clearUserInfo()
+        ElMessage.error('会话已过期，请重新登录')
+        window.location.hash = '#/login'
+      }
     } else {
-      ElMessage.error(error.response?.data || '服务器响应异常')
+      ElMessage.error(error.response?.data?.message || error.response?.data || '服务器响应异常')
     }
     return Promise.reject(error)
   }
 )
 
-// 4. 强类型泛型接口封装（100% 兼容既有调用语法）
+// 4. 强类型泛型接口封装
 interface CustomRequest {
   <T = any>(config: AxiosRequestConfig): Promise<T>
   get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T>

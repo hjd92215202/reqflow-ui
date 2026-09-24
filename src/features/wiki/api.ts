@@ -6,6 +6,7 @@ export interface ShareTokenResponse {
   shareToken: string
 }
 
+/** 获取安全只读分享 Token */
 export function getDocShareTokenApi(id: number): Promise<ShareTokenResponse> {
   return request.post<ShareTokenResponse>(`/api/wikis/${id}/share-token`)
 }

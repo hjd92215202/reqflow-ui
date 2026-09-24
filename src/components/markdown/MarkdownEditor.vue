@@ -43,7 +43,7 @@ const editorContainerRef = ref<HTMLDivElement | null>(null)
 let view: EditorView | null = null
 let isDispatchingInternal = false
 
-// Notion/VSCode 清爽浅色编辑主题
+// 清爽浅色主题
 const editorTheme = EditorView.theme({
   '&': {
     height: '100%',
@@ -81,7 +81,7 @@ const editorTheme = EditorView.theme({
   }
 })
 
-// 快捷键定义
+// 快捷键映射
 const customKeymap = [
   {
     key: 'Mod-b',
@@ -161,7 +161,6 @@ const initEditor = () => {
   })
 }
 
-// 供外部工具栏调用的安全原子插入函数
 const wrapSelection = (prefix: string, suffix: string, defaultPlaceholder: string = '') => {
   if (!view) return
   const { state } = view
@@ -196,15 +195,19 @@ const scrollToRatio = (ratio: number) => {
   scroller.scrollTop = ratio * (scroller.scrollHeight - scroller.clientHeight)
 }
 
+// 核心优化：避免在正在打字或中文输入法（IME）合成期间覆盖文档引发光标跳动
 watch(
   () => props.modelValue,
   newVal => {
     if (isDispatchingInternal || !view) return
     const currentDoc = view.state.doc.toString()
     if (newVal !== currentDoc) {
-      view.dispatch({
-        changes: { from: 0, to: currentDoc.length, insert: newVal || '' }
-      })
+      // 仅当外部真正发生异动（如切换文档、套用模板）且未聚焦时重置，保护输入时光标稳定
+      if (!view.hasFocus) {
+        view.dispatch({
+          changes: { from: 0, to: currentDoc.length, insert: newVal || '' }
+        })
+      }
     }
   }
 )
