@@ -2,73 +2,68 @@
 <template>
   <div class="todo-workspace">
     <div class="todo-container">
-      <!-- 左侧核心操作区域 (70% 宽度) -->
-      <div class="main-content-left">
-        <div class="page-title-bar">
-          <h2 class="page-title">✅ 我的待办中心</h2>
-          <p class="page-desc">聚焦个人日常任务与需求协同事项，高效管理工作节奏</p>
-        </div>
-
-        <!-- 1. 极速录入栏组件 -->
-        <TodoQuickInput @created="loadTodos" />
-
-        <!-- 2. 待办列表主体 -->
-        <div class="todo-list-card">
-          <div class="list-toolbar-row">
-            <el-radio-group v-model="categoryType" size="default">
-              <el-radio-button value="ALL">全部分类 ({{ allTodos.length }})</el-radio-button>
-              <el-radio-button value="PERSONAL">
-                📝 日常待办 ({{ personalTodosCount }})
-              </el-radio-button>
-              <el-radio-button value="PROJECT">
-                📋 需求待办 ({{ projectTodosCount }})
-              </el-radio-button>
-            </el-radio-group>
-
-            <el-radio-group v-model="activeTab" size="small">
-              <el-radio-button value="ALL">全部</el-radio-button>
-              <el-radio-button value="IN_PROGRESS">进行中</el-radio-button>
-              <el-radio-button value="PENDING">待处理</el-radio-button>
-              <el-radio-button value="COMPLETED">已完成</el-radio-button>
-            </el-radio-group>
-          </div>
-
-          <div v-loading="loading" class="todo-items-wrapper">
-            <template v-if="paginatedTodos.length > 0">
-              <!-- 单项卡片组件 -->
-              <TodoItemRow
-                v-for="item in paginatedTodos"
-                :key="item.isProjectTask ? `proj-${item.id}` : `pers-${item.id}`"
-                :item="item"
-                @toggle="handleToggleStatus"
-                @edit="openEditDialog"
-                @delete="handleDeleteTodo"
-              />
-            </template>
-
-            <el-empty
-              v-else
-              description="暂无该分类/状态下的待办事项，轻松一下吧！"
-              :image-size="100"
-            />
-          </div>
-
-          <!-- 底部分页 -->
-          <div class="pagination-wrapper">
-            <el-pagination
-              v-model:current-page="todoCurrentPage"
-              v-model:page-size="todoPageSize"
-              :page-sizes="[5, 10, 20, 50]"
-              layout="total, sizes, prev, pager, next, jumper"
-              :total="filteredTodos.length"
-              @size-change="todoCurrentPage = 1"
-            />
-          </div>
-        </div>
+      <!-- 顶部标题栏 -->
+      <div class="page-title-bar">
+        <h2 class="page-title">✅ 我的待办中心</h2>
+        <p class="page-desc">聚焦个人日常任务与需求协同事项，高效推进工作节奏</p>
       </div>
 
-      <!-- 右侧 30% 统计面板组件 -->
-      <TodoStatsPanel :todos="allTodos" />
+      <!-- 1. 极速录入栏组件 -->
+      <TodoQuickInput @created="loadTodos" />
+
+      <!-- 2. 待办列表主体卡片 (100% 全宽沉浸式体验) -->
+      <div class="todo-list-card">
+        <div class="list-toolbar-row">
+          <el-radio-group v-model="categoryType" size="default">
+            <el-radio-button value="ALL">全部分类 ({{ allTodos.length }})</el-radio-button>
+            <el-radio-button value="PERSONAL">
+              📝 日常待办 ({{ personalTodosCount }})
+            </el-radio-button>
+            <el-radio-button value="PROJECT">
+              📋 需求待办 ({{ projectTodosCount }})
+            </el-radio-button>
+          </el-radio-group>
+
+          <el-radio-group v-model="activeTab" size="small">
+            <el-radio-button value="ALL">全部</el-radio-button>
+            <el-radio-button value="IN_PROGRESS">进行中</el-radio-button>
+            <el-radio-button value="PENDING">待处理</el-radio-button>
+            <el-radio-button value="COMPLETED">已完成</el-radio-button>
+          </el-radio-group>
+        </div>
+
+        <div v-loading="loading" class="todo-items-wrapper">
+          <template v-if="paginatedTodos.length > 0">
+            <!-- 单项卡片组件 -->
+            <TodoItemRow
+              v-for="item in paginatedTodos"
+              :key="item.isProjectTask ? `proj-${item.id}` : `pers-${item.id}`"
+              :item="item"
+              @toggle="handleToggleStatus"
+              @edit="openEditDialog"
+              @delete="handleDeleteTodo"
+            />
+          </template>
+
+          <el-empty
+            v-else
+            description="暂无该分类/状态下的待办事项，轻松一下吧！"
+            :image-size="100"
+          />
+        </div>
+
+        <!-- 底部分页 -->
+        <div class="pagination-wrapper">
+          <el-pagination
+            v-model:current-page="todoCurrentPage"
+            v-model:page-size="todoPageSize"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="filteredTodos.length"
+            @size-change="todoCurrentPage = 1"
+          />
+        </div>
+      </div>
     </div>
 
     <!-- 编辑待办弹窗组件 -->
@@ -87,7 +82,6 @@ import type { TodoItem } from '@/types'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TodoQuickInput from './components/TodoQuickInput.vue'
 import TodoItemRow from './components/TodoItemRow.vue'
-import TodoStatsPanel from './components/TodoStatsPanel.vue'
 import TodoEditDialog from './components/TodoEditDialog.vue'
 
 const loading = ref(false)
@@ -191,18 +185,9 @@ onMounted(() => {
 
 .todo-container {
   width: 100%;
-  max-width: 1380px;
-  display: flex;
-  gap: 20px;
-  align-items: flex-start;
-}
-
-.main-content-left {
-  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  min-width: 0;
 }
 
 .page-title-bar {
