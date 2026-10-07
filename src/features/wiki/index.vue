@@ -11,12 +11,12 @@
       :current-doc="currentDoc"
       :active-req-filter="activeReqFilter"
       @select-filter="reqId => (activeReqFilter = reqId)"
-      @select-doc="doc => (currentDoc = { ...doc })"
+      @select-doc="handleSelectDoc"
       @create-doc="handleCreateNewDoc"
     />
 
     <!-- 2. 右侧文档编辑与阅读主视口 -->
-    <div v-if="currentDoc" class="wiki-main-container">
+    <div v-if="!loadError && currentDoc" class="wiki-main-container">
       <!-- 顶栏操作与模式切换 -->
       <div class="doc-top-bar">
         <div class="top-bar-left">
@@ -133,8 +133,18 @@
         :current-doc="currentDoc"
         :requirements="requirements"
         :all-docs="allDocs"
-        @switch-doc="doc => (currentDoc = { ...doc })"
+        @switch-doc="handleSelectDoc"
       />
+    </div>
+
+    <div v-else-if="loading" class="empty-main-state">
+      <el-skeleton :rows="5" animated class="wiki-loading-state" />
+    </div>
+
+    <div v-else-if="loadError" class="empty-main-state">
+      <el-empty description="Wiki 数据暂时无法加载" :image-size="110">
+        <el-button type="primary" :loading="loading" @click="loadData">重试加载</el-button>
+      </el-empty>
     </div>
 
     <!-- 未选择文档占位 -->
@@ -148,8 +158,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, computed, onMounted, watch } from 'vue'
+import { onBeforeRouteLeave, useRoute } from 'vue-router'
 import {
   getWikiListApi,
   createWikiApi,
@@ -172,6 +182,8 @@ const userStore = useUserStore()
 
 const saving = ref(false)
 const sharing = ref(false)
+const loading = ref(false)
+const loadError = ref(false)
 const allDocs = ref<WikiDocument[]>([])
 const requirements = ref<Requirement[]>([])
 const activeReqFilter = ref<number | null>(null)
@@ -198,6 +210,40 @@ const filteredDocs = computed(() => {
   }
   return list
 })
+
+const hasUnsavedChanges = computed(() => {
+  if (!currentDoc.value?.id) return false
+  const savedDoc = allDocs.value.find(doc => doc.id === currentDoc.value?.id)
+  if (!savedDoc) return false
+  return (
+    currentDoc.value.title !== savedDoc.title ||
+    currentDoc.value.content !== savedDoc.content ||
+    currentDoc.value.tags !== savedDoc.tags ||
+    currentDoc.value.requirementId !== savedDoc.requirementId
+  )
+})
+
+const confirmDiscardChanges = async () => {
+  if (!hasUnsavedChanges.value) return true
+  try {
+    await ElMessageBox.confirm('当前文档有未保存的修改。放弃修改并离开吗？', '存在未保存修改', {
+      confirmButtonText: '放弃修改',
+      cancelButtonText: '继续编辑',
+      distinguishCancelAndClose: true,
+      type: 'warning'
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+const handleSelectDoc = async (doc: WikiDocument) => {
+  if (!(await confirmDiscardChanges())) return
+  currentDoc.value = { ...doc }
+}
+
+onBeforeRouteLeave(() => confirmDiscardChanges())
 
 const handleEditorScroll = (ratio: number) => {
   if (viewMode.value !== 'split' || !previewPaneRef.value) return
@@ -269,6 +315,8 @@ const handleOneClickShare = async () => {
 }
 
 const loadData = async () => {
+  loading.value = true
+  loadError.value = false
   try {
     const reqRes = await getRequirementsListApi({ page: 0, size: 200 })
     requirements.value = Array.isArray(reqRes) ? reqRes : reqRes?.content || []
@@ -276,16 +324,19 @@ const loadData = async () => {
     const docsRes = await getWikiListApi()
     allDocs.value = docsRes || []
 
-    if (route.query.reqId) {
-      activeReqFilter.value = Number(route.query.reqId)
-    }
+    activeReqFilter.value = route.query.reqId ? Number(route.query.reqId) : null
     if (allDocs.value.length > 0 && !currentDoc.value) {
       currentDoc.value = { ...allDocs.value[0] }
     }
-  } catch (e) {}
+  } catch {
+    loadError.value = true
+  } finally {
+    loading.value = false
+  }
 }
 
 const handleCreateNewDoc = async () => {
+  if (!(await confirmDiscardChanges())) return
   try {
     const newDoc = await createWikiApi({
       title: '未命名复盘文档',
@@ -297,7 +348,9 @@ const handleCreateNewDoc = async () => {
     ElMessage.success('已新建文档')
     await loadData()
     currentDoc.value = newDoc
-  } catch (e) {}
+  } catch {
+    ElMessage.error('新建文档失败，请重试')
+  }
 }
 
 const handleSaveDoc = async () => {
@@ -310,6 +363,8 @@ const handleSaveDoc = async () => {
     await updateWikiApi(currentDoc.value.id, currentDoc.value)
     ElMessage.success('文档保存成功')
     await loadData()
+  } catch {
+    ElMessage.error('保存失败，修改仍保留在当前页面')
   } finally {
     saving.value = false
   }
@@ -324,7 +379,9 @@ const handleDeleteDoc = () => {
       currentDoc.value = null
       await loadData()
     })
-    .catch(() => {})
+    .catch(error => {
+      if (error !== 'cancel' && error !== 'close') ElMessage.error('删除失败，请重试')
+    })
 }
 
 const applyTemplate = (type: 'TECH' | 'PIT' | 'REVIEW' | 'CHANGE') => {
@@ -344,6 +401,13 @@ const applyTemplate = (type: 'TECH' | 'PIT' | 'REVIEW' | 'CHANGE') => {
 onMounted(() => {
   loadData()
 })
+
+watch(
+  () => route.query.reqId,
+  reqId => {
+    activeReqFilter.value = reqId ? Number(reqId) : null
+  }
+)
 </script>
 
 <style scoped>
@@ -464,5 +528,10 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+.wiki-loading-state {
+  width: min(560px, calc(100% - 48px));
+  padding: 24px;
 }
 </style>
