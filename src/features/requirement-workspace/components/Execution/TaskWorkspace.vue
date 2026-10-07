@@ -73,18 +73,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { nextTick, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import type { SubTask, TaskDependency, TaskFilters } from '@/types'
 import TaskToolbar from './TaskToolbar.vue'
 import TaskMatrix from './TaskMatrix.vue'
 import TaskInspector from './TaskInspector.vue'
 import TaskCreate from './TaskCreate.vue'
 
-defineProps<{
+const props = defineProps<{
   filteredTasks: SubTask[]
   allFlatTasks: SubTask[]
   dependencies: TaskDependency[]
   allColumns: string[]
+  columnPreferenceKey: string
   filters: TaskFilters
   selectedTaskId: number | null
   selectedTask: SubTask | null
@@ -111,6 +112,32 @@ const workspaceContainerRef = ref<HTMLDivElement | null>(null)
 const visibleColumns = ref<string[]>([])
 const createDialogVisible = ref(false)
 const isNarrowScreen = ref(false)
+let restoringColumns = false
+
+watch(
+  () => props.columnPreferenceKey,
+  key => {
+    restoringColumns = true
+    try {
+      const saved = JSON.parse(localStorage.getItem(key) || '[]')
+      visibleColumns.value = Array.isArray(saved)
+        ? saved.filter((item: unknown) => typeof item === 'string')
+        : []
+    } catch {
+      visibleColumns.value = []
+    }
+    nextTick(() => {
+      restoringColumns = false
+    })
+  },
+  { immediate: true }
+)
+
+watch(visibleColumns, columns => {
+  if (!restoringColumns && props.columnPreferenceKey) {
+    localStorage.setItem(props.columnPreferenceKey, JSON.stringify(columns))
+  }
+})
 
 const checkScreenResize = () => {
   isNarrowScreen.value = window.innerWidth < 1200

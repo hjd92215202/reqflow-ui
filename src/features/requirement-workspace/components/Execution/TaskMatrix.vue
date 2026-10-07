@@ -26,7 +26,8 @@
               size="small"
               autofocus
               @blur="finishInlineTitle(scope.row)"
-              @keyup.enter="finishInlineTitle(scope.row)"
+              @keyup.enter.stop.prevent="finishInlineTitle(scope.row)"
+              @keyup.esc.stop.prevent="cancelInlineTitle(scope.row)"
               @click.stop
             />
             <span v-else :class="['task-title-text', { 'is-done': scope.row.status === 'DONE' }]">
@@ -96,9 +97,14 @@
         min-width="130"
       >
         <template #default="scope">
-          <span class="custom-field-val">
-            {{ scope.row.customFields?.[colKey] || '-' }}
-          </span>
+          <el-input
+            :model-value="String(scope.row.customFields?.[colKey] ?? '')"
+            size="small"
+            :placeholder="'填写'"
+            :disabled="savingTaskId === scope.row.id"
+            @change="updateCustomField(scope.row, colKey, String($event))"
+            @click.stop
+          />
         </template>
       </el-table-column>
 
@@ -167,6 +173,7 @@ const startInlineTitle = (row: SubTask) => {
 }
 
 const finishInlineTitle = (row: SubTask) => {
+  if (editingTaskId.value !== row.id) return
   editingTaskId.value = null
   const newT = row.title.trim()
   if (!newT) {
@@ -176,6 +183,20 @@ const finishInlineTitle = (row: SubTask) => {
   if (newT !== cachedTitle.value) {
     emit('update-task', row)
   }
+}
+
+const cancelInlineTitle = (row: SubTask) => {
+  if (editingTaskId.value !== row.id) return
+  row.title = cachedTitle.value
+  editingTaskId.value = null
+}
+
+const updateCustomField = (row: SubTask, key: string, value: string) => {
+  if (value === String(row.customFields?.[key] ?? '')) return
+  emit('update-task', {
+    ...row,
+    customFields: { ...(row.customFields || {}), [key]: value }
+  })
 }
 
 const getBlockedInfo = (task: SubTask) => {

@@ -14,6 +14,7 @@
         :all-flat-tasks="allFlatTasks"
         :dependencies="dependencies"
         :all-columns="allColumns"
+        :column-preference-key="columnPreferenceKey"
         :filters="filters"
         :selected-task-id="selectedTaskId"
         :selected-task="selectedTask"
@@ -54,6 +55,7 @@ defineProps<{
   allFlatTasks: SubTask[]
   dependencies: TaskDependency[]
   allColumns: string[]
+  columnPreferenceKey: string
   filters: TaskFilters
   selectedTaskId: number | null
   selectedTask: SubTask | null

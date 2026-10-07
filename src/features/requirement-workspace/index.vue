@@ -42,6 +42,7 @@
           :all-flat-tasks="currentFlatTasks"
           :dependencies="currentDependencies"
           :all-columns="currentColumns"
+          :column-preference-key="`reqflow_workspace_columns_${requirement.id}`"
           :filters="filters"
           :selected-task-id="currentTaskId"
           :selected-task="selectedTask"
@@ -146,6 +147,7 @@ const loadingReq = ref(false)
 const planEditorVisible = ref(false)
 const manualColumns = ref<string[]>([])
 const savingTaskId = ref<number | null>(null)
+let workspaceInitRequestId = 0
 
 const stagesDoneCount = computed(() => stages.value.filter(s => s.status === 'DONE').length)
 
@@ -199,11 +201,25 @@ watch(
 )
 
 const initWorkspace = async () => {
+  const requestId = ++workspaceInitRequestId
+  const requestedRequirementId = requirementId.value
   loadingReq.value = true
   try {
-    const target = await getRequirementApi(requirementId.value)
+    const target = await getRequirementApi(requestedRequirementId)
+    if (requestId !== workspaceInitRequestId || requestedRequirementId !== requirementId.value)
+      return
     requirement.value = target
+    try {
+      const saved = JSON.parse(localStorage.getItem(`reqflow_manual_columns_${target.id}`) || '[]')
+      manualColumns.value = Array.isArray(saved)
+        ? saved.filter((item: unknown) => typeof item === 'string')
+        : []
+    } catch {
+      manualColumns.value = []
+    }
     const stageList = await loadStages(target.id)
+    if (requestId !== workspaceInitRequestId || requestedRequirementId !== requirementId.value)
+      return
 
     // 若处于 execution Tab 且没有有效 stageId，执行默认推导
     if (activeTab.value === 'execution' && !currentStageId.value) {
@@ -211,11 +227,18 @@ const initWorkspace = async () => {
       if (resolvedId) setStageId(resolvedId)
     }
   } catch (err) {
-    ElMessage.error('初始化需求空间失败')
+    if (requestId === workspaceInitRequestId) ElMessage.error('初始化需求空间失败')
   } finally {
-    loadingReq.value = false
+    if (requestId === workspaceInitRequestId) loadingReq.value = false
   }
 }
+
+watch(requirementId, () => {
+  requirement.value = null
+  manualColumns.value = []
+  setStageId(null)
+  void initWorkspace()
+})
 
 const handleGoStageExecution = (stageId: number) => {
   activeTab.value = 'execution'
@@ -280,12 +303,14 @@ const handleAddChildTaskWithTitle = async (parentTask: SubTask, title: string) =
 
 const handleDeleteTask = async (taskId: number) => {
   if (!currentStageId.value) return
+  const targetTask = findTaskInTree(currentTree.value, taskId)
+  const removedTaskIds = targetTask ? flattenTaskTree([targetTask]).map(task => task.id) : [taskId]
   ElMessageBox.confirm('移除该项将同步删除其所有子拆解项，是否继续？', '提示', {
     type: 'warning'
   })
     .then(async () => {
       await deleteTask(currentStageId.value!, taskId)
-      if (currentTaskId.value === taskId) {
+      if (currentTaskId.value && removedTaskIds.includes(currentTaskId.value)) {
         setTaskId(null)
       }
       ElMessage.success('已删除')
@@ -316,6 +341,12 @@ const promptAddNewColumn = () => {
       const trimmed = value.trim()
       if (!manualColumns.value.includes(trimmed)) {
         manualColumns.value.push(trimmed)
+        if (requirement.value) {
+          localStorage.setItem(
+            `reqflow_manual_columns_${requirement.value.id}`,
+            JSON.stringify(manualColumns.value)
+          )
+        }
         ElMessage.success(`已添加「${trimmed}」`)
       }
     })
