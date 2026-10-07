@@ -26,3 +26,22 @@ export function createProjectApi(data: {
 }): Promise<Project> {
   return request.post<Project>('/api/projects', data)
 }
+
+export interface WorkspaceMember {
+  userId: number
+  username: string
+  displayName: string
+  role: string
+}
+
+export function getWorkspaceMembersApi(workspaceId: number): Promise<WorkspaceMember[]> {
+  return request.get<WorkspaceMember[]>(`/api/workspaces/${workspaceId}/members`)
+}
+
+export function addWorkspaceMemberApi(workspaceId: number, username: string): Promise<WorkspaceMember> {
+  return request.post<WorkspaceMember>(`/api/workspaces/${workspaceId}/members`, { username })
+}
+
+export function removeWorkspaceMemberApi(workspaceId: number, userId: number): Promise<void> {
+  return request.delete<void>(`/api/workspaces/${workspaceId}/members/${userId}`)
+}

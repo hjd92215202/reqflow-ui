@@ -22,6 +22,9 @@
       </el-option>
 
       <template #footer>
+        <div class="create-proj-footer" @click="membersDialogVisible = true">
+          <span>成员管理</span>
+        </div>
         <div class="create-proj-footer" @click="createDialogVisible = true">
           <span>➕ 划分新工程项目...</span>
         </div>
@@ -29,6 +32,10 @@
     </el-select>
 
     <CreateProjectDialog v-model="createDialogVisible" @created="loadProjects" />
+    <WorkspaceMembersDialog
+      v-model="membersDialogVisible"
+      :workspace-id="workspaceStore.activeWorkspaceId"
+    />
   </div>
 </template>
 
@@ -38,10 +45,12 @@ import { useWorkspaceStore } from '@/store/workspace'
 import { getWorkspacesApi, getProjectsApi } from '../api'
 import { FolderOpened } from '@element-plus/icons-vue'
 import CreateProjectDialog from './CreateProjectDialog.vue'
+import WorkspaceMembersDialog from './WorkspaceMembersDialog.vue'
 
 const workspaceStore = useWorkspaceStore()
 const activeProjectId = ref<number | null>(workspaceStore.activeProjectId)
 const createDialogVisible = ref(false)
+const membersDialogVisible = ref(false)
 
 const loadProjects = async () => {
   try {
