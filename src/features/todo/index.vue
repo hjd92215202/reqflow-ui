@@ -51,6 +51,21 @@
         </div>
 
         <div v-loading="loading" class="work-items-list">
+          <el-alert
+            v-if="loadError && paginatedTodos.length"
+            :title="loadError"
+            type="error"
+            show-icon
+            :closable="false"
+            class="todo-load-error"
+          >
+            <template #default>
+              <el-button link type="primary" :loading="loading" @click="loadTodos">
+                重试
+              </el-button>
+            </template>
+          </el-alert>
+
           <template v-if="paginatedTodos.length > 0">
             <TodoItemRow
               v-for="item in paginatedTodos"
@@ -62,11 +77,14 @@
             />
           </template>
 
-          <el-empty v-else description="当前视图无待处理事项，节奏保持得很好！" :image-size="90" />
+          <el-empty v-else-if="loadError" description="待办暂时无法加载" :image-size="90">
+            <el-button type="primary" :loading="loading" @click="loadTodos">重试加载</el-button>
+          </el-empty>
+          <el-empty v-else-if="!loading" description="当前视图没有待处理事项" :image-size="90" />
         </div>
 
         <!-- 分页 -->
-        <div class="pagination-footer">
+        <div v-if="filteredTodos.length > 0" class="pagination-footer">
           <el-pagination
             v-model:current-page="currentPage"
             v-model:page-size="pageSize"
@@ -99,6 +117,7 @@ import TodoEditDialog from './components/TodoEditDialog.vue'
 import { getLocalDateString } from '@/utils/date'
 
 const loading = ref(false)
+const loadError = ref('')
 const allTodos = ref<TodoItem[]>([])
 
 const categoryType = ref<'ALL' | 'PERSONAL' | 'PROJECT'>('ALL')
@@ -165,20 +184,25 @@ const paginatedTodos = computed(() => {
 
 const loadTodos = async () => {
   loading.value = true
+  loadError.value = ''
   try {
     allTodos.value = await getMyTodosApi()
+  } catch {
+    loadError.value = '待办加载失败，当前保留上次成功加载的内容。'
   } finally {
     loading.value = false
   }
 }
 
 const handleToggleStatus = async (item: TodoItem) => {
+  const previousStatus = item.status
   const newStatus = item.status === 'DONE' ? 'IN_PROGRESS' : 'DONE'
   item.status = newStatus
   try {
     await toggleTodoApi(item.id, item.isProjectTask)
-  } catch (err) {
-    await loadTodos()
+  } catch {
+    item.status = previousStatus
+    ElMessage.error('更新状态失败，请重试')
   }
 }
 
@@ -198,7 +222,9 @@ const handleDeleteTodo = (item: TodoItem) => {
       ElMessage.success('已移除')
       await loadTodos()
     })
-    .catch(() => {})
+    .catch(error => {
+      if (error !== 'cancel' && error !== 'close') ElMessage.error('移除失败，请重试')
+    })
 }
 
 onMounted(() => {
@@ -309,6 +335,10 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.todo-load-error {
+  margin-bottom: 12px;
 }
 
 .pagination-footer {
