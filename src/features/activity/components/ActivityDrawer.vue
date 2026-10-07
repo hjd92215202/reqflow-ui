@@ -8,7 +8,9 @@
     destroy-on-close
   >
     <div v-loading="loading" class="activity-drawer-body">
-      <el-timeline v-if="activities.length > 0">
+      <el-alert v-if="loadError" :title="loadError" type="warning" :closable="false" show-icon />
+
+      <el-timeline v-else-if="activities.length > 0">
         <el-timeline-item
           v-for="act in activities"
           :key="act.id"
@@ -28,7 +30,7 @@
         </el-timeline-item>
       </el-timeline>
 
-      <el-empty v-else description="暂无最近的操作流水" :image-size="80" />
+      <el-empty v-else-if="!loading" description="暂无最近的操作流水" :image-size="80" />
     </div>
   </el-drawer>
 </template>
@@ -51,6 +53,7 @@ const workspaceStore = useWorkspaceStore()
 const visible = ref(props.modelValue)
 const loading = ref(false)
 const activities = ref<ActivityLog[]>([])
+const loadError = ref('')
 
 watch(
   () => props.modelValue,
@@ -68,6 +71,7 @@ watch(visible, val => {
 
 const loadActivities = async () => {
   loading.value = true
+  loadError.value = ''
   try {
     const res = await getActivityLogsApi({
       workspaceId: workspaceStore.activeWorkspaceId || 1,
@@ -79,6 +83,9 @@ const loadActivities = async () => {
     } else if (res && (res as any).content) {
       activities.value = (res as any).content
     }
+  } catch {
+    activities.value = []
+    loadError.value = '当前服务器暂不支持操作流水，或服务暂时不可用。'
   } finally {
     loading.value = false
   }
