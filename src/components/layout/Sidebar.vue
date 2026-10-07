@@ -6,6 +6,8 @@
       link
       class="collapse-toggle-btn"
       :class="{ collapsed: isCollapsed }"
+      :title="isCollapsed ? '展开侧边栏' : '收起侧边栏'"
+      :aria-label="isCollapsed ? '展开侧边栏' : '收起侧边栏'"
       @click="isCollapsed = !isCollapsed"
     >
       <el-icon>
@@ -24,15 +26,15 @@
       :collapse-transition="false"
       router
     >
-      <el-menu-item index="/todos">
+      <el-menu-item index="/todos" title="我的工作台">
         <el-icon><Finished /></el-icon>
         <span>我的工作台</span>
       </el-menu-item>
-      <el-menu-item index="/requirements">
+      <el-menu-item index="/requirements" title="需求事项管理">
         <el-icon><Menu /></el-icon>
         <span>需求事项管理</span>
       </el-menu-item>
-      <el-menu-item index="/wiki">
+      <el-menu-item index="/wiki" title="项目 Wiki 库">
         <el-icon><Notebook /></el-icon>
         <span>项目 Wiki 库</span>
       </el-menu-item>
@@ -41,10 +43,18 @@
     <!-- 底部用户信息及退出登录 -->
     <div class="sidebar-user-footer" :class="{ collapsed: isCollapsed }">
       <div class="user-info-text">
-        <span class="user-avatar">👤</span>
+        <span class="user-avatar" :title="userStore.nickname || '用户'">{{ userInitial }}</span>
         <span v-if="!isCollapsed" class="user-name">{{ userStore.nickname || '用户' }}</span>
       </div>
-      <el-button type="danger" link size="small" class="logout-btn" @click="handleLogout">
+      <el-button
+        type="danger"
+        link
+        size="small"
+        class="logout-btn"
+        title="退出登录"
+        aria-label="退出登录"
+        @click="handleLogout"
+      >
         <el-icon><SwitchButton /></el-icon>
         <span v-if="!isCollapsed" style="margin-left: 6px">退出登录</span>
       </el-button>
@@ -64,6 +74,7 @@ const userStore = useUserStore()
 
 const isCollapsed = ref(false)
 const sidebarWidth = computed(() => (isCollapsed.value ? '64px' : '240px'))
+const userInitial = computed(() => (userStore.nickname || '用').trim().slice(0, 1) || '用')
 const activeMenu = computed(() => {
   if (route.path.startsWith('/requirements')) {
     return '/requirements'
@@ -188,7 +199,17 @@ const handleLogout = () => {
 }
 
 .user-avatar {
-  font-size: 18px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #315f99;
+  background-color: #e8f0fb;
   margin-right: 8px;
 }
 

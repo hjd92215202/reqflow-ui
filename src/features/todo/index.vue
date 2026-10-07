@@ -89,13 +89,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { getMyTodosApi, toggleTodoApi, deleteTodoApi } from './api'
 import type { TodoItem } from '@/types'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TodoQuickInput from './components/TodoQuickInput.vue'
 import TodoItemRow from './components/TodoItemRow.vue'
 import TodoEditDialog from './components/TodoEditDialog.vue'
+import { getLocalDateString } from '@/utils/date'
 
 const loading = ref(false)
 const allTodos = ref<TodoItem[]>([])
@@ -108,12 +109,12 @@ const pageSize = ref(10)
 
 const editDialogVisible = ref(false)
 const selectedEditItem = ref<TodoItem | null>(null)
+const todayStr = ref(getLocalDateString())
+let dateRefreshTimer: ReturnType<typeof setInterval> | undefined
 
 watch([categoryType, timeBucketTab], () => {
   currentPage.value = 1
 })
-
-const todayStr = new Date().toISOString().split('T')[0]
 
 const personalTodosCount = computed(() => allTodos.value.filter(t => !t.isProjectTask).length)
 const projectTodosCount = computed(() => allTodos.value.filter(t => t.isProjectTask).length)
@@ -123,12 +124,14 @@ const inProgressCount = computed(
 )
 
 const overdueCount = computed(() => {
-  return allTodos.value.filter(t => t.status !== 'DONE' && t.dueDate && t.dueDate < todayStr).length
+  return allTodos.value.filter(t => t.status !== 'DONE' && t.dueDate && t.dueDate < todayStr.value)
+    .length
 })
 
 const todayCount = computed(() => {
-  return allTodos.value.filter(t => t.status !== 'DONE' && t.dueDate && t.dueDate === todayStr)
-    .length
+  return allTodos.value.filter(
+    t => t.status !== 'DONE' && t.dueDate && t.dueDate === todayStr.value
+  ).length
 })
 
 const filteredTodos = computed(() => {
@@ -146,10 +149,10 @@ const filteredTodos = computed(() => {
     return list.filter(t => t.status === 'DONE')
   }
   if (timeBucketTab.value === 'TODAY') {
-    return list.filter(t => t.status !== 'DONE' && t.dueDate === todayStr)
+    return list.filter(t => t.status !== 'DONE' && t.dueDate === todayStr.value)
   }
   if (timeBucketTab.value === 'OVERDUE') {
-    return list.filter(t => t.status !== 'DONE' && t.dueDate && t.dueDate < todayStr)
+    return list.filter(t => t.status !== 'DONE' && t.dueDate && t.dueDate < todayStr.value)
   }
   // INBOX: 展示未完成任务
   return list.filter(t => t.status !== 'DONE')
@@ -199,14 +202,21 @@ const handleDeleteTodo = (item: TodoItem) => {
 }
 
 onMounted(() => {
+  dateRefreshTimer = setInterval(() => {
+    todayStr.value = getLocalDateString()
+  }, 60_000)
   loadTodos()
+})
+
+onUnmounted(() => {
+  if (dateRefreshTimer) clearInterval(dateRefreshTimer)
 })
 </script>
 
 <style scoped>
 .my-work-workspace {
   flex: 1;
-  padding: 24px;
+  padding: 28px clamp(16px, 3vw, 40px);
   overflow-y: auto;
   background-color: #f7f7f5;
   display: flex;
@@ -215,7 +225,7 @@ onMounted(() => {
 
 .my-work-container {
   width: 100%;
-  max-width: 1100px;
+  max-width: 1180px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -225,12 +235,14 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
   margin-bottom: 2px;
 }
 
 .workbench-title {
   margin: 0;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: #37352f;
 }
@@ -244,6 +256,8 @@ onMounted(() => {
 .workbench-stats-badges {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .stat-pill {
@@ -275,10 +289,10 @@ onMounted(() => {
 
 .my-work-card {
   background: #ffffff;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(55, 53, 47, 0.08);
+  border-radius: 10px;
+  padding: 22px;
+  box-shadow: 0 2px 10px rgba(32, 34, 36, 0.035);
+  border: 1px solid rgba(55, 53, 47, 0.09);
   min-height: 480px;
 }
 
@@ -301,5 +315,38 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+@media (max-width: 760px) {
+  .my-work-workspace {
+    padding: 16px 12px;
+  }
+
+  .my-work-card {
+    padding: 14px;
+  }
+
+  .filter-toolbar-row,
+  .filter-toolbar-row :deep(.el-radio-group) {
+    width: 100%;
+  }
+
+  .filter-toolbar-row :deep(.el-radio-group) {
+    display: flex;
+  }
+
+  .filter-toolbar-row :deep(.el-radio-button) {
+    flex: 1;
+  }
+
+  .filter-toolbar-row :deep(.el-radio-button__inner) {
+    width: 100%;
+    padding: 8px 6px;
+  }
+
+  .pagination-footer {
+    justify-content: center;
+    overflow-x: auto;
+  }
 }
 </style>

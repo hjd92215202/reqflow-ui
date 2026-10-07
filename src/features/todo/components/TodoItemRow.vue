@@ -63,6 +63,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import type { TodoItem, PriorityLevel, TaskStatus } from '@/types'
+import { getLocalDateString } from '@/utils/date'
 
 const props = defineProps<{
   item: TodoItem
@@ -96,7 +97,7 @@ const goToMatrix = () => {
 
 const isOverdue = (todo: TodoItem): boolean => {
   if (!todo.dueDate || todo.status === 'DONE') return false
-  const today = new Date().toISOString().split('T')[0]
+  const today = getLocalDateString()
   return todo.dueDate < today
 }
 
