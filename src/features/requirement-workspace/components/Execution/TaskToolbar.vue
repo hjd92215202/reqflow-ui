@@ -74,6 +74,7 @@ const emit = defineEmits<{
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
   padding: 10px 16px;
   background-color: #ffffff;
   border-bottom: 1px solid rgba(55, 53, 47, 0.08);
@@ -85,9 +86,27 @@ const emit = defineEmits<{
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .search-input {
   width: 200px;
+}
+
+@media (max-width: 760px) {
+  .task-toolbar-container {
+    align-items: flex-start;
+    padding: 10px 12px;
+  }
+
+  .toolbar-left,
+  .toolbar-right {
+    width: 100%;
+  }
+
+  .search-input {
+    flex: 1;
+    min-width: 150px;
+  }
 }
 </style>

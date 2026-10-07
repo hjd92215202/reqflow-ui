@@ -10,27 +10,42 @@
 
     <!-- Inspector 内部二级导航 -->
     <div class="inspector-tabs-nav">
-      <span :class="['insp-tab', { active: activeTab === 'detail' }]" @click="activeTab = 'detail'">
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="activeTab === 'detail'"
+        :class="['insp-tab', { active: activeTab === 'detail' }]"
+        @click="activeTab = 'detail'"
+      >
         详情
-      </span>
-      <span
+      </button>
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="activeTab === 'subtasks'"
         :class="['insp-tab', { active: activeTab === 'subtasks' }]"
         @click="activeTab = 'subtasks'"
       >
         子任务
-      </span>
-      <span
+      </button>
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="activeTab === 'dependencies'"
         :class="['insp-tab', { active: activeTab === 'dependencies' }]"
         @click="activeTab = 'dependencies'"
       >
         依赖
-      </span>
-      <span
+      </button>
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="activeTab === 'activity'"
         :class="['insp-tab', { active: activeTab === 'activity' }]"
         @click="activeTab = 'activity'"
       >
         活动
-      </span>
+      </button>
     </div>
 
     <div class="inspector-body">
@@ -125,12 +140,20 @@ const activeTab = ref<'detail' | 'subtasks' | 'dependencies' | 'activity'>('deta
 }
 
 .insp-tab {
+  border: 0;
+  background: transparent;
+  font-family: inherit;
   font-size: 12px;
   padding: 8px 0;
   color: #8c8c8c;
   cursor: pointer;
   border-bottom: 2px solid transparent;
   font-weight: 500;
+}
+
+.insp-tab:focus-visible {
+  outline: 2px solid rgba(35, 131, 226, 0.55);
+  outline-offset: 2px;
 }
 
 .insp-tab.active {

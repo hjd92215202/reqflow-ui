@@ -60,9 +60,10 @@ const handleDeleteStage = (id: number) => {
   )
     .then(() => {
       emit('delete-stage', id)
-      ElMessage.success('阶段已删除')
     })
-    .catch(() => {})
+    .catch(error => {
+      if (error !== 'cancel' && error !== 'close') ElMessage.error('无法确认删除操作，请重试')
+    })
 }
 </script>
 

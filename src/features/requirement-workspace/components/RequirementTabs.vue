@@ -1,16 +1,17 @@
 <!-- src/features/requirement-workspace/components/RequirementTabs.vue -->
 <template>
   <nav class="req-tabs-bar">
-    <div
+    <button
       v-for="item in tabs"
       :key="item.key"
+      type="button"
       :class="['tab-item', { active: modelValue === item.key }]"
+      :aria-current="modelValue === item.key ? 'page' : undefined"
       @click="emit('update:modelValue', item.key)"
     >
-      <span class="tab-icon">{{ item.icon }}</span>
       <span class="tab-label">{{ item.label }}</span>
       <span v-if="item.badge !== undefined" class="tab-badge">{{ item.badge }}</span>
-    </div>
+    </button>
   </nav>
 </template>
 
@@ -26,12 +27,12 @@ const emit = defineEmits<{
   (e: 'update:modelValue', tab: RequirementWorkspaceTab): void
 }>()
 
-const tabs: { key: RequirementWorkspaceTab; label: string; icon: string; badge?: number }[] = [
-  { key: 'overview', label: '概览', icon: '📌' },
-  { key: 'plan', label: '计划', icon: '🗺️' },
-  { key: 'execution', label: '执行', icon: '⚡' },
-  { key: 'activity', label: '活动', icon: '🕒' },
-  { key: 'knowledge', label: '知识', icon: '📖' }
+const tabs: { key: RequirementWorkspaceTab; label: string; badge?: number }[] = [
+  { key: 'overview', label: '概览' },
+  { key: 'plan', label: '计划' },
+  { key: 'execution', label: '执行' },
+  { key: 'activity', label: '活动' },
+  { key: 'knowledge', label: '知识' }
 ]
 </script>
 
@@ -39,11 +40,12 @@ const tabs: { key: RequirementWorkspaceTab; label: string; icon: string; badge?:
 .req-tabs-bar {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   padding: 0 24px;
   background-color: #ffffff;
   border-bottom: 1px solid rgba(55, 53, 47, 0.08);
   user-select: none;
+  overflow-x: auto;
 }
 
 .tab-item {
@@ -57,6 +59,11 @@ const tabs: { key: RequirementWorkspaceTab; label: string; icon: string; badge?:
   font-size: 13px;
   font-weight: 500;
   transition: all 0.15s ease;
+}
+
+.tab-item:focus-visible {
+  outline: 2px solid rgba(35, 131, 226, 0.55);
+  outline-offset: -2px;
 }
 
 .tab-item:hover {
@@ -82,3 +89,4 @@ const tabs: { key: RequirementWorkspaceTab; label: string; icon: string; badge?:
   color: #8c8c8c;
 }
 </style>
+border: 0; background: transparent; font-family: inherit; white-space: nowrap;

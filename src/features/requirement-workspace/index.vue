@@ -305,10 +305,15 @@ const handleUpdateStage = async (id: number, data: any) => {
 }
 
 const handleDeleteStage = async (id: number) => {
-  await deleteStage(id)
-  if (currentStageId.value === id) {
-    const nextId = resolveInitialStageId(stages.value)
-    setStageId(nextId)
+  try {
+    await deleteStage(id)
+    if (currentStageId.value === id) {
+      const nextId = resolveInitialStageId(stages.value)
+      setStageId(nextId)
+    }
+    ElMessage.success('阶段已删除')
+  } catch {
+    ElMessage.error('删除阶段失败，请重试')
   }
 }
 

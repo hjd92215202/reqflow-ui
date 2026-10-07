@@ -7,10 +7,12 @@
     </div>
 
     <div v-if="stages.length > 0" class="stage-nav-items">
-      <div
+      <button
         v-for="(st, idx) in stages"
         :key="st.id"
+        type="button"
         :class="['stage-nav-card', { active: currentStageId === st.id }]"
+        :aria-current="currentStageId === st.id ? 'step' : undefined"
         @click="emit('select-stage', st.id)"
       >
         <div class="card-status-indicator">
@@ -21,7 +23,7 @@
         <div class="card-meta-line">
           <span class="task-count-hint">0{{ idx + 1 }} · {{ formatStatus(st.status) }}</span>
         </div>
-      </div>
+      </button>
     </div>
 
     <el-empty v-else description="暂无阶段" :image-size="40" />
@@ -88,11 +90,22 @@ const formatStatus = (s: TaskStatus) => {
 }
 
 .stage-nav-card {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
   padding: 8px 10px;
   border-radius: 5px;
   cursor: pointer;
   transition: all 0.12s ease;
   border: 1px solid transparent;
+}
+
+.stage-nav-card:focus-visible {
+  outline: 2px solid rgba(35, 131, 226, 0.55);
+  outline-offset: 1px;
 }
 
 .stage-nav-card:hover {

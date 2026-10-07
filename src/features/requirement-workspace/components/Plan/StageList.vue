@@ -15,13 +15,14 @@
           @keyup.enter="saveTitle(st)"
           @keyup.esc="editingTitleId = null"
         />
-        <div v-else class="stage-title-text" title="双击就地重命名" @dblclick="startEditTitle(st)">
+        <div v-else class="stage-title-text">
           <span>{{ st.title }}</span>
-          <span class="edit-hover-hint">✏️</span>
+          <el-button link size="small" class="rename-stage-btn" @click="startEditTitle(st)">
+            重命名
+          </el-button>
         </div>
 
         <div class="stage-schedule-line">
-          📅
           <el-date-picker
             v-if="editingDateId === st.id"
             v-model="tempDateRange"
@@ -34,14 +35,16 @@
             @change="saveDate(st)"
             @blur="editingDateId = null"
           />
-          <span
+          <el-button
             v-else
+            link
+            size="small"
             class="clickable-schedule"
             title="点击修改起止排期"
             @click="startEditDate(st)"
           >
             {{ st.startDate || '未定' }} 至 {{ st.endDate || '未定' }}
-          </span>
+          </el-button>
         </div>
       </div>
 
@@ -169,14 +172,9 @@ const saveDate = (stage: Stage) => {
   gap: 6px;
 }
 
-.edit-hover-hint {
-  opacity: 0;
+.rename-stage-btn {
   font-size: 11px;
-  transition: opacity 0.15s ease;
-}
-
-.stage-title-text:hover .edit-hover-hint {
-  opacity: 1;
+  opacity: 0.75;
 }
 
 .stage-schedule-line {
@@ -185,9 +183,9 @@ const saveDate = (stage: Stage) => {
 }
 
 .clickable-schedule {
-  cursor: pointer;
   padding: 2px 4px;
-  border-radius: 3px;
+  height: auto;
+  font-size: inherit;
 }
 
 .clickable-schedule:hover {
@@ -203,5 +201,25 @@ const saveDate = (stage: Stage) => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+@media (max-width: 1000px) {
+  .plan-stage-item {
+    flex-wrap: wrap;
+    gap: 10px 14px;
+  }
+
+  .stage-title-col {
+    min-width: calc(100% - 48px);
+  }
+
+  .stage-status-col,
+  .stage-action-col {
+    margin-left: 42px;
+  }
+
+  .stage-status-col :deep(.el-radio-button__inner) {
+    padding: 7px 10px;
+  }
 }
 </style>

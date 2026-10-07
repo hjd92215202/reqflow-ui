@@ -197,4 +197,24 @@ const formatStatus = (s: RequirementStatus) => {
   color: #37352f;
   font-weight: 600;
 }
+
+@media (max-width: 900px) {
+  .req-header-workspace {
+    padding: 12px 16px;
+  }
+
+  .header-main-row {
+    flex-wrap: wrap;
+  }
+
+  .title-status-line {
+    flex-wrap: wrap;
+  }
+
+  .header-right-metrics {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 16px;
+  }
+}
 </style>
