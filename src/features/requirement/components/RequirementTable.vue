@@ -76,33 +76,29 @@
       </el-table-column>
 
       <!-- 4. 操作面板 -->
-      <el-table-column label="操作面板" width="240" align="center" fixed="right">
+      <el-table-column label="操作" width="176" align="center" fixed="right">
         <template #default="scope">
-          <el-button
-            size="small"
-            link
-            type="primary"
-            @click="goToWorkspace(scope.row.id, 'overview')"
+          <el-button size="small" type="primary" @click="goToWorkspace(scope.row.id, 'overview')">
+            打开工作区
+          </el-button>
+          <el-dropdown
+            trigger="click"
+            @command="(command: string | number | object) => handleRowAction(command, scope.row)"
           >
-            进入需求工作区
-          </el-button>
-          <el-button
-            size="small"
-            link
-            type="success"
-            @click="goToWorkspace(scope.row.id, 'execution')"
-          >
-            执行
-          </el-button>
-          <el-button size="small" link type="warning" @click="emit('go-wiki', scope.row.id)">
-            Wiki
-          </el-button>
-          <el-button size="small" link type="info" @click="emit('edit', scope.row)">
-            编辑
-          </el-button>
-          <el-button size="small" link type="danger" @click="emit('delete', scope.row.id)">
-            删除
-          </el-button>
+            <el-button link class="more-actions" aria-label="更多需求操作" title="更多操作">
+              <el-icon><MoreFilled /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="execution">直接进入执行</el-dropdown-item>
+                <el-dropdown-item command="wiki">打开关联 Wiki</el-dropdown-item>
+                <el-dropdown-item command="edit">编辑需求</el-dropdown-item>
+                <el-dropdown-item command="delete" divided class="danger-action">
+                  删除需求
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </template>
       </el-table-column>
     </el-table>
@@ -113,6 +109,7 @@
 import { ref } from 'vue'
 import type { Requirement, PriorityLevel, RequirementStatus } from '@/types'
 import { useRouter } from 'vue-router'
+import { MoreFilled } from '@element-plus/icons-vue'
 
 const router = useRouter()
 
@@ -121,6 +118,23 @@ const goToWorkspace = (reqId: number, tab: 'overview' | 'execution') => {
     path: `/requirements/${reqId}`,
     query: { tab }
   })
+}
+
+const handleRowAction = (command: string | number | object, row: Requirement) => {
+  switch (command) {
+    case 'execution':
+      goToWorkspace(row.id, 'execution')
+      break
+    case 'wiki':
+      emit('go-wiki', row.id)
+      break
+    case 'edit':
+      emit('edit', row)
+      break
+    case 'delete':
+      emit('delete', row.id)
+      break
+  }
 }
 export interface StageStat {
   total: number
@@ -287,6 +301,22 @@ const formatStatus = (status: RequirementStatus): string => {
   color: #606266;
   font-weight: 500;
   white-space: nowrap;
+}
+
+.more-actions {
+  width: 30px;
+  height: 30px;
+  margin-left: 4px;
+  color: #73726e;
+}
+
+.more-actions:hover {
+  color: #2383e2;
+  background: rgba(35, 131, 226, 0.08);
+}
+
+:deep(.danger-action) {
+  color: #df4331;
 }
 
 :deep(.el-table .el-table__cell) {
