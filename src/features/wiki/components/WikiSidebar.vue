@@ -31,37 +31,43 @@
 
     <!-- 需求空间与文档列表 -->
     <div v-if="!isCollapsed" class="doc-tree-list">
-      <div
-        :class="[
-          'tree-node-item',
-          { active: activeReqFilter === null && (!currentDoc || !currentDoc.id) }
-        ]"
+      <button
+        type="button"
+        :class="['tree-node-item', { active: activeReqFilter === null }]"
+        :aria-current="activeReqFilter === null ? 'page' : undefined"
         @click="emit('select-filter', null)"
       >
         <span class="node-icon">🌐</span>
         <span class="node-label">全部文档 ({{ totalDocCount }})</span>
-      </div>
+      </button>
 
       <el-divider style="margin: 8px 0" />
 
       <!-- 1. 关联需求经验库分类树 -->
       <div class="collapsible-section">
-        <div class="category-title clickable-title" @click="isReqCollapsed = !isReqCollapsed">
+        <button
+          type="button"
+          class="category-title clickable-title"
+          :aria-expanded="!isReqCollapsed"
+          @click="isReqCollapsed = !isReqCollapsed"
+        >
           <span>📌 需求项目经验库</span>
           <span :class="['arrow-icon', { 'is-collapsed': isReqCollapsed }]">▼</span>
-        </div>
+        </button>
         <el-collapse-transition>
           <div v-show="!isReqCollapsed" class="section-content">
-            <div
+            <button
               v-for="req in requirements"
               :key="req.id"
+              type="button"
               :class="['tree-node-item', { active: activeReqFilter === req.id }]"
+              :aria-current="activeReqFilter === req.id ? 'page' : undefined"
               @click="emit('select-filter', req.id)"
             >
               <span class="node-icon">📁</span>
               <span class="node-label">{{ req.title }}</span>
               <span class="doc-count-badge">{{ getReqCount(req.id) }}</span>
-            </div>
+            </button>
           </div>
         </el-collapse-transition>
       </div>
@@ -70,19 +76,23 @@
 
       <!-- 2. 文章列表 -->
       <div class="collapsible-section">
-        <div
+        <button
+          type="button"
           class="category-title clickable-title"
+          :aria-expanded="!isDocListCollapsed"
           @click="isDocListCollapsed = !isDocListCollapsed"
         >
           <span>📄 文章列表 ({{ filteredDocs.length }})</span>
           <span :class="['arrow-icon', { 'is-collapsed': isDocListCollapsed }]">▼</span>
-        </div>
+        </button>
         <el-collapse-transition>
           <div v-show="!isDocListCollapsed" class="section-content">
-            <div
+            <button
               v-for="doc in filteredDocs"
               :key="doc.id"
+              type="button"
               :class="['doc-item-row', { active: currentDoc && currentDoc.id === doc.id }]"
+              :aria-current="currentDoc && currentDoc.id === doc.id ? 'true' : undefined"
               @click="emit('select-doc', doc)"
             >
               <span class="doc-icon">📄</span>
@@ -92,7 +102,7 @@
                   {{ doc.creatorNickname || '系统' }} · {{ formatTime(doc.updatedAt) }}
                 </span>
               </div>
-            </div>
+            </button>
 
             <el-empty
               v-if="filteredDocs.length === 0"
@@ -199,6 +209,11 @@ const formatTime = (timeStr?: string) => {
 }
 
 .clickable-title {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -233,12 +248,26 @@ const formatTime = (timeStr?: string) => {
 
 .tree-node-item,
 .doc-item-row {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: inherit;
+  color: #37352f;
+  text-align: left;
   display: flex;
   align-items: center;
   padding: 7px 10px;
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.15s ease;
+}
+
+.clickable-title:focus-visible,
+.tree-node-item:focus-visible,
+.doc-item-row:focus-visible {
+  outline: 2px solid rgba(35, 131, 226, 0.55);
+  outline-offset: 1px;
 }
 
 .tree-node-item:hover,

@@ -239,6 +239,7 @@ const confirmDiscardChanges = async () => {
 }
 
 const handleSelectDoc = async (doc: WikiDocument) => {
+  if (currentDoc.value?.id === doc.id) return
   if (!(await confirmDiscardChanges())) return
   currentDoc.value = { ...doc }
 }

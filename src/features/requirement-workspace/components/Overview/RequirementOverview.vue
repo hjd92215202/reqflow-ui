@@ -32,9 +32,10 @@
         <h3 class="card-title">📍 阶段推进状态 ({{ stages.length }})</h3>
 
         <div v-if="stages.length > 0" class="mini-stage-list">
-          <div
+          <button
             v-for="(st, idx) in stages"
             :key="st.id"
+            type="button"
             class="mini-stage-row"
             @click="emit('go-stage-execution', st.id)"
           >
@@ -48,7 +49,7 @@
               </el-tag>
               <span class="stage-chevron">➔</span>
             </div>
-          </div>
+          </button>
         </div>
 
         <el-empty v-else description="尚未划分任何执行阶段" :image-size="60">
@@ -139,6 +140,11 @@ const formatStStatus = (s: TaskStatus) => {
 }
 
 .mini-stage-row {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -148,6 +154,11 @@ const formatStStatus = (s: TaskStatus) => {
   background-color: #fcfcfb;
   cursor: pointer;
   transition: all 0.15s ease;
+}
+
+.mini-stage-row:focus-visible {
+  outline: 2px solid rgba(35, 131, 226, 0.55);
+  outline-offset: 1px;
 }
 
 .mini-stage-row:hover {
@@ -173,6 +184,17 @@ const formatStStatus = (s: TaskStatus) => {
   font-size: 13px;
   color: #37352f;
   font-weight: 500;
+}
+
+@media (max-width: 900px) {
+  .overview-container {
+    padding: 16px;
+  }
+
+  .overview-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
 }
 
 .mini-stage-right {

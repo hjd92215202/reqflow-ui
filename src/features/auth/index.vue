@@ -80,14 +80,21 @@
         </el-tabs>
 
         <!-- 底部服务器状态与快捷修改栏 -->
-        <div class="server-status-bar" @click="serverConfigVisible = true">
+        <button
+          type="button"
+          class="server-status-bar"
+          aria-label="设置服务器地址"
+          @click="serverConfigVisible = true"
+        >
           <span :class="['server-status-dot', { connected: Boolean(userStore.serverUrl) }]"></span>
           <span class="server-status-text">
             {{
-              userStore.serverUrl ? `服务地址: ${userStore.serverUrl}` : '未配置后端地址 (点击设置)'
+              userStore.serverUrl
+                ? `已设置服务地址: ${userStore.serverUrl}`
+                : '未配置后端地址 (点击设置)'
             }}
           </span>
-        </div>
+        </button>
       </el-card>
     </div>
 
@@ -186,10 +193,12 @@ const handleRegister = async () => {
   display: flex;
   justify-content: center;
   align-items: center;
+  padding: 20px 16px;
+  box-sizing: border-box;
 }
 
 .login-card {
-  width: 400px;
+  width: min(400px, calc(100vw - 32px));
   padding: 15px;
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
@@ -226,6 +235,10 @@ const handleRegister = async () => {
 }
 
 .server-status-bar {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
   margin-top: 18px;
   padding-top: 14px;
   border-top: 1px dashed #e4e7ed;
@@ -237,6 +250,12 @@ const handleRegister = async () => {
   color: #909399;
   cursor: pointer;
   transition: color 0.15s ease;
+}
+
+.server-status-bar:focus-visible {
+  outline: 2px solid rgba(35, 131, 226, 0.6);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
 .server-status-bar:hover {
@@ -253,7 +272,7 @@ const handleRegister = async () => {
 }
 
 .server-status-dot.connected {
-  background-color: #67c23a;
+  background-color: #2383e2;
 }
 
 .server-status-text {

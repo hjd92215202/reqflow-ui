@@ -17,9 +17,9 @@
         :value="workspace.id"
       />
       <template #footer>
-        <div class="create-proj-footer" @click="workspaceDialogVisible = true">
+        <button type="button" class="create-proj-footer" @click="workspaceDialogVisible = true">
           <span>＋ 新建工作空间</span>
-        </div>
+        </button>
       </template>
     </el-select>
     <el-select
@@ -43,12 +43,12 @@
       </el-option>
 
       <template #footer>
-        <div class="create-proj-footer" @click="membersDialogVisible = true">
+        <button type="button" class="create-proj-footer" @click="membersDialogVisible = true">
           <span>成员管理</span>
-        </div>
-        <div class="create-proj-footer" @click="createDialogVisible = true">
+        </button>
+        <button type="button" class="create-proj-footer" @click="createDialogVisible = true">
           <span>➕ 划分新工程项目...</span>
-        </div>
+        </button>
       </template>
     </el-select>
     <el-tooltip v-if="loadError" :content="loadError" placement="bottom">
@@ -227,12 +227,22 @@ onMounted(() => {
 }
 
 .create-proj-footer {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
   padding: 6px 12px;
   font-size: 12px;
   color: #2383e2;
   cursor: pointer;
   font-weight: 600;
   border-top: 1px solid rgba(55, 53, 47, 0.08);
+}
+
+.create-proj-footer:focus-visible {
+  outline: 2px solid rgba(35, 131, 226, 0.55);
+  outline-offset: -2px;
 }
 
 .create-proj-footer:hover {
