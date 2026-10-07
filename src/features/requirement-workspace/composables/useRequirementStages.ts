@@ -9,7 +9,7 @@ export function useRequirementStages() {
   const loadStages = async (requirementId: number): Promise<Stage[]> => {
     loading.value = true
     try {
-      const data = await getStagesApi(requirementId).catch(() => [])
+      const data = await getStagesApi(requirementId)
       stages.value = data
       return data
     } finally {

@@ -16,8 +16,8 @@ export function useStageTasks() {
     loading.value = true
     try {
       const [flatTasks, deps] = await Promise.all([
-        getSubTasksApi(stageId).catch(() => []),
-        getDependenciesApi(stageId).catch(() => [])
+        getSubTasksApi(stageId),
+        getDependenciesApi(stageId)
       ])
       const tree = arrayToTree(flatTasks)
       stageTasksCache.value[stageId] = tree

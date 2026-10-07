@@ -12,8 +12,24 @@
         <el-button type="primary" @click="openCreateDialog">录入新需求</el-button>
       </div>
 
+      <el-alert
+        v-if="loadError"
+        :title="loadError"
+        type="error"
+        show-icon
+        :closable="false"
+        class="load-error-alert"
+      >
+        <template #default>
+          <el-button link type="primary" :loading="loading" @click="loadRequirements"
+            >重试</el-button
+          >
+        </template>
+      </el-alert>
+
       <!-- 1. 需求表格组件 -->
       <RequirementTable
+        v-if="showCurrentProjectData && (!loadError || tableData.length > 0)"
         :data="tableData"
         :loading="loading"
         :stage-stats="stageStatsMap"
@@ -22,9 +38,19 @@
         @edit="openEditDialog"
         @delete="handleDelete"
       />
+      <div v-else-if="loading" class="table-loading-state">
+        <el-skeleton :rows="6" animated />
+      </div>
+      <el-empty
+        v-else-if="loadError"
+        description="需求列表加载失败，重试成功后会显示数据"
+        :image-size="80"
+      >
+        <el-button type="primary" :loading="loading" @click="loadRequirements">重新加载</el-button>
+      </el-empty>
 
       <!-- 2. 分页组件 -->
-      <div class="pagination-wrapper">
+      <div v-if="showCurrentProjectData" class="pagination-wrapper">
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
@@ -72,7 +98,14 @@ const stageStatsMap = ref<Record<number, StageStat>>({})
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+const loadError = ref('')
+const hasLoadedRequirements = ref(false)
+const loadedProjectId = ref<number | null>(null)
 let requirementsRequestId = 0
+
+const showCurrentProjectData = computed(
+  () => hasLoadedRequirements.value && loadedProjectId.value === workspaceStore.activeProjectId
+)
 
 const currentProjectName = computed(() => {
   const current = workspaceStore.projects.find(p => p.id === workspaceStore.activeProjectId)
@@ -119,6 +152,7 @@ const loadRequirements = async () => {
   const requestId = ++requirementsRequestId
   const projectId = workspaceStore.activeProjectId
   loading.value = true
+  loadError.value = ''
   try {
     const res = await getRequirementsListApi({
       page: currentPage.value - 1,
@@ -138,8 +172,16 @@ const loadRequirements = async () => {
     }
 
     tableData.value = applySavedRequirementOrder(list)
+    loadedProjectId.value = projectId
+    hasLoadedRequirements.value = true
     await loadRequirementStats(tableData.value, requestId)
-  } catch (error) {
+  } catch {
+    if (requestId === requirementsRequestId) {
+      loadError.value =
+        showCurrentProjectData.value && tableData.value.length
+          ? '需求加载失败，当前保留上次成功加载的结果。'
+          : '需求列表加载失败，请检查网络后重试。'
+    }
   } finally {
     if (requestId === requirementsRequestId) loading.value = false
   }
@@ -147,7 +189,8 @@ const loadRequirements = async () => {
 
 const loadRequirementStats = async (reqs: Requirement[], requestId: number) => {
   if (!reqs || reqs.length === 0) return
-  const stats: Record<number, StageStat> = {}
+  const stats: Record<number, StageStat> = { ...stageStatsMap.value }
+  let failed = false
   await Promise.all(
     reqs.map(async req => {
       try {
@@ -160,12 +203,15 @@ const loadRequirementStats = async (reqs: Requirement[], requestId: number) => {
         } else {
           stats[req.id] = { total: 0, done: 0, percent: 0 }
         }
-      } catch (e) {
-        stats[req.id] = { total: 0, done: 0, percent: 0 }
+      } catch {
+        failed = true
       }
     })
   )
-  if (requestId === requirementsRequestId) stageStatsMap.value = stats
+  if (requestId === requirementsRequestId) {
+    stageStatsMap.value = stats
+    if (failed) loadError.value = '需求已加载，但部分阶段进度暂时不可用。可重试刷新。'
+  }
 }
 
 const handleSizeChange = (val: number) => {
@@ -202,11 +248,18 @@ const handleDelete = (id: number) => {
     { type: 'warning' }
   )
     .then(async () => {
-      await deleteRequirementApi(id)
+      try {
+        await deleteRequirementApi(id)
+      } catch {
+        ElMessage.error('删除失败，请重试')
+        return
+      }
       ElMessage.success('删除成功')
       loadRequirements()
     })
-    .catch(() => {})
+    .catch(error => {
+      if (error !== 'cancel' && error !== 'close') ElMessage.error('无法确认删除操作，请重试')
+    })
 }
 
 onMounted(() => {
@@ -232,6 +285,13 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.load-error-alert {
+  margin: 14px 0;
+}
+.table-loading-state {
+  padding: 18px 0;
 }
 
 .title-with-badge {

@@ -9,6 +9,18 @@
       </div>
 
       <div v-loading="loading" class="docs-tree-view">
+        <el-alert
+          v-if="loadError"
+          :title="loadError"
+          type="error"
+          show-icon
+          :closable="false"
+          class="docs-load-error"
+        >
+          <template #default>
+            <el-button link type="primary" :loading="loading" @click="loadDocs">重试</el-button>
+          </template>
+        </el-alert>
         <div
           v-for="d in docs"
           :key="d.id"
@@ -23,7 +35,7 @@
         </div>
 
         <el-empty
-          v-if="!loading && docs.length === 0"
+          v-if="!loading && !loadError && docs.length === 0"
           description="暂无文档，点击右上角开始沉淀"
           :image-size="50"
         />
@@ -69,17 +81,23 @@ const props = defineProps<{
 
 const router = useRouter()
 const loading = ref(false)
+const loadError = ref('')
 const docs = ref<WikiDocument[]>([])
 const activeDoc = ref<WikiDocument | null>(null)
 
 const loadDocs = async () => {
   loading.value = true
+  loadError.value = ''
   try {
     const data = await getWikiListApi({ requirementId: props.requirementId })
     docs.value = data || []
     if (docs.value.length > 0 && !activeDoc.value) {
       activeDoc.value = docs.value[0]
     }
+  } catch {
+    loadError.value = docs.value.length
+      ? '文档加载失败，仍显示上次成功的结果。'
+      : '需求文档加载失败，请检查网络后重试。'
   } finally {
     loading.value = false
   }
@@ -100,7 +118,9 @@ const handleCreateDoc = async () => {
     ElMessage.success('已新建方案文档')
     await loadDocs()
     activeDoc.value = created
-  } catch (err) {}
+  } catch {
+    ElMessage.error('创建文档失败，请重试')
+  }
 }
 
 const goToFullWiki = () => {

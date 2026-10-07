@@ -12,6 +12,21 @@
       <!-- 2. Workspace 5级 Tab 栏 -->
       <RequirementTabs v-model="activeTab" :stages-count="stages.length" />
 
+      <el-alert
+        v-if="workspaceLoadError"
+        :title="workspaceLoadError"
+        type="error"
+        show-icon
+        :closable="false"
+        class="workspace-load-error"
+      >
+        <template #default>
+          <el-button link type="primary" :loading="loadingReq" @click="retryWorkspaceData">
+            重新加载
+          </el-button>
+        </template>
+      </el-alert>
+
       <!-- 3. 工作区主体视口 -->
       <main class="workspace-body-container">
         <!-- Tab 1: 概览 -->
@@ -78,7 +93,13 @@
     </template>
 
     <div v-else-if="!loadingReq" class="error-view-box">
-      <el-empty description="无法加载该需求事项，或该需求不存在" :image-size="100">
+      <el-empty
+        :description="workspaceLoadError || '无法加载该需求事项，或该需求不存在'"
+        :image-size="100"
+      >
+        <el-button v-if="workspaceLoadError" type="primary" @click="initWorkspace"
+          >重新加载</el-button
+        >
         <el-button type="primary" @click="goBackHub">返回需求库</el-button>
       </el-empty>
     </div>
@@ -144,6 +165,7 @@ const { filters, resetFilters, updateFilters } = useTaskFilters()
 
 const requirement = ref<Requirement | null>(null)
 const loadingReq = ref(false)
+const workspaceLoadError = ref('')
 const planEditorVisible = ref(false)
 const manualColumns = ref<string[]>([])
 const savingTaskId = ref<number | null>(null)
@@ -190,10 +212,15 @@ watch(
   currentStageId,
   async newStageId => {
     if (newStageId) {
-      await loadStageTasks(newStageId)
-      // 若 URL 中的 taskId 不在该 Stage 内部，清除 taskId 容错
-      if (currentTaskId.value && !selectedTask.value) {
-        setTaskId(null)
+      try {
+        await loadStageTasks(newStageId)
+        workspaceLoadError.value = ''
+        // 若 URL 中的 taskId 不在该 Stage 内部，清除 taskId 容错
+        if (currentTaskId.value && !selectedTask.value) {
+          setTaskId(null)
+        }
+      } catch {
+        workspaceLoadError.value = '阶段工作项加载失败，当前保留上次成功的数据。请重试。'
       }
     }
   },
@@ -204,6 +231,7 @@ const initWorkspace = async () => {
   const requestId = ++workspaceInitRequestId
   const requestedRequirementId = requirementId.value
   loadingReq.value = true
+  workspaceLoadError.value = ''
   try {
     const target = await getRequirementApi(requestedRequirementId)
     if (requestId !== workspaceInitRequestId || requestedRequirementId !== requirementId.value)
@@ -220,6 +248,7 @@ const initWorkspace = async () => {
     const stageList = await loadStages(target.id)
     if (requestId !== workspaceInitRequestId || requestedRequirementId !== requirementId.value)
       return
+    workspaceLoadError.value = ''
 
     // 若处于 execution Tab 且没有有效 stageId，执行默认推导
     if (activeTab.value === 'execution' && !currentStageId.value) {
@@ -227,7 +256,11 @@ const initWorkspace = async () => {
       if (resolvedId) setStageId(resolvedId)
     }
   } catch (err) {
-    if (requestId === workspaceInitRequestId) ElMessage.error('初始化需求空间失败')
+    if (requestId === workspaceInitRequestId) {
+      workspaceLoadError.value = requirement.value
+        ? '需求已加载，但阶段数据加载失败。请重试。'
+        : '需求加载失败，请检查网络后重试。'
+    }
   } finally {
     if (requestId === workspaceInitRequestId) loadingReq.value = false
   }
@@ -236,9 +269,24 @@ const initWorkspace = async () => {
 watch(requirementId, () => {
   requirement.value = null
   manualColumns.value = []
+  stages.value = []
   setStageId(null)
   void initWorkspace()
 })
+
+const retryWorkspaceData = async () => {
+  if (!requirement.value) {
+    await initWorkspace()
+    return
+  }
+  workspaceLoadError.value = ''
+  try {
+    await loadStages(requirement.value.id)
+    if (currentStageId.value) await loadStageTasks(currentStageId.value, true)
+  } catch {
+    workspaceLoadError.value = '工作区数据加载失败，请检查网络后重试。'
+  }
+}
 
 const handleGoStageExecution = (stageId: number) => {
   activeTab.value = 'execution'
@@ -378,6 +426,10 @@ onMounted(() => {
   min-height: 0;
   overflow: hidden;
   background-color: #ffffff;
+}
+
+.workspace-load-error {
+  margin: 0 24px 12px;
 }
 
 .error-view-box {

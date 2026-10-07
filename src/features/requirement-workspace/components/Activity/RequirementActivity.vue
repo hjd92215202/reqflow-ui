@@ -11,6 +11,11 @@
     </div>
 
     <div v-loading="loading" class="activity-timeline-wrap">
+      <el-alert v-if="loadError" :title="loadError" type="error" show-icon :closable="false">
+        <template #default>
+          <el-button link type="primary" :loading="loading" @click="loadActivities">重试</el-button>
+        </template>
+      </el-alert>
       <el-timeline v-if="filteredLogs.length > 0">
         <el-timeline-item
           v-for="item in filteredLogs"
@@ -31,7 +36,7 @@
         </el-timeline-item>
       </el-timeline>
 
-      <el-empty v-else description="暂无当前需求的相关操作流水" :image-size="80" />
+      <el-empty v-else-if="!loadError" description="暂无当前需求的相关操作流水" :image-size="80" />
     </div>
   </div>
 </template>
@@ -46,15 +51,21 @@ const props = defineProps<{
 }>()
 
 const loading = ref(false)
+const loadError = ref('')
 const logs = ref<ActivityLog[]>([])
 const filterType = ref<'ALL' | 'STATUS' | 'TASK'>('ALL')
 
 const loadActivities = async () => {
   loading.value = true
+  loadError.value = ''
   try {
     const res = await getActivityLogsApi({ requirementId: props.requirementId, page: 0, size: 50 })
     const list: ActivityLog[] = Array.isArray(res) ? res : (res as any)?.content || []
     logs.value = list
+  } catch {
+    loadError.value = logs.value.length
+      ? '活动加载失败，仍显示上次成功的记录。'
+      : '活动流水加载失败，请检查网络后重试。'
   } finally {
     loading.value = false
   }

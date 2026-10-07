@@ -1,6 +1,18 @@
 <!-- src/features/matrix/index.vue -->
 <template>
   <div class="workbench-workspace">
+    <el-alert
+      v-if="loadError && selectedRequirement"
+      :title="loadError"
+      type="error"
+      show-icon
+      :closable="false"
+      class="matrix-load-error"
+    >
+      <template #default>
+        <el-button link type="primary" @click="initWorkspaceData">重新加载</el-button>
+      </template>
+    </el-alert>
     <!-- 需求全局视图与阶段总览 -->
     <div v-if="selectedRequirement" class="matrix-board">
       <!-- 1. 顶栏项目概览与需求切换器 -->
@@ -57,12 +69,26 @@
       <el-divider style="margin: 18px 0 20px 0" />
 
       <!-- 2. 解耦出的阶段列表卡片组件 -->
+      <div v-if="workspaceLoading" class="matrix-loading-state">
+        <el-skeleton :rows="5" animated />
+      </div>
       <StageCardList
+        v-else
         :stages="stages"
         :sub-tasks-map="stageSubTasksMap"
         @refresh="refreshData"
         @open-matrix="openMatrixModal"
       />
+    </div>
+
+    <div v-else-if="workspaceLoading" class="empty-board-state matrix-loading-state">
+      <el-skeleton :rows="6" animated />
+    </div>
+
+    <div v-else-if="loadError" class="empty-board-state">
+      <el-empty :description="loadError" :image-size="120">
+        <el-button type="primary" @click="initWorkspaceData">重新加载</el-button>
+      </el-empty>
     </div>
 
     <div v-else class="empty-board-state">
@@ -104,6 +130,8 @@ const router = useRouter()
 const workspaceStore = useWorkspaceStore()
 
 const requirements = ref<Requirement[]>([])
+const loadError = ref('')
+const workspaceLoading = ref(false)
 const activeReqId = ref<number | null>(null)
 const selectedRequirement = ref<Requirement | null>(null)
 const stages = ref<Stage[]>([])
@@ -123,6 +151,11 @@ let workspaceRequestId = 0
 watch(
   () => workspaceStore.activeProjectId,
   () => {
+    selectedRequirement.value = null
+    activeReqId.value = null
+    requirements.value = []
+    stages.value = []
+    stageSubTasksMap.value = {}
     initWorkspaceData()
   }
 )
@@ -134,26 +167,47 @@ const getPriorityTag = (p: PriorityLevel): 'danger' | 'warning' | 'info' => {
 }
 
 const loadStagesAndTasks = async (reqId: number, requestId?: number) => {
-  const stageList = await getStagesApi(reqId).catch(() => [])
-  if (requestId !== undefined && requestId !== workspaceRequestId) return
-  stages.value = stageList
-  for (const s of stageList) {
-    const flatList = await getSubTasksApi(s.id).catch(() => [])
-    if (requestId !== undefined && requestId !== workspaceRequestId) return
-    stageSubTasksMap.value[s.id] = arrayToTree(flatList)
+  const generation = requestId ?? workspaceRequestId
+  workspaceLoading.value = true
+  try {
+    const stageList = await getStagesApi(reqId)
+    if (generation !== workspaceRequestId) return
+    const loadedTasks: Record<number, SubTask[]> = {}
+    for (const s of stageList) {
+      const flatList = await getSubTasksApi(s.id)
+      if (generation !== workspaceRequestId) return
+      loadedTasks[s.id] = arrayToTree(flatList)
+    }
+    stages.value = stageList
+    stageSubTasksMap.value = loadedTasks
+  } finally {
+    if (generation === workspaceRequestId) workspaceLoading.value = false
   }
 }
 
 const refreshData = async () => {
   if (selectedRequirement.value) {
-    await loadStagesAndTasks(selectedRequirement.value.id)
+    try {
+      await loadStagesAndTasks(selectedRequirement.value.id)
+      loadError.value = ''
+    } catch {
+      loadError.value = '阶段或工作项加载失败，当前保留上次成功的数据。请重试。'
+    }
   }
 }
 
 const refreshActiveStageTasks = async () => {
   if (activeStage.value) {
-    const flatList = await getSubTasksApi(activeStage.value.id).catch(() => [])
-    stageSubTasksMap.value[activeStage.value.id] = arrayToTree(flatList)
+    workspaceLoading.value = true
+    try {
+      const flatList = await getSubTasksApi(activeStage.value.id)
+      stageSubTasksMap.value[activeStage.value.id] = arrayToTree(flatList)
+      loadError.value = ''
+    } catch {
+      loadError.value = '该阶段工作项加载失败，仍显示上次成功的数据。'
+    } finally {
+      workspaceLoading.value = false
+    }
   }
 }
 
@@ -166,43 +220,67 @@ const openMatrixModal = async (stage: Stage) => {
 const handleReqSelectChange = async (reqId: number) => {
   const target = requirements.value.find(r => r.id === reqId)
   if (target) {
+    const requestId = ++workspaceRequestId
     selectedRequirement.value = target
     activeReqId.value = target.id
+    stages.value = []
+    stageSubTasksMap.value = {}
+    loadError.value = ''
     router.replace({ path: '/matrix', query: { reqId } })
-    await loadStagesAndTasks(target.id)
+    try {
+      await loadStagesAndTasks(target.id, requestId)
+    } catch {
+      if (requestId === workspaceRequestId) {
+        loadError.value = '该需求的阶段或工作项加载失败，请重试。'
+      }
+    }
   }
 }
 
 const initWorkspaceData = async () => {
   const requestId = ++workspaceRequestId
   const projectId = workspaceStore.activeProjectId
-  const res = await getRequirementsListApi({
-    page: 0,
-    size: 200,
-    projectId: projectId || undefined
-  }).catch(() => [])
-  if (requestId !== workspaceRequestId || projectId !== workspaceStore.activeProjectId) return
+  workspaceLoading.value = true
+  loadError.value = ''
+  try {
+    const res = await getRequirementsListApi({
+      page: 0,
+      size: 200,
+      projectId: projectId || undefined
+    })
+    if (requestId !== workspaceRequestId || projectId !== workspaceStore.activeProjectId) return
 
-  let list: Requirement[] = []
-  if (Array.isArray(res)) {
-    list = res
-  } else if (res && (res as any).content) {
-    list = (res as any).content
-  }
-  requirements.value = list
+    let list: Requirement[] = []
+    if (Array.isArray(res)) {
+      list = res
+    } else if (res && (res as any).content) {
+      list = (res as any).content
+    }
+    requirements.value = list
 
-  const queryReqId = route.query.reqId ? Number(route.query.reqId) : null
-  const target = list.find(r => r.id === queryReqId) || list[0] || null
+    const queryReqId = route.query.reqId ? Number(route.query.reqId) : null
+    const target = list.find(r => r.id === queryReqId) || list[0] || null
 
-  if (target) {
-    selectedRequirement.value = target
-    activeReqId.value = target.id
-    await loadStagesAndTasks(target.id, requestId)
-  } else {
-    selectedRequirement.value = null
-    activeReqId.value = null
-    stages.value = []
-    stageSubTasksMap.value = {}
+    if (target) {
+      if (selectedRequirement.value?.id !== target.id) {
+        stages.value = []
+        stageSubTasksMap.value = {}
+      }
+      selectedRequirement.value = target
+      activeReqId.value = target.id
+      await loadStagesAndTasks(target.id, requestId)
+    } else {
+      selectedRequirement.value = null
+      activeReqId.value = null
+      stages.value = []
+      stageSubTasksMap.value = {}
+    }
+  } catch {
+    if (requestId === workspaceRequestId) {
+      loadError.value = '需求矩阵加载失败，请检查网络后重试。'
+    }
+  } finally {
+    if (requestId === workspaceRequestId) workspaceLoading.value = false
   }
 }
 
@@ -218,6 +296,13 @@ onMounted(() => {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+}
+
+.matrix-load-error {
+  margin-bottom: 14px;
+}
+.matrix-loading-state {
+  padding: 18px;
 }
 
 .matrix-board {
