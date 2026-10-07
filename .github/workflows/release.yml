@@ -3,6 +3,7 @@ on:
   push:
     tags:
       - 'v*'
+      - 'dev-v*'
 
 permissions:
   contents: write
@@ -12,18 +13,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 1. 核心优化：只需 2 台极速服务器（Mac 统一用最新 M1，Windows 用最新）
         platform: [macos-latest, windows-latest]
 
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Validate tag channel, source branch, and version
+        run: node scripts/validate-release-tag.mjs
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -39,17 +44,17 @@ jobs:
           key: ${{ matrix.platform }}-cargo
 
       - name: Install frontend dependencies
-        run: npm install
+        run: npm ci
 
-      # 3. 核心优化：如果是 Mac，指令增加 --target universal-apple-darwin 参数编译双架构包
-      - name: Build and Publish
+      - name: Build and publish channel release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'ReqFlow ${{ github.ref_name }}'
-          releaseBody: 'ReqFlow 桌面客户端最新版发布。'
-          releaseDraft: true
-          prerelease: false
-          args: ${{ matrix.platform == 'macos-latest' && '--target universal-apple-darwin' || '' }}
+          releaseName: ${{ startsWith(github.ref_name, 'dev-v') && format('ReqFlow Development {0}', github.ref_name) || format('ReqFlow {0}', github.ref_name) }}
+          releaseBody: ${{ startsWith(github.ref_name, 'dev-v') && 'ReqFlow development build. This prerelease is built from the dev branch.' || 'ReqFlow stable desktop release. This draft is built from the main branch.' }}
+          releaseAssetNamePattern: 'ReqFlow-${{ github.ref_name }}-[platform]-[arch][ext]'
+          releaseDraft: ${{ !startsWith(github.ref_name, 'dev-v') }}
+          prerelease: ${{ startsWith(github.ref_name, 'dev-v') }}
+          args: ${{ matrix.platform == 'macos-latest' && '--target universal-apple-darwin' || '' }} ${{ startsWith(github.ref_name, 'dev-v') && '--config src-tauri/tauri.dev.conf.json' || '' }}

@@ -1,0 +1,5 @@
+{
+  "$schema": "./tauri.conf.json",
+  "productName": "ReqFlow Development",
+  "identifier": "com.reqflow.dev.preview"
+}
