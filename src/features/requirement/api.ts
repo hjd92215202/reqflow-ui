@@ -14,6 +14,10 @@ export function getRequirementsListApi(
   return request.get<PageResult<Requirement> | Requirement[]>('/api/requirements', { params })
 }
 
+export function getRequirementApi(id: number): Promise<Requirement> {
+  return request.get<Requirement>(`/api/requirements/${id}`)
+}
+
 export function createRequirementApi(data: Partial<Requirement>): Promise<Requirement> {
   return request.post<Requirement>('/api/requirements', data)
 }

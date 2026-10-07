@@ -1,0 +1,358 @@
+<!-- src/features/requirement-workspace/index.vue -->
+<template>
+  <div v-loading="loadingReq" class="requirement-workspace-root">
+    <template v-if="requirement">
+      <!-- 1. 顶部需求看板 -->
+      <RequirementHeader
+        :requirement="requirement"
+        :stage-total-count="stages.length"
+        :stage-done-count="stagesDoneCount"
+      />
+
+      <!-- 2. Workspace 5级 Tab 栏 -->
+      <RequirementTabs v-model="activeTab" :stages-count="stages.length" />
+
+      <!-- 3. 工作区主体视口 -->
+      <main class="workspace-body-container">
+        <!-- Tab 1: 概览 -->
+        <RequirementOverview
+          v-if="activeTab === 'overview'"
+          :requirement="requirement"
+          :stages="stages"
+          @switch-tab="tab => (activeTab = tab as any)"
+          @go-stage-execution="handleGoStageExecution"
+        />
+
+        <!-- Tab 2: 计划 -->
+        <RequirementPlan
+          v-else-if="activeTab === 'plan'"
+          :stages="stages"
+          @create-stage="handleCreateStage"
+          @update-stage="handleUpdateStage"
+          @delete-stage="handleDeleteStage"
+          @go-execution="handleGoStageExecution"
+        />
+
+        <!-- Tab 3: 执行 -->
+        <RequirementExecution
+          v-else-if="activeTab === 'execution'"
+          :stages="stages"
+          :current-stage-id="currentStageId"
+          :filtered-tasks="currentFilteredTasks"
+          :all-flat-tasks="currentFlatTasks"
+          :dependencies="currentDependencies"
+          :all-columns="currentColumns"
+          :filters="filters"
+          :selected-task-id="currentTaskId"
+          :selected-task="selectedTask"
+          :saving-task-id="savingTaskId"
+          @select-stage="id => setStageId(id)"
+          @create-stage="planEditorVisible = true"
+          @update-filter="updateFilters"
+          @reset-filters="resetFilters"
+          @add-new-column="promptAddNewColumn"
+          @select-task="t => setTaskId(t.id)"
+          @close-inspector="setTaskId(null)"
+          @update-task="handleUpdateTask"
+          @add-child="handleAddChildTask"
+          @add-child-with-title="handleAddChildTaskWithTitle"
+          @delete-task="handleDeleteTask"
+          @create-task="handleCreateTask"
+          @add-dep="handleAddDependency"
+          @remove-dep="handleRemoveDependency"
+        />
+
+        <!-- Tab 4: 活动 (P1 实装) -->
+        <RequirementActivity
+          v-else-if="activeTab === 'activity'"
+          :requirement-id="requirement.id"
+        />
+
+        <!-- Tab 5: 知识 (P1 实装) -->
+        <RequirementKnowledge
+          v-else-if="activeTab === 'knowledge'"
+          :requirement-id="requirement.id"
+        />
+      </main>
+    </template>
+
+    <div v-else-if="!loadingReq" class="error-view-box">
+      <el-empty description="无法加载该需求事项，或该需求不存在" :image-size="100">
+        <el-button type="primary" @click="goBackHub">返回需求库</el-button>
+      </el-empty>
+    </div>
+
+    <!-- 弹窗：快捷创建阶段 -->
+    <StageEditor v-model="planEditorVisible" @submit="handleCreateStage" />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getRequirementApi } from '@/features/requirement/api'
+import type { Requirement, SubTask } from '@/types'
+
+import { useRequirementWorkspace } from './composables/useRequirementWorkspace'
+import { useRequirementStages } from './composables/useRequirementStages'
+import { useStageTasks } from './composables/useStageTasks'
+import { useTaskFilters } from './composables/useTaskFilters'
+import {
+  filterTreeData,
+  flattenTaskTree,
+  scanCustomColumns,
+  findTaskInTree
+} from './composables/useTaskTree'
+
+import RequirementHeader from './components/RequirementHeader.vue'
+import RequirementTabs from './components/RequirementTabs.vue'
+import RequirementOverview from './components/Overview/RequirementOverview.vue'
+import RequirementPlan from './components/Plan/RequirementPlan.vue'
+import RequirementExecution from './components/Execution/RequirementExecution.vue'
+import RequirementActivity from './components/Activity/RequirementActivity.vue'
+import RequirementKnowledge from './components/Knowledge/RequirementKnowledge.vue'
+import StageEditor from './components/Plan/StageEditor.vue'
+
+const router = useRouter()
+
+const {
+  requirementId,
+  activeTab,
+  currentStageId,
+  currentTaskId,
+  setStageId,
+  setTaskId,
+  resolveInitialStageId
+} = useRequirementWorkspace()
+
+const { stages, loadStages, createStage, updateStage, deleteStage } = useRequirementStages()
+
+const {
+  stageTasksCache,
+  stageDependenciesCache,
+  loadStageTasks,
+  updateTaskLocallyAndPersist,
+  createTask,
+  deleteTask,
+  addDependency,
+  removeDependency
+} = useStageTasks()
+
+const { filters, resetFilters, updateFilters } = useTaskFilters()
+
+const requirement = ref<Requirement | null>(null)
+const loadingReq = ref(false)
+const planEditorVisible = ref(false)
+const manualColumns = ref<string[]>([])
+const savingTaskId = ref<number | null>(null)
+
+const stagesDoneCount = computed(() => stages.value.filter(s => s.status === 'DONE').length)
+
+// 当前激活 Stage 的任务树
+const currentTree = computed<SubTask[]>(() => {
+  if (!currentStageId.value) return []
+  return stageTasksCache.value[currentStageId.value] || []
+})
+
+// 当前过滤后的任务树
+const currentFilteredTasks = computed<SubTask[]>(() => {
+  return filterTreeData(currentTree.value, filters)
+})
+
+// 当前展开的扁平数组
+const currentFlatTasks = computed<SubTask[]>(() => {
+  return flattenTaskTree(currentTree.value)
+})
+
+// 当前前置依赖
+const currentDependencies = computed(() => {
+  if (!currentStageId.value) return []
+  return stageDependenciesCache.value[currentStageId.value] || []
+})
+
+// 当前动态列 Keys
+const currentColumns = computed(() => {
+  const scanned = scanCustomColumns(currentTree.value)
+  return Array.from(new Set([...scanned, ...manualColumns.value]))
+})
+
+// 当前选中的 Task 对象
+const selectedTask = computed<SubTask | null>(() => {
+  if (!currentTaskId.value) return null
+  return findTaskInTree(currentTree.value, currentTaskId.value)
+})
+
+// 监听当前 Stage 变化，按需拉取数据
+watch(
+  currentStageId,
+  async newStageId => {
+    if (newStageId) {
+      await loadStageTasks(newStageId)
+      // 若 URL 中的 taskId 不在该 Stage 内部，清除 taskId 容错
+      if (currentTaskId.value && !selectedTask.value) {
+        setTaskId(null)
+      }
+    }
+  },
+  { immediate: true }
+)
+
+const initWorkspace = async () => {
+  loadingReq.value = true
+  try {
+    const target = await getRequirementApi(requirementId.value)
+    requirement.value = target
+    const stageList = await loadStages(target.id)
+
+    // 若处于 execution Tab 且没有有效 stageId，执行默认推导
+    if (activeTab.value === 'execution' && !currentStageId.value) {
+      const resolvedId = resolveInitialStageId(stageList)
+      if (resolvedId) setStageId(resolvedId)
+    }
+  } catch (err) {
+    ElMessage.error('初始化需求空间失败')
+  } finally {
+    loadingReq.value = false
+  }
+}
+
+const handleGoStageExecution = (stageId: number) => {
+  activeTab.value = 'execution'
+  setStageId(stageId)
+}
+
+const handleCreateStage = async (payload: { title: string; dateRange: [string, string] | [] }) => {
+  if (!requirement.value) return
+  await createStage(requirement.value.id, payload.title, payload.dateRange as [string, string])
+  ElMessage.success('已新建执行阶段')
+}
+
+const handleUpdateStage = async (id: number, data: any) => {
+  await updateStage(id, data)
+  ElMessage.success('阶段已更新')
+}
+
+const handleDeleteStage = async (id: number) => {
+  await deleteStage(id)
+  if (currentStageId.value === id) {
+    const nextId = resolveInitialStageId(stages.value)
+    setStageId(nextId)
+  }
+}
+
+const handleUpdateTask = async (task: SubTask) => {
+  if (!currentStageId.value) return
+  savingTaskId.value = task.id
+  try {
+    await updateTaskLocallyAndPersist(currentStageId.value, task)
+  } catch (err) {
+    ElMessage.error('保存任务失败')
+  } finally {
+    savingTaskId.value = null
+  }
+}
+
+const handleCreateTask = async (payload: { title: string; assignee: string }) => {
+  if (!currentStageId.value) return
+  const created = await createTask(currentStageId.value, payload.title, payload.assignee)
+  ElMessage.success('任务创建成功')
+  setTaskId(created.id)
+}
+
+const handleAddChildTask = async (parentTask: SubTask) => {
+  if (!currentStageId.value) return
+  const created = await createTask(
+    currentStageId.value,
+    '新拆解子项',
+    parentTask.assignee,
+    parentTask.id
+  )
+  ElMessage.success('已拆解子任务')
+  setTaskId(created.id)
+}
+
+const handleAddChildTaskWithTitle = async (parentTask: SubTask, title: string) => {
+  if (!currentStageId.value) return
+  await createTask(currentStageId.value, title, parentTask.assignee, parentTask.id)
+  ElMessage.success('已添加子任务')
+}
+
+const handleDeleteTask = async (taskId: number) => {
+  if (!currentStageId.value) return
+  ElMessageBox.confirm('移除该项将同步删除其所有子拆解项，是否继续？', '提示', {
+    type: 'warning'
+  })
+    .then(async () => {
+      await deleteTask(currentStageId.value!, taskId)
+      if (currentTaskId.value === taskId) {
+        setTaskId(null)
+      }
+      ElMessage.success('已删除')
+    })
+    .catch(() => {})
+}
+
+const handleAddDependency = async (predId: number) => {
+  if (!currentStageId.value || !currentTaskId.value) return
+  await addDependency(currentStageId.value, predId, currentTaskId.value)
+  ElMessage.success('前置依赖已关联')
+}
+
+const handleRemoveDependency = async (depId: number) => {
+  if (!currentStageId.value) return
+  await removeDependency(currentStageId.value, depId)
+  ElMessage.success('依赖已解除')
+}
+
+const promptAddNewColumn = () => {
+  ElMessageBox.prompt('请输入自定义属性名称（如：接口文档、测试单号）', '➕ 追加扩展列', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    inputPattern: /\S+/,
+    inputErrorMessage: '列名不能为空'
+  })
+    .then(({ value }) => {
+      const trimmed = value.trim()
+      if (!manualColumns.value.includes(trimmed)) {
+        manualColumns.value.push(trimmed)
+        ElMessage.success(`已添加「${trimmed}」`)
+      }
+    })
+    .catch(() => {})
+}
+
+const goBackHub = () => {
+  router.push('/requirements')
+}
+
+onMounted(() => {
+  initWorkspace()
+})
+</script>
+
+<style scoped>
+.requirement-workspace-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background-color: #f7f7f5;
+  overflow: hidden;
+}
+
+.workspace-body-container {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+  background-color: #ffffff;
+}
+
+.error-view-box {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+</style>

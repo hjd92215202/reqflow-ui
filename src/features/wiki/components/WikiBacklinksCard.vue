@@ -10,8 +10,8 @@
         </el-tag>
       </div>
       <div class="header-right">
-        <el-button link size="small" class="matrix-jump-btn" @click.stop="goToMatrix">
-          直达协同矩阵 ➔
+        <el-button link size="small" class="matrix-jump-btn" @click.stop="goToExecution">
+          进入需求执行 ➔
         </el-button>
         <span :class="['toggle-arrow', { collapsed: isCollapsed }]">▼</span>
       </div>
@@ -80,13 +80,11 @@ const emit = defineEmits<{
 const router = useRouter()
 const isCollapsed = ref(false)
 
-// 查找当前文档所属的主需求
 const currentRequirement = computed(() => {
   if (!props.currentDoc?.requirementId) return null
   return props.requirements.find(r => r.id === props.currentDoc!.requirementId) || null
 })
 
-// 查找同需求下的其他关联兄弟文档（排除当前这篇）
 const siblingDocs = computed(() => {
   if (!props.currentDoc?.requirementId) return []
   return props.allDocs.filter(
@@ -94,11 +92,11 @@ const siblingDocs = computed(() => {
   )
 })
 
-const goToMatrix = () => {
+const goToExecution = () => {
   if (currentRequirement.value) {
     router.push({
-      path: '/matrix',
-      query: { reqId: currentRequirement.value.id }
+      path: `/requirements/${currentRequirement.value.id}`,
+      query: { tab: 'execution' }
     })
   }
 }

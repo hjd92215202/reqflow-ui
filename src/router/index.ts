@@ -25,9 +25,24 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/features/requirement/index.vue')
       },
       {
+        path: 'requirements/:id',
+        name: 'RequirementWorkspace',
+        component: () => import('@/features/requirement-workspace/index.vue')
+      },
+      // 遗留 Matrix 路由平滑兼容重定向
+      {
         path: 'matrix',
-        name: 'Matrix',
-        component: () => import('@/features/matrix/index.vue')
+        name: 'MatrixLegacy',
+        redirect: to => {
+          const reqId = to.query.reqId
+          if (reqId) {
+            return {
+              path: `/requirements/${reqId}`,
+              query: { tab: 'execution' }
+            }
+          }
+          return '/requirements'
+        }
       },
       {
         path: 'wiki',
@@ -50,13 +65,11 @@ const router = createRouter({
 router.beforeEach((to, _from, next) => {
   const userStore = useUserStore()
 
-  // 1. 已登录用户访问登录页直接跳到主页
   if (to.path === '/login' && userStore.token) {
     next('/requirements')
     return
   }
 
-  // 2. 未登录拦截至登录页
   if (to.path !== '/login' && !userStore.token) {
     next('/login')
   } else {

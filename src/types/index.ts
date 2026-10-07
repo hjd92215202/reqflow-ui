@@ -180,3 +180,25 @@ export interface ActivityLog {
   detailDiff?: Record<string, any>
   createdAt: string
 }
+
+// ==========================================
+// 12. Requirement Workspace (第二层设计专属状态定义)
+// ==========================================
+export type RequirementWorkspaceTab = 'overview' | 'plan' | 'execution' | 'activity' | 'knowledge'
+
+export type TaskViewMode = 'matrix' | 'list' | 'kanban' | 'timeline' | 'dependency'
+
+export interface TaskFilters {
+  keyword: string
+  statuses: TaskStatus[]
+  assignees: string[]
+  customFields: Record<string, string[]>
+}
+
+export interface RequirementWorkspaceState {
+  requirementId: number
+  tab: RequirementWorkspaceTab
+  stageId: number | null
+  taskId: number | null
+  taskView: TaskViewMode
+}

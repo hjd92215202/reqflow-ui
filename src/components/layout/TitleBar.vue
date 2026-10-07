@@ -1,18 +1,19 @@
 <!-- src/components/layout/TitleBar.vue -->
 <template>
-  <div class="custom-titlebar" @mousedown="handleTitlebarMouseDown">
-    <div class="titlebar-brand">
+  <div class="custom-titlebar" data-tauri-drag-region @dblclick="handleTitlebarDblClick">
+    <!-- 左侧 Logo 与品牌 -->
+    <div class="titlebar-brand" data-tauri-drag-region>
       <img src="@/assets/logo.png" class="brand-logo" alt="ReqFlow Logo" />
       <span class="brand-title">ReqFlow</span>
     </div>
 
-    <!-- 中间插槽：为后续接入 Workspace / Project 选择器做准备 -->
-    <div class="titlebar-center">
+    <!-- 中间区域：大面积空白均继承 data-tauri-drag-region 原生拖拽与双击 -->
+    <div class="titlebar-center" data-tauri-drag-region>
       <slot name="center" />
     </div>
 
-    <!-- 右侧原生窗口控制键 -->
-    <div class="titlebar-controls" @mousedown.stop>
+    <!-- 右侧原生窗口控制键 (必须彻底阻断原生拖拽区域) -->
+    <div class="titlebar-controls" @dblclick.stop @mousedown.stop>
       <slot name="actions" />
       <button class="control-btn" title="最小化" @click.stop="minimizeWindow">
         <svg width="10" height="10" viewBox="0 0 10 10">
@@ -39,31 +40,22 @@
 <script setup lang="ts">
 import { getCurrentWindow } from '@tauri-apps/api/window'
 
-let lastClickTime = 0
-
-// 精准分发双击最大化与单击拖拽，杜绝冲突
-const handleTitlebarMouseDown = async (e: MouseEvent) => {
-  if (e.button !== 0) return
+// 核心：由原生的 dblclick 事件统一调度最大化，绝不与拖拽抢占冲突
+const handleTitlebarDblClick = async (e: MouseEvent) => {
   const target = e.target as HTMLElement
-  if (target.closest('.titlebar-controls, .titlebar-center, button, input, select, textarea')) {
+  // 排除下拉框、按钮、输入框内部的双击，避免误触
+  if (
+    target.closest(
+      '.titlebar-controls, .el-select, .el-input, .el-dialog, button, input, select, textarea, a'
+    )
+  ) {
     return
   }
 
-  const now = Date.now()
-  const isDoubleClick = e.detail === 2 || now - lastClickTime < 350
-  lastClickTime = now
-
   try {
     const appWindow = getCurrentWindow()
-    if (isDoubleClick) {
-      lastClickTime = 0
-      await appWindow.toggleMaximize()
-    } else {
-      await appWindow.startDragging()
-    }
-  } catch (err) {
-    // 纯 Web 环境静默忽略
-  }
+    await appWindow.toggleMaximize()
+  } catch (err) {}
 }
 
 const minimizeWindow = async () => {
@@ -90,13 +82,13 @@ const closeWindow = async () => {
 
 <style scoped>
 .custom-titlebar {
-  height: 32px;
+  height: 34px;
   background-color: #fbfbfa;
   border-bottom: 1px solid rgba(55, 53, 47, 0.08);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 0 0 12px;
+  padding: 0 0 0 14px;
   user-select: none;
   flex-shrink: 0;
   cursor: default;
@@ -109,6 +101,8 @@ const closeWindow = async () => {
   font-size: 12px;
   font-weight: 600;
   color: #37352f;
+  flex-shrink: 0;
+  pointer-events: none; /* 让鼠标事件直接穿透至具备拖拽属性的父容器 */
 }
 
 .brand-logo {
@@ -122,18 +116,25 @@ const closeWindow = async () => {
   letter-spacing: 0.5px;
 }
 
+/* 核心：占满剩余全部空白，允许任意空白处拖拽和双击 */
 .titlebar-center {
   flex: 1;
   height: 100%;
   display: flex;
   align-items: center;
-  padding: 0 12px;
+  padding: 0 16px;
+}
+
+/* 下拉菜单等交互组件必须脱离拖拽区域，保证点击灵敏 */
+:deep(.titlebar-center .project-selector-container) {
+  cursor: default;
 }
 
 .titlebar-controls {
   display: flex;
   align-items: center;
   height: 100%;
+  flex-shrink: 0;
 }
 
 .control-btn {

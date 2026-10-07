@@ -26,15 +26,11 @@
     >
       <el-menu-item index="/todos">
         <el-icon><Finished /></el-icon>
-        <span>我的待办中心</span>
+        <span>我的工作台</span>
       </el-menu-item>
       <el-menu-item index="/requirements">
         <el-icon><Menu /></el-icon>
         <span>需求事项管理</span>
-      </el-menu-item>
-      <el-menu-item index="/matrix">
-        <el-icon><Checked /></el-icon>
-        <span>工作事项矩阵</span>
       </el-menu-item>
       <el-menu-item index="/wiki">
         <el-icon><Notebook /></el-icon>
@@ -60,15 +56,7 @@
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
-import {
-  Menu,
-  Checked,
-  Finished,
-  SwitchButton,
-  Expand,
-  Fold,
-  Notebook
-} from '@element-plus/icons-vue'
+import { Menu, Finished, SwitchButton, Expand, Fold, Notebook } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -76,7 +64,12 @@ const userStore = useUserStore()
 
 const isCollapsed = ref(false)
 const sidebarWidth = computed(() => (isCollapsed.value ? '64px' : '240px'))
-const activeMenu = computed(() => route.path)
+const activeMenu = computed(() => {
+  if (route.path.startsWith('/requirements')) {
+    return '/requirements'
+  }
+  return route.path
+})
 
 const handleLogout = () => {
   userStore.clearUserInfo()

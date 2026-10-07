@@ -76,15 +76,28 @@
       </el-table-column>
 
       <!-- 4. 操作面板 -->
-      <el-table-column label="操作面板" width="220" align="center" fixed="right">
+      <el-table-column label="操作面板" width="240" align="center" fixed="right">
         <template #default="scope">
-          <el-button size="small" link type="success" @click="emit('go-matrix', scope.row.id)">
-            矩阵与跟进
+          <el-button
+            size="small"
+            link
+            type="primary"
+            @click="goToWorkspace(scope.row.id, 'overview')"
+          >
+            进入需求工作区
+          </el-button>
+          <el-button
+            size="small"
+            link
+            type="success"
+            @click="goToWorkspace(scope.row.id, 'execution')"
+          >
+            执行
           </el-button>
           <el-button size="small" link type="warning" @click="emit('go-wiki', scope.row.id)">
-            Wiki 沉淀
+            Wiki
           </el-button>
-          <el-button size="small" link type="primary" @click="emit('edit', scope.row)">
+          <el-button size="small" link type="info" @click="emit('edit', scope.row)">
             编辑
           </el-button>
           <el-button size="small" link type="danger" @click="emit('delete', scope.row.id)">
@@ -99,7 +112,16 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { Requirement, PriorityLevel, RequirementStatus } from '@/types'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
+
+const goToWorkspace = (reqId: number, tab: 'overview' | 'execution') => {
+  router.push({
+    path: `/requirements/${reqId}`,
+    query: { tab }
+  })
+}
 export interface StageStat {
   total: number
   done: number

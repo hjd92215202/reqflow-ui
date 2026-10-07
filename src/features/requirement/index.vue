@@ -12,13 +12,12 @@
         <el-button type="primary" @click="openCreateDialog">录入新需求</el-button>
       </div>
 
-      <!-- 1. 拆解出的需求表格组件 -->
+      <!-- 1. 需求表格组件 -->
       <RequirementTable
         :data="tableData"
         :loading="loading"
         :stage-stats="stageStatsMap"
         @drag-end="handleDragEnd"
-        @go-matrix="goToWorkMatrix"
         @go-wiki="goToWiki"
         @edit="openEditDialog"
         @delete="handleDelete"
@@ -38,7 +37,7 @@
       </div>
     </div>
 
-    <!-- 3. 拆解出的录入/编辑对话框组件 -->
+    <!-- 3. 录入/编辑对话框组件 -->
     <RequirementDialog
       v-model="dialogVisible"
       :is-edit="isEdit"
@@ -52,7 +51,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getRequirementsListApi, deleteRequirementApi } from './api'
-import { getStagesApi } from '@/features/matrix/api/stage'
+import { getStagesApi } from '@/features/requirement-workspace/api/stage'
 import { useWorkspaceStore } from '@/store/workspace'
 import type { Requirement, PageResult } from '@/types'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -174,10 +173,6 @@ const handleSizeChange = (val: number) => {
 const handleCurrentChange = (val: number) => {
   currentPage.value = val
   loadRequirements()
-}
-
-const goToWorkMatrix = (reqId: number) => {
-  router.push({ path: '/matrix', query: { reqId } })
 }
 
 const goToWiki = (reqId: number) => {

@@ -78,9 +78,18 @@ const router = useRouter()
 
 const goToMatrix = () => {
   if (props.item.requirementId) {
+    const query: Record<string, string> = {
+      tab: 'execution'
+    }
+    if (props.item.stageId) {
+      query.stageId = String(props.item.stageId)
+    }
+    if (props.item.subTaskId) {
+      query.taskId = String(props.item.subTaskId)
+    }
     router.push({
-      path: '/matrix',
-      query: { reqId: props.item.requirementId }
+      path: `/requirements/${props.item.requirementId}`,
+      query
     })
   }
 }
@@ -206,6 +215,7 @@ const formatStatus = (s: TaskStatus): string => {
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 

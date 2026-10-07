@@ -4,6 +4,7 @@ import type { ActivityLog, PageResult } from '@/types'
 
 export interface ActivityQueryParams {
   workspaceId?: number
+  requirementId?: number
   page?: number
   size?: number
 }
@@ -12,5 +13,5 @@ export interface ActivityQueryParams {
 export function getActivityLogsApi(
   params?: ActivityQueryParams
 ): Promise<PageResult<ActivityLog> | ActivityLog[]> {
-  return request.get<PageResult<ActivityLog>>('/api/activities', { params })
+  return request.get<PageResult<ActivityLog> | ActivityLog[]>('/api/activities', { params })
 }
