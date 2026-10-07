@@ -34,8 +34,13 @@ export interface WorkspaceMember {
   role: string
 }
 
-export function getWorkspaceMembersApi(workspaceId: number): Promise<WorkspaceMember[]> {
-  return request.get<WorkspaceMember[]>(`/api/workspaces/${workspaceId}/members`)
+export interface WorkspaceMembersResult {
+  canManage: boolean
+  members: WorkspaceMember[]
+}
+
+export function getWorkspaceMembersApi(workspaceId: number): Promise<WorkspaceMembersResult> {
+  return request.get<WorkspaceMembersResult>(`/api/workspaces/${workspaceId}/members`)
 }
 
 export function addWorkspaceMemberApi(workspaceId: number, username: string): Promise<WorkspaceMember> {

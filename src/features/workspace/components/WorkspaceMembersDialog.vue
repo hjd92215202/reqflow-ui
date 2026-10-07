@@ -1,6 +1,6 @@
 <template>
   <el-dialog v-model="visible" title="工作空间成员" width="440px" @open="loadMembers">
-    <div class="member-add-row">
+    <div v-if="canManage" class="member-add-row">
       <el-input
         v-model="username"
         placeholder="输入对方的用户名"
@@ -9,7 +9,13 @@
       />
       <el-button type="primary" :loading="saving" @click="addMember">添加</el-button>
     </div>
-    <p class="member-hint">成员可以查看并协作处理此工作空间中的需求。</p>
+    <p class="member-hint">
+      {{
+        canManage
+          ? '成员可以查看并协作处理此工作空间中的需求。'
+          : '成员可查看并协作处理需求；成员管理由所有者负责。'
+      }}
+    </p>
     <el-table v-loading="loading" :data="members" size="small" empty-text="还没有添加成员">
       <el-table-column label="成员">
         <template #default="{ row }">
@@ -18,7 +24,7 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="80" align="right">
+      <el-table-column v-if="canManage" label="操作" width="80" align="right">
         <template #default="{ row }">
           <el-button link type="danger" @click="removeMember(row)">移除</el-button>
         </template>
@@ -40,6 +46,7 @@ import {
 const visible = defineModel<boolean>({ required: true })
 const props = defineProps<{ workspaceId: number | null }>()
 const members = ref<WorkspaceMember[]>([])
+const canManage = ref(false)
 const username = ref('')
 const loading = ref(false)
 const saving = ref(false)
@@ -48,7 +55,9 @@ const loadMembers = async () => {
   if (!props.workspaceId) return
   loading.value = true
   try {
-    members.value = await getWorkspaceMembersApi(props.workspaceId)
+    const result = await getWorkspaceMembersApi(props.workspaceId)
+    members.value = result.members
+    canManage.value = result.canManage
   } catch {
     ElMessage.error('成员列表加载失败')
   } finally {
