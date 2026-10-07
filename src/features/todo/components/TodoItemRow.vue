@@ -11,15 +11,23 @@
     ]"
   >
     <!-- 1. 自定义打勾圆圈 -->
-    <div class="check-box-wrapper" @click="emit('toggle', item)">
+    <button
+      type="button"
+      class="check-box-wrapper"
+      :aria-label="item.status === 'DONE' ? '标记为进行中' : '标记为已完成'"
+      :title="item.status === 'DONE' ? '标记为进行中' : '标记为已完成'"
+      @click="emit('toggle', item)"
+    >
       <span :class="['custom-check', { checked: item.status === 'DONE' }]">
         <span v-if="item.status === 'DONE'" class="check-mark">✓</span>
       </span>
-    </div>
+    </button>
 
     <!-- 2. 标题与属性标签 -->
-    <div class="todo-content-block" @click="emit('edit', item)">
-      <span class="todo-title-text">{{ item.title }}</span>
+    <div class="todo-content-block">
+      <button type="button" class="todo-title-text" @click="emit('edit', item)">
+        {{ item.title }}
+      </button>
       <p v-if="item.description" class="todo-desc-text">{{ item.description }}</p>
 
       <div class="todo-meta-tags">
@@ -158,11 +166,20 @@ const formatStatus = (s: TaskStatus): string => {
 }
 
 .check-box-wrapper {
+  border: 0;
+  background: transparent;
+  font: inherit;
   cursor: pointer;
   padding: 4px;
   margin-right: 12px;
   display: flex;
   align-items: center;
+}
+
+.check-box-wrapper:focus-visible,
+.todo-title-text:focus-visible {
+  outline: 2px solid rgba(35, 131, 226, 0.6);
+  outline-offset: 2px;
 }
 
 .custom-check {
@@ -200,9 +217,16 @@ const formatStatus = (s: TaskStatus): string => {
 }
 
 .todo-title-text {
+  align-self: flex-start;
+  border: 0;
+  background: transparent;
+  padding: 0;
   font-size: 14px;
   color: #37352f;
   font-weight: 500;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .todo-desc-text {
@@ -254,5 +278,23 @@ const formatStatus = (s: TaskStatus): string => {
 .todo-actions-block {
   display: flex;
   gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .todo-item-row {
+    align-items: flex-start;
+    padding: 12px 10px;
+  }
+
+  .check-box-wrapper {
+    margin-right: 8px;
+    padding: 2px;
+  }
+
+  .todo-actions-block {
+    flex-direction: column;
+    gap: 2px;
+    margin-left: 8px;
+  }
 }
 </style>
