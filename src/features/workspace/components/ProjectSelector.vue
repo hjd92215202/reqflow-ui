@@ -75,6 +75,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useWorkspaceStore } from '@/store/workspace'
 import { getWorkspacesApi, getProjectsApi } from '../api'
 import { FolderOpened, Refresh } from '@element-plus/icons-vue'
@@ -83,6 +84,7 @@ import WorkspaceMembersDialog from './WorkspaceMembersDialog.vue'
 import WorkspaceDialog from './WorkspaceDialog.vue'
 
 const workspaceStore = useWorkspaceStore()
+const router = useRouter()
 const activeProjectId = ref<number | null>(workspaceStore.activeProjectId)
 const activeWorkspaceId = ref<number | null>(workspaceStore.activeWorkspaceId)
 const createDialogVisible = ref(false)
@@ -91,6 +93,12 @@ const membersDialogVisible = ref(false)
 const loading = ref(false)
 const loadError = ref('')
 let loadRequestId = 0
+
+const returnToRequirementListOnScopeChange = () => {
+  if (router.currentRoute.value.name === 'RequirementWorkspace') {
+    void router.replace({ name: 'Requirements' })
+  }
+}
 
 const loadProjects = async () => {
   const requestId = ++loadRequestId
@@ -136,6 +144,7 @@ const handleWorkspaceChange = async (workspaceId: number) => {
   workspaceStore.setActiveProject(null)
   activeProjectId.value = null
   workspaceStore.setProjects([])
+  returnToRequirementListOnScopeChange()
   await loadProjects()
 }
 
@@ -149,6 +158,7 @@ const handleWorkspaceCreated = async (workspace: { id: number }) => {
 
 const handleProjectChange = (val: number) => {
   workspaceStore.setActiveProject(val)
+  returnToRequirementListOnScopeChange()
 }
 
 onMounted(() => {
