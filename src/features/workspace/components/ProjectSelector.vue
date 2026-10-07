@@ -5,6 +5,7 @@
     <el-select
       v-model="activeWorkspaceId"
       size="small"
+      :loading="loading"
       :placeholder="'选择工作空间'"
       class="workspace-select"
       @change="handleWorkspaceChange"
@@ -24,6 +25,7 @@
     <el-select
       v-model="activeProjectId"
       size="small"
+      :loading="loading"
       :placeholder="workspaceStore.projects.length ? '切换工程项目' : '暂无项目，请新建'"
       class="project-select"
       @change="handleProjectChange"
@@ -49,6 +51,18 @@
         </div>
       </template>
     </el-select>
+    <el-tooltip v-if="loadError" :content="loadError" placement="bottom">
+      <el-button
+        link
+        type="danger"
+        size="small"
+        :loading="loading"
+        aria-label="工作区或项目加载失败，点击重试"
+        @click="loadProjects"
+      >
+        <el-icon><Refresh /></el-icon>
+      </el-button>
+    </el-tooltip>
 
     <CreateProjectDialog v-model="createDialogVisible" @created="loadProjects" />
     <WorkspaceDialog v-model="workspaceDialogVisible" @created="handleWorkspaceCreated" />
@@ -63,7 +77,7 @@
 import { ref, onMounted } from 'vue'
 import { useWorkspaceStore } from '@/store/workspace'
 import { getWorkspacesApi, getProjectsApi } from '../api'
-import { FolderOpened } from '@element-plus/icons-vue'
+import { FolderOpened, Refresh } from '@element-plus/icons-vue'
 import CreateProjectDialog from './CreateProjectDialog.vue'
 import WorkspaceMembersDialog from './WorkspaceMembersDialog.vue'
 import WorkspaceDialog from './WorkspaceDialog.vue'
@@ -74,34 +88,46 @@ const activeWorkspaceId = ref<number | null>(workspaceStore.activeWorkspaceId)
 const createDialogVisible = ref(false)
 const workspaceDialogVisible = ref(false)
 const membersDialogVisible = ref(false)
+const loading = ref(false)
+const loadError = ref('')
+let loadRequestId = 0
 
 const loadProjects = async () => {
+  const requestId = ++loadRequestId
+  loading.value = true
   try {
     const wsList = await getWorkspacesApi()
-    workspaceStore.setWorkspaces(wsList)
+    if (requestId !== loadRequestId) return
+
     const selectedWorkspace =
       wsList.find(item => item.id === workspaceStore.activeWorkspaceId) || wsList[0]
 
     if (!selectedWorkspace) {
+      workspaceStore.setWorkspaces(wsList)
       workspaceStore.setActiveWorkspace(null)
       workspaceStore.setProjects([])
       activeProjectId.value = null
       workspaceStore.setActiveProject(null)
+      loadError.value = ''
       return
     }
 
+    const projList = await getProjectsApi(selectedWorkspace.id)
+    if (requestId !== loadRequestId) return
+
+    workspaceStore.setWorkspaces(wsList)
     workspaceStore.setActiveWorkspace(selectedWorkspace.id)
     activeWorkspaceId.value = selectedWorkspace.id
-    const projList = await getProjectsApi(selectedWorkspace.id)
     workspaceStore.setProjects(projList)
     const selectedProject =
       projList.find(item => item.id === workspaceStore.activeProjectId) || projList[0]
     activeProjectId.value = selectedProject?.id ?? null
     workspaceStore.setActiveProject(selectedProject?.id ?? null)
+    loadError.value = ''
   } catch {
-    workspaceStore.setProjects([])
-    activeProjectId.value = null
-    workspaceStore.setActiveProject(null)
+    if (requestId === loadRequestId) loadError.value = '工作区或项目加载失败，点击重试。'
+  } finally {
+    if (requestId === loadRequestId) loading.value = false
   }
 }
 
