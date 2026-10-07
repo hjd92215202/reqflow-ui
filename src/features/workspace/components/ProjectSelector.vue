@@ -5,7 +5,7 @@
     <el-select
       v-model="activeProjectId"
       size="small"
-      placeholder="切换工程项目"
+      :placeholder="workspaceStore.projects.length ? '切换工程项目' : '暂无项目，请新建'"
       class="project-select"
       @change="handleProjectChange"
     >
@@ -45,29 +45,31 @@ const createDialogVisible = ref(false)
 
 const loadProjects = async () => {
   try {
-    let wsId = workspaceStore.activeWorkspaceId
-    if (!wsId) {
-      const wsList = await getWorkspacesApi().catch(() => [])
-      if (wsList && wsList.length > 0) {
-        wsId = wsList[0].id
-        workspaceStore.setActiveWorkspace(wsId)
-        workspaceStore.setWorkspaces(wsList)
-      } else {
-        wsId = 1
-        workspaceStore.setActiveWorkspace(1)
-      }
+    const wsList = await getWorkspacesApi()
+    workspaceStore.setWorkspaces(wsList)
+    const selectedWorkspace =
+      wsList.find(item => item.id === workspaceStore.activeWorkspaceId) || wsList[0]
+
+    if (!selectedWorkspace) {
+      workspaceStore.setActiveWorkspace(null)
+      workspaceStore.setProjects([])
+      activeProjectId.value = null
+      workspaceStore.setActiveProject(null)
+      return
     }
 
-    const projList = await getProjectsApi(wsId).catch(() => [])
-    if (projList && projList.length > 0) {
-      workspaceStore.setProjects(projList)
-      // 若当前未选项目或选中的项目不在列表里，默认选第一个
-      if (!activeProjectId.value || !projList.some(p => p.id === activeProjectId.value)) {
-        activeProjectId.value = projList[0].id
-        workspaceStore.setActiveProject(projList[0].id)
-      }
-    }
-  } catch (err) {}
+    workspaceStore.setActiveWorkspace(selectedWorkspace.id)
+    const projList = await getProjectsApi(selectedWorkspace.id)
+    workspaceStore.setProjects(projList)
+    const selectedProject =
+      projList.find(item => item.id === workspaceStore.activeProjectId) || projList[0]
+    activeProjectId.value = selectedProject?.id ?? null
+    workspaceStore.setActiveProject(selectedProject?.id ?? null)
+  } catch {
+    workspaceStore.setProjects([])
+    activeProjectId.value = null
+    workspaceStore.setActiveProject(null)
+  }
 }
 
 const handleProjectChange = (val: number) => {

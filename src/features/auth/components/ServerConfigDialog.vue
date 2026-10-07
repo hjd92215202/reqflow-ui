@@ -32,6 +32,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useUserStore } from '@/store/user'
+import { useWorkspaceStore } from '@/store/workspace'
 import { ElMessage } from 'element-plus'
 
 const props = defineProps<{
@@ -43,6 +44,7 @@ const emit = defineEmits<{
 }>()
 
 const userStore = useUserStore()
+const workspaceStore = useWorkspaceStore()
 const visible = ref(props.modelValue)
 const tempServerUrl = ref('')
 
@@ -65,8 +67,15 @@ const handleSave = () => {
     ElMessage.warning('服务器地址不能为空')
     return
   }
-  userStore.setServerUrl(tempServerUrl.value)
-  ElMessage.success('服务器地址已更新')
+  const nextUrl = tempServerUrl.value.trim().replace(/\/$/, '')
+  const serverChanged = nextUrl !== userStore.serverUrl
+  userStore.setServerUrl(nextUrl)
+  if (serverChanged) {
+    workspaceStore.clearWorkspace()
+    ElMessage.success('服务器地址已更新，请使用该服务的账号登录')
+  } else {
+    ElMessage.success('服务器地址已更新')
+  }
   visible.value = false
 }
 </script>
