@@ -3,6 +3,25 @@
   <div class="project-selector-container">
     <el-icon class="proj-icon"><FolderOpened /></el-icon>
     <el-select
+      v-model="activeWorkspaceId"
+      size="small"
+      :placeholder="'选择工作空间'"
+      class="workspace-select"
+      @change="handleWorkspaceChange"
+    >
+      <el-option
+        v-for="workspace in workspaceStore.workspaces"
+        :key="workspace.id"
+        :label="workspace.name"
+        :value="workspace.id"
+      />
+      <template #footer>
+        <div class="create-proj-footer" @click="workspaceDialogVisible = true">
+          <span>＋ 新建工作空间</span>
+        </div>
+      </template>
+    </el-select>
+    <el-select
       v-model="activeProjectId"
       size="small"
       :placeholder="workspaceStore.projects.length ? '切换工程项目' : '暂无项目，请新建'"
@@ -32,6 +51,7 @@
     </el-select>
 
     <CreateProjectDialog v-model="createDialogVisible" @created="loadProjects" />
+    <WorkspaceDialog v-model="workspaceDialogVisible" @created="handleWorkspaceCreated" />
     <WorkspaceMembersDialog
       v-model="membersDialogVisible"
       :workspace-id="workspaceStore.activeWorkspaceId"
@@ -46,10 +66,13 @@ import { getWorkspacesApi, getProjectsApi } from '../api'
 import { FolderOpened } from '@element-plus/icons-vue'
 import CreateProjectDialog from './CreateProjectDialog.vue'
 import WorkspaceMembersDialog from './WorkspaceMembersDialog.vue'
+import WorkspaceDialog from './WorkspaceDialog.vue'
 
 const workspaceStore = useWorkspaceStore()
 const activeProjectId = ref<number | null>(workspaceStore.activeProjectId)
+const activeWorkspaceId = ref<number | null>(workspaceStore.activeWorkspaceId)
 const createDialogVisible = ref(false)
+const workspaceDialogVisible = ref(false)
 const membersDialogVisible = ref(false)
 
 const loadProjects = async () => {
@@ -68,6 +91,7 @@ const loadProjects = async () => {
     }
 
     workspaceStore.setActiveWorkspace(selectedWorkspace.id)
+    activeWorkspaceId.value = selectedWorkspace.id
     const projList = await getProjectsApi(selectedWorkspace.id)
     workspaceStore.setProjects(projList)
     const selectedProject =
@@ -79,6 +103,22 @@ const loadProjects = async () => {
     activeProjectId.value = null
     workspaceStore.setActiveProject(null)
   }
+}
+
+const handleWorkspaceChange = async (workspaceId: number) => {
+  workspaceStore.setActiveWorkspace(workspaceId)
+  workspaceStore.setActiveProject(null)
+  activeProjectId.value = null
+  workspaceStore.setProjects([])
+  await loadProjects()
+}
+
+const handleWorkspaceCreated = async (workspace: { id: number }) => {
+  workspaceStore.setActiveWorkspace(workspace.id)
+  workspaceStore.setActiveProject(null)
+  activeWorkspaceId.value = workspace.id
+  activeProjectId.value = null
+  await loadProjects()
 }
 
 const handleProjectChange = (val: number) => {
@@ -107,7 +147,12 @@ onMounted(() => {
   width: 220px;
 }
 
-:deep(.project-select .el-input__wrapper) {
+.workspace-select {
+  width: 180px;
+}
+
+:deep(.project-select .el-input__wrapper),
+:deep(.workspace-select .el-input__wrapper) {
   box-shadow: none !important;
   background-color: rgba(55, 53, 47, 0.05) !important;
   padding: 0 8px !important;
@@ -115,7 +160,8 @@ onMounted(() => {
   border-radius: 4px;
 }
 
-:deep(.project-select .el-input__inner) {
+:deep(.project-select .el-input__inner),
+:deep(.workspace-select .el-input__inner) {
   font-size: 12px !important;
   font-weight: 600 !important;
   color: #37352f !important;

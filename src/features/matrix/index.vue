@@ -117,6 +117,7 @@ const activeStageTasks = computed(() => {
   if (!activeStage.value) return []
   return stageSubTasksMap.value[activeStage.value.id] || []
 })
+let workspaceRequestId = 0
 
 // 监听项目集切换，自动重新载入对应的需求矩阵
 watch(
@@ -132,11 +133,13 @@ const getPriorityTag = (p: PriorityLevel): 'danger' | 'warning' | 'info' => {
   return 'info'
 }
 
-const loadStagesAndTasks = async (reqId: number) => {
+const loadStagesAndTasks = async (reqId: number, requestId?: number) => {
   const stageList = await getStagesApi(reqId).catch(() => [])
+  if (requestId !== undefined && requestId !== workspaceRequestId) return
   stages.value = stageList
   for (const s of stageList) {
     const flatList = await getSubTasksApi(s.id).catch(() => [])
+    if (requestId !== undefined && requestId !== workspaceRequestId) return
     stageSubTasksMap.value[s.id] = arrayToTree(flatList)
   }
 }
@@ -171,11 +174,14 @@ const handleReqSelectChange = async (reqId: number) => {
 }
 
 const initWorkspaceData = async () => {
+  const requestId = ++workspaceRequestId
+  const projectId = workspaceStore.activeProjectId
   const res = await getRequirementsListApi({
     page: 0,
     size: 200,
-    projectId: workspaceStore.activeProjectId || undefined
+    projectId: projectId || undefined
   }).catch(() => [])
+  if (requestId !== workspaceRequestId || projectId !== workspaceStore.activeProjectId) return
 
   let list: Requirement[] = []
   if (Array.isArray(res)) {
@@ -191,11 +197,12 @@ const initWorkspaceData = async () => {
   if (target) {
     selectedRequirement.value = target
     activeReqId.value = target.id
-    await loadStagesAndTasks(target.id)
+    await loadStagesAndTasks(target.id, requestId)
   } else {
     selectedRequirement.value = null
     activeReqId.value = null
     stages.value = []
+    stageSubTasksMap.value = {}
   }
 }
 

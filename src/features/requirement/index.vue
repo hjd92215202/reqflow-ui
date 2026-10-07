@@ -72,6 +72,7 @@ const stageStatsMap = ref<Record<number, StageStat>>({})
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+let requirementsRequestId = 0
 
 const currentProjectName = computed(() => {
   const current = workspaceStore.projects.find(p => p.id === workspaceStore.activeProjectId)
@@ -115,13 +116,16 @@ const handleDragEnd = (reorderedList: Requirement[]) => {
 }
 
 const loadRequirements = async () => {
+  const requestId = ++requirementsRequestId
+  const projectId = workspaceStore.activeProjectId
   loading.value = true
   try {
     const res = await getRequirementsListApi({
       page: currentPage.value - 1,
       size: pageSize.value,
-      projectId: workspaceStore.activeProjectId || undefined
+      projectId: projectId || undefined
     })
+    if (requestId !== requirementsRequestId || projectId !== workspaceStore.activeProjectId) return
 
     let list: Requirement[] = []
     if (res && (res as PageResult<Requirement>).content !== undefined) {
@@ -134,14 +138,14 @@ const loadRequirements = async () => {
     }
 
     tableData.value = applySavedRequirementOrder(list)
-    await loadRequirementStats(tableData.value)
+    await loadRequirementStats(tableData.value, requestId)
   } catch (error) {
   } finally {
-    loading.value = false
+    if (requestId === requirementsRequestId) loading.value = false
   }
 }
 
-const loadRequirementStats = async (reqs: Requirement[]) => {
+const loadRequirementStats = async (reqs: Requirement[], requestId: number) => {
   if (!reqs || reqs.length === 0) return
   const stats: Record<number, StageStat> = {}
   await Promise.all(
@@ -161,7 +165,7 @@ const loadRequirementStats = async (reqs: Requirement[]) => {
       }
     })
   )
-  stageStatsMap.value = stats
+  if (requestId === requirementsRequestId) stageStatsMap.value = stats
 }
 
 const handleSizeChange = (val: number) => {
