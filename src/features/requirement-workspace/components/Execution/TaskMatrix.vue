@@ -7,7 +7,7 @@
       row-key="id"
       default-expand-all
       :tree-props="{ children: 'children' }"
-      :indent="24"
+      :indent="0"
       class="matrix-tree-table"
       :highlight-current-row="true"
       @row-click="handleRowClick"
@@ -21,6 +21,7 @@
               'is-selected': selectedTaskId === scope.row.id,
               'has-children': hasChildren(scope.row)
             }"
+            :style="{ marginLeft: `${taskDepth(scope.row) * 18}px` }"
             @dblclick.stop="startInlineTitle(scope.row)"
           >
             <el-input
@@ -146,7 +147,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import type { TableInstance } from 'element-plus'
 import type { SubTask, TaskDependency } from '@/types'
 import { checkTaskBlocked } from '../../composables/useTaskTree'
@@ -170,6 +171,7 @@ const emit = defineEmits<{
 const matrixTableRef = ref<TableInstance | null>(null)
 const editingTaskId = ref<number | null>(null)
 const cachedTitle = ref('')
+const taskById = computed(() => new Map(props.allFlatTasks.map(task => [task.id, task])))
 
 const handleRowClick = (row: SubTask) => {
   emit('select-task', row)
@@ -178,6 +180,22 @@ const handleRowClick = (row: SubTask) => {
 const hasChildren = (task: SubTask) => Boolean(task.children?.length)
 
 const isChildTask = (task: SubTask) => Boolean(task.parentId ?? task.parent_id)
+
+const taskDepth = (task: SubTask) => {
+  const visited = new Set<number>([task.id])
+  let parentId = task.parentId ?? task.parent_id
+  let depth = 0
+
+  while (parentId && !visited.has(parentId)) {
+    const parent = taskById.value.get(parentId)
+    if (!parent) break
+    visited.add(parentId)
+    depth += 1
+    parentId = parent.parentId ?? parent.parent_id
+  }
+
+  return Math.min(depth, 5)
+}
 
 const completedChildren = (task: SubTask) =>
   (task.children || []).filter(child => child.status === 'DONE').length
