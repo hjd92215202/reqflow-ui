@@ -300,8 +300,22 @@ const handleCreateStage = async (payload: { title: string; dateRange: [string, s
 }
 
 const handleUpdateStage = async (id: number, data: any) => {
-  await updateStage(id, data)
-  ElMessage.success('阶段已更新')
+  try {
+    await updateStage(id, data)
+  } catch {
+    let restored = false
+    if (requirement.value) {
+      try {
+        await loadStages(requirement.value.id)
+        restored = true
+      } catch {
+        // The message below asks the user to reload if the server refresh fails.
+      }
+    }
+    ElMessage.error(
+      restored ? '阶段保存失败，已恢复最近保存的内容' : '阶段保存失败，请重新加载确认最新状态'
+    )
+  }
 }
 
 const handleDeleteStage = async (id: number) => {
