@@ -34,8 +34,13 @@
           v-if="activeTab === 'overview'"
           :requirement="requirement"
           :stages="stages"
+          :tasks-by-stage="stageTasksCache"
+          :dependencies-by-stage="stageDependenciesCache"
+          :overview-loading="overviewLoading"
+          :overview-error="overviewError"
           @switch-tab="tab => (activeTab = tab as any)"
           @go-stage-execution="handleGoStageExecution"
+          @retry-overview="loadOverviewData"
         />
 
         <!-- Tab 2: 计划 -->
@@ -170,6 +175,8 @@ const workspaceLoadError = ref('')
 const planEditorVisible = ref(false)
 const manualColumns = ref<string[]>([])
 const savingTaskId = ref<number | null>(null)
+const overviewLoading = ref(false)
+const overviewError = ref('')
 let workspaceInitRequestId = 0
 
 const stagesDoneCount = computed(() => stages.value.filter(s => s.status === 'DONE').length)
@@ -250,6 +257,7 @@ const initWorkspace = async () => {
     if (requestId !== workspaceInitRequestId || requestedRequirementId !== requirementId.value)
       return
     workspaceLoadError.value = ''
+    if (activeTab.value === 'overview') void loadOverviewData()
 
     // 若处于 execution Tab 且没有有效 stageId，执行默认推导
     if (activeTab.value === 'execution' && !currentStageId.value) {
@@ -288,6 +296,24 @@ const retryWorkspaceData = async () => {
     workspaceLoadError.value = '工作区数据加载失败，请检查网络后重试。'
   }
 }
+
+const loadOverviewData = async () => {
+  if (!stages.value.length) return
+  overviewLoading.value = true
+  overviewError.value = ''
+  try {
+    const results = await Promise.allSettled(stages.value.map(stage => loadStageTasks(stage.id)))
+    if (results.some(result => result.status === 'rejected')) {
+      overviewError.value = '部分阶段数据暂时无法加载，风险信息可能不完整。请重试或进入执行页确认。'
+    }
+  } finally {
+    overviewLoading.value = false
+  }
+}
+
+watch(activeTab, tab => {
+  if (tab === 'overview') void loadOverviewData()
+})
 
 const handleGoStageExecution = (stageId: number) => {
   openStageExecution(stageId)
