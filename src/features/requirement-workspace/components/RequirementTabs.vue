@@ -53,7 +53,13 @@ const tabs: { key: RequirementWorkspaceTab; label: string; badge?: number }[] = 
   align-items: center;
   gap: 6px;
   padding: 10px 14px;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
   cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
   border-bottom: 2px solid transparent;
   color: #5f5e5b;
   font-size: 13px;
@@ -64,6 +70,7 @@ const tabs: { key: RequirementWorkspaceTab; label: string; badge?: number }[] = 
 .tab-item:focus-visible {
   outline: 2px solid rgba(35, 131, 226, 0.55);
   outline-offset: -2px;
+  border-radius: 4px;
 }
 
 .tab-item:hover {
@@ -89,4 +96,3 @@ const tabs: { key: RequirementWorkspaceTab; label: string; badge?: number }[] = 
   color: #8c8c8c;
 }
 </style>
-border: 0; background: transparent; font-family: inherit; white-space: nowrap;
