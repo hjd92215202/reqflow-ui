@@ -2,8 +2,10 @@
 <template>
   <aside class="task-inspector-panel">
     <div class="inspector-header">
-      <div class="inspector-header-left">
+      <div class="inspector-header-content">
         <span class="inspector-badge">TASK-{{ task.id }}</span>
+        <span class="inspector-save-hint">离开字段后自动保存</span>
+        <h2 class="inspector-task-title" :title="task.title">{{ task.title }}</h2>
       </div>
       <el-button link class="close-inspector-btn" @click="emit('close')"> ✕ </el-button>
     </div>
@@ -113,10 +115,19 @@ const activeTab = ref<'detail' | 'subtasks' | 'dependencies' | 'activity'>('deta
 
 .inspector-header {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  align-items: center;
+  gap: 12px;
   padding: 12px 16px;
   border-bottom: 1px solid rgba(55, 53, 47, 0.06);
+}
+
+.inspector-header-content {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 3px 10px;
+  min-width: 0;
 }
 
 .inspector-badge {
@@ -124,6 +135,27 @@ const activeTab = ref<'detail' | 'subtasks' | 'dependencies' | 'activity'>('deta
   font-size: 11.5px;
   font-weight: 600;
   color: #8c8c8c;
+}
+
+.inspector-save-hint {
+  justify-self: end;
+  color: #98a2b3;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.inspector-task-title {
+  grid-column: 1 / -1;
+  display: -webkit-box;
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .close-inspector-btn {

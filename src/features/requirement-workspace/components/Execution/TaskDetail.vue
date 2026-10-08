@@ -5,9 +5,12 @@
       <el-form-item label="任务名称">
         <el-input
           v-model="form.title"
+          type="textarea"
+          :autosize="{ minRows: 1, maxRows: 3 }"
+          maxlength="255"
           size="default"
           @blur="handleSaveField"
-          @keyup.enter="handleSaveField"
+          @keyup.enter.stop.prevent="handleSaveField"
         />
       </el-form-item>
 
@@ -159,6 +162,13 @@ const customKeys = computed(() => {
 })
 
 const handleSaveField = () => {
+  const title = form.value.title.trim()
+  if (!title) {
+    form.value.title = props.task.title
+    ElMessage.warning('任务名称不能为空')
+    return
+  }
+  form.value.title = title
   emit('update-task', {
     ...props.task,
     title: form.value.title,
@@ -224,6 +234,10 @@ const handleRemoveProperty = (key: string) => {
 
 .note-form-item {
   margin-top: 2px;
+}
+
+.task-detail-pane :deep(.el-textarea__inner) {
+  line-height: 1.5;
 }
 
 .field-hint {
