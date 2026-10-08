@@ -329,11 +329,23 @@ const handleUpdateTask = async (task: SubTask) => {
   }
 }
 
-const handleCreateTask = async (payload: { title: string; assignee: string }) => {
-  if (!currentStageId.value) return
-  const created = await createTask(currentStageId.value, payload.title, payload.assignee)
-  ElMessage.success('任务创建成功')
-  setTaskId(created.id)
+const handleCreateTask = async (
+  payload: { title: string; assignee: string },
+  complete: (saved: boolean) => void
+) => {
+  if (!currentStageId.value) {
+    complete(false)
+    return
+  }
+  try {
+    const created = await createTask(currentStageId.value, payload.title, payload.assignee)
+    ElMessage.success('任务创建成功')
+    setTaskId(created.id)
+    complete(true)
+  } catch {
+    ElMessage.error('任务创建失败，请检查后重试')
+    complete(false)
+  }
 }
 
 const handleAddChildTask = async (parentTask: SubTask) => {

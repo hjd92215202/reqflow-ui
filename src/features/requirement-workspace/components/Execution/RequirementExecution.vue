@@ -28,7 +28,7 @@
         @add-child="p => emit('add-child', p)"
         @add-child-with-title="(p, title) => emit('add-child-with-title', p, title)"
         @delete-task="id => emit('delete-task', id)"
-        @create-task="p => emit('create-task', p)"
+        @create-task="(payload, complete) => emit('create-task', payload, complete)"
         @add-dep="pId => emit('add-dep', pId)"
         @remove-dep="dId => emit('remove-dep', dId)"
       />
@@ -74,7 +74,11 @@ const emit = defineEmits<{
   (e: 'add-child', parentTask: SubTask): void
   (e: 'add-child-with-title', parentTask: SubTask, title: string): void
   (e: 'delete-task', taskId: number): void
-  (e: 'create-task', payload: { title: string; assignee: string }): void
+  (
+    e: 'create-task',
+    payload: { title: string; assignee: string },
+    complete: (saved: boolean) => void
+  ): void
   (e: 'add-dep', predId: number): void
   (e: 'remove-dep', depId: number): void
 }>()

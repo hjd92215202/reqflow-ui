@@ -6,6 +6,7 @@
     width="420px"
     append-to-body
     :close-on-click-modal="false"
+    :close-on-press-escape="!loading"
   >
     <el-form label-position="top">
       <el-form-item label="任务名称" required>
@@ -21,8 +22,8 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="visible = false">取消</el-button>
-      <el-button type="primary" :loading="loading" @click="handleCreate"> 创建并开启 </el-button>
+      <el-button :disabled="loading" @click="visible = false">取消</el-button>
+      <el-button type="primary" :loading="loading" @click="handleCreate">创建任务</el-button>
     </template>
   </el-dialog>
 </template>
@@ -37,7 +38,11 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:modelValue', val: boolean): void
-  (e: 'submit', payload: { title: string; assignee: string }): void
+  (
+    e: 'submit',
+    payload: { title: string; assignee: string },
+    complete: (saved: boolean) => void
+  ): void
 }>()
 
 const visible = ref(props.modelValue)
@@ -52,6 +57,7 @@ watch(
     if (val) {
       title.value = ''
       assignee.value = ''
+      loading.value = false
     }
   }
 )
@@ -61,11 +67,15 @@ watch(visible, val => {
 })
 
 const handleCreate = () => {
+  if (loading.value) return
   if (!title.value.trim()) {
     ElMessage.warning('任务名称不可为空')
     return
   }
-  emit('submit', { title: title.value.trim(), assignee: assignee.value.trim() })
-  visible.value = false
+  loading.value = true
+  emit('submit', { title: title.value.trim(), assignee: assignee.value.trim() }, saved => {
+    loading.value = false
+    if (saved) visible.value = false
+  })
 }
 </script>

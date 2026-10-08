@@ -68,7 +68,10 @@
       />
     </el-drawer>
 
-    <TaskCreate v-model="createDialogVisible" @submit="payload => emit('create-task', payload)" />
+    <TaskCreate
+      v-model="createDialogVisible"
+      @submit="(payload, complete) => emit('create-task', payload, complete)"
+    />
   </div>
 </template>
 
@@ -102,7 +105,11 @@ const emit = defineEmits<{
   (e: 'add-child', parentTask: SubTask): void
   (e: 'add-child-with-title', parentTask: SubTask, title: string): void
   (e: 'delete-task', taskId: number): void
-  (e: 'create-task', payload: { title: string; assignee: string }): void
+  (
+    e: 'create-task',
+    payload: { title: string; assignee: string },
+    complete: (saved: boolean) => void
+  ): void
   (e: 'add-dep', predId: number): void
   (e: 'remove-dep', depId: number): void
 }>()
