@@ -17,7 +17,10 @@
         <template #default="scope">
           <div
             class="cell-title-box"
-            :class="{ 'is-selected': selectedTaskId === scope.row.id }"
+            :class="{
+              'is-selected': selectedTaskId === scope.row.id,
+              'has-children': hasChildren(scope.row)
+            }"
             @dblclick.stop="startInlineTitle(scope.row)"
           >
             <el-input
@@ -33,6 +36,11 @@
             <span v-else :class="['task-title-text', { 'is-done': scope.row.status === 'DONE' }]">
               {{ scope.row.title }}
             </span>
+
+            <span v-if="hasChildren(scope.row)" class="task-hierarchy-badge">
+              {{ completedChildren(scope.row) }}/{{ scope.row.children!.length }} 项拆解
+            </span>
+            <span v-else-if="isChildTask(scope.row)" class="task-hierarchy-label">子任务</span>
 
             <span
               v-if="savingTaskId === scope.row.id"
@@ -167,6 +175,13 @@ const handleRowClick = (row: SubTask) => {
   emit('select-task', row)
 }
 
+const hasChildren = (task: SubTask) => Boolean(task.children?.length)
+
+const isChildTask = (task: SubTask) => Boolean(task.parentId ?? task.parent_id)
+
+const completedChildren = (task: SubTask) =>
+  (task.children || []).filter(child => child.status === 'DONE').length
+
 const startInlineTitle = (row: SubTask) => {
   editingTaskId.value = row.id
   cachedTitle.value = row.title
@@ -248,6 +263,31 @@ defineExpose({
 .task-title-text {
   font-size: 13px;
   color: #37352f;
+}
+
+.has-children .task-title-text {
+  font-weight: 600;
+}
+
+.task-hierarchy-badge,
+.task-hierarchy-label {
+  flex: 0 0 auto;
+  color: #8492a6;
+  font-size: 10px;
+  line-height: 18px;
+}
+
+.task-hierarchy-badge {
+  padding: 0 6px;
+  color: #58789c;
+  background: #f0f5fb;
+  border-radius: 9px;
+}
+
+.task-hierarchy-label {
+  padding: 0 5px;
+  background: #f5f6f8;
+  border-radius: 3px;
 }
 
 .task-title-text.is-done {
