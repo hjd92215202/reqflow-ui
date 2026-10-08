@@ -22,19 +22,17 @@
     </div>
 
     <div class="tool-group templates-group">
-      <span class="tool-group-label">⚡️ 经验模板:</span>
-      <el-button size="small" link type="primary" @click="emit('template', 'TECH')"
-        >🛠️ 架构方案</el-button
-      >
-      <el-button size="small" link type="warning" @click="emit('template', 'PIT')"
-        >⚠️ 排坑记录</el-button
-      >
-      <el-button size="small" link type="success" @click="emit('template', 'REVIEW')"
-        >🎯 项目复盘</el-button
-      >
-      <el-button size="small" link type="info" @click="emit('template', 'CHANGE')"
-        >📝 变更说明</el-button
-      >
+      <el-dropdown trigger="click" @command="handleTemplateCommand">
+        <el-button size="small" plain>插入模板</el-button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item command="TECH">架构方案</el-dropdown-item>
+            <el-dropdown-item command="PIT">问题排查记录</el-dropdown-item>
+            <el-dropdown-item command="REVIEW">项目复盘</el-dropdown-item>
+            <el-dropdown-item command="CHANGE">需求变更说明</el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
     </div>
   </div>
 </template>
@@ -45,6 +43,12 @@ const emit = defineEmits<{
   (e: 'insert-block', text: string): void
   (e: 'template', type: 'TECH' | 'PIT' | 'REVIEW' | 'CHANGE'): void
 }>()
+
+const handleTemplateCommand = (command: string | number | object) => {
+  if (command === 'TECH' || command === 'PIT' || command === 'REVIEW' || command === 'CHANGE') {
+    emit('template', command)
+  }
+}
 
 const insertCodeBlock = () => {
   emit('wrap', '```javascript\n', '\n```', '// 在此输入代码...')
@@ -61,7 +65,7 @@ const insertTable = () => {
 .markdown-toolbar-bar {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   background-color: #f9f9f8;
   padding: 6px 10px;
   border-radius: 6px;
@@ -74,11 +78,36 @@ const insertTable = () => {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+}
+
+.tool-group:first-child {
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.tool-group:first-child :deep(.el-button-group) {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.templates-group {
+  flex: 0 0 auto;
 }
 
 .tool-group-label {
   font-size: 11px;
   font-weight: 600;
   color: #8c8c8c;
+}
+
+@media (max-width: 760px) {
+  .markdown-toolbar-bar {
+    justify-content: flex-start;
+  }
+
+  .tool-group:first-child {
+    flex-basis: 100%;
+  }
 }
 </style>

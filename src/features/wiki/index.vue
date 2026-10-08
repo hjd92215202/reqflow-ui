@@ -464,7 +464,9 @@ watch(
 .doc-top-bar {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px 20px;
   border-bottom: 1px solid rgba(55, 53, 47, 0.08);
   padding-bottom: 12px;
   margin-bottom: 14px;
@@ -474,7 +476,18 @@ watch(
 .top-bar-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
+  min-width: 0;
+}
+
+.top-bar-left {
+  flex: 1 1 280px;
+}
+
+.top-bar-actions {
+  justify-content: flex-end;
+  flex: 1 1 560px;
 }
 
 .expand-sidebar-btn {
@@ -509,6 +522,7 @@ watch(
 .doc-properties-bar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 20px;
   background-color: #fcfcfb;
   padding: 8px 12px;
@@ -566,5 +580,46 @@ watch(
 .wiki-loading-state {
   width: min(560px, calc(100% - 48px));
   padding: 24px;
+}
+
+@media (max-width: 1100px) {
+  .wiki-main-container {
+    padding: 16px 18px;
+  }
+
+  .top-bar-left,
+  .top-bar-actions {
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
+
+  .doc-properties-bar {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 680px) {
+  .wiki-main-container {
+    padding: 12px;
+  }
+
+  .top-bar-actions {
+    gap: 8px;
+  }
+
+  .top-bar-actions :deep(.el-radio-group) {
+    flex-basis: 100%;
+  }
+
+  .prop-item {
+    flex: 1 1 100%;
+  }
+
+  .prop-item :deep(.el-select),
+  .prop-item :deep(.el-input) {
+    flex: 1;
+    width: auto !important;
+    min-width: 0;
+  }
 }
 </style>
