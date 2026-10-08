@@ -40,7 +40,7 @@
       <el-table-column prop="priority" label="优先级" width="90" align="center">
         <template #default="scope">
           <el-tag :type="getPriorityTag(scope.row.priority)" size="small">
-            {{ scope.row.priority }}
+            {{ formatPriority(scope.row.priority) }}
           </el-tag>
         </template>
       </el-table-column>
@@ -210,6 +210,15 @@ const getPriorityTag = (p: PriorityLevel): 'danger' | 'warning' | 'info' => {
   if (p === 'HIGH') return 'danger'
   if (p === 'MEDIUM') return 'warning'
   return 'info'
+}
+
+const formatPriority = (priority: PriorityLevel): string => {
+  const labels: Record<PriorityLevel, string> = {
+    HIGH: '高',
+    MEDIUM: '中',
+    LOW: '低'
+  }
+  return labels[priority]
 }
 
 const getStatusTag = (

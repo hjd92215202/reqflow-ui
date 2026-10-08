@@ -5,8 +5,8 @@
       <!-- 顶部工作台标题与状态指标 -->
       <div class="workbench-header">
         <div>
-          <h2 class="workbench-title">⚡ 我的工作台 (My Work)</h2>
-          <p class="workbench-subtitle">聚合个人工作流与需求协同任务，围绕需求执行推进闭环</p>
+          <h2 class="workbench-title">我的工作台</h2>
+          <p class="workbench-subtitle">集中处理需求任务与个人待办，按时限和进度快速筛选</p>
         </div>
         <div class="workbench-stats-badges">
           <div v-if="overdueCount > 0" class="stat-pill overdue">
@@ -33,11 +33,9 @@
           <!-- 分类：全部 / 需求工作项 / 个人待办 -->
           <el-radio-group v-model="categoryType" size="default">
             <el-radio-button value="ALL">全部 ({{ allTodos.length }})</el-radio-button>
-            <el-radio-button value="PROJECT">
-              📋 需求协同 ({{ projectTodosCount }})
-            </el-radio-button>
+            <el-radio-button value="PROJECT"> 需求协同 ({{ projectTodosCount }}) </el-radio-button>
             <el-radio-button value="PERSONAL">
-              📝 个人便签 ({{ personalTodosCount }})
+              个人便签 ({{ personalTodosCount }})
             </el-radio-button>
           </el-radio-group>
 

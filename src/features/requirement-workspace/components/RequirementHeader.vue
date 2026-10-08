@@ -12,7 +12,7 @@
         <div class="title-status-line">
           <h1 class="req-main-title">{{ requirement.title }}</h1>
           <el-tag size="small" :type="getPriorityTag(requirement.priority)">
-            {{ requirement.priority }} 优先级
+            {{ formatPriority(requirement.priority) }}优先级
           </el-tag>
           <el-tag size="small" :type="getStatusTag(requirement.status)">
             {{ formatStatus(requirement.status) }}
@@ -74,6 +74,15 @@ const getPriorityTag = (p: PriorityLevel) => {
   if (p === 'HIGH') return 'danger'
   if (p === 'MEDIUM') return 'warning'
   return 'info'
+}
+
+const formatPriority = (priority: PriorityLevel): string => {
+  const labels: Record<PriorityLevel, string> = {
+    HIGH: '高',
+    MEDIUM: '中',
+    LOW: '低'
+  }
+  return labels[priority]
 }
 
 const getStatusTag = (s: RequirementStatus) => {
