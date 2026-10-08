@@ -303,16 +303,48 @@ const handleOneClickShare = async () => {
       : 'http://localhost:8080'
     const fullShareUrl = `${baseUrl}/share/wiki/${res.shareToken}`
 
-    await navigator.clipboard.writeText(fullShareUrl)
-    ElMessage.success({
-      message: '🔗 安全只读分享链接已直接复制到剪贴板！',
-      duration: 3000
-    })
+    try {
+      await copyTextToClipboard(fullShareUrl)
+      ElMessage.success({ message: '安全只读分享链接已复制到剪贴板', duration: 3000 })
+    } catch {
+      await ElMessageBox.prompt('当前环境无法自动复制，请手动复制下面的分享链接。', '分享链接', {
+        inputValue: fullShareUrl,
+        inputType: 'text',
+        confirmButtonText: '完成',
+        showCancelButton: false
+      })
+    }
   } catch (err) {
-    ElMessage.error('生成分享链接失败')
+    console.error('生成分享链接失败', err)
+    const responseData = (err as { response?: { data?: unknown } })?.response?.data
+    const message =
+      typeof responseData === 'string'
+        ? responseData
+        : err instanceof Error
+          ? err.message
+          : String(err || '未知错误')
+    ElMessage.error(`生成分享链接失败：${message}`)
   } finally {
     sharing.value = false
   }
+}
+
+const copyTextToClipboard = async (text: string) => {
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    await navigator.clipboard.writeText(text)
+    return
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.opacity = '0'
+  document.body.appendChild(textarea)
+  textarea.select()
+  const copied = document.execCommand('copy')
+  document.body.removeChild(textarea)
+  if (!copied) throw new Error('当前环境无法访问剪贴板，请检查浏览器权限')
 }
 
 const loadData = async () => {

@@ -35,8 +35,12 @@ export function useRequirementStages() {
   }
 
   const updateStage = async (id: number, data: Partial<Stage>) => {
-    const updated = await updateStageApi(id, data)
     const idx = stages.value.findIndex(s => s.id === id)
+    const current = idx === -1 ? undefined : stages.value[idx]
+    // The API accepts a Stage-shaped body; send the complete current stage so
+    // changing one field cannot clear required or unrelated values.
+    const payload = current ? { ...current, ...data } : data
+    const updated = await updateStageApi(id, payload)
     if (idx !== -1) {
       stages.value[idx] = { ...stages.value[idx], ...updated }
     }
