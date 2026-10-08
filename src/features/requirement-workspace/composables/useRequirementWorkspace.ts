@@ -1,5 +1,5 @@
 import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, type LocationQueryRaw } from 'vue-router'
 import type { RequirementWorkspaceTab, Stage } from '@/types'
 
 export function useRequirementWorkspace() {
@@ -46,6 +46,17 @@ export function useRequirementWorkspace() {
     router.replace({ query: newQuery })
   }
 
+  const openStageExecution = (stageId: number) => {
+    const newQuery: LocationQueryRaw = {
+      ...route.query,
+      tab: 'execution',
+      stageId: String(stageId)
+    }
+    // Stage 跳转必须在同一次路由更新中切换 Tab 和选中阶段，避免互相覆盖。
+    delete newQuery.taskId
+    router.replace({ query: newQuery })
+  }
+
   const setTaskId = (taskId: number | null) => {
     const newQuery = { ...route.query }
     if (taskId) {
@@ -77,6 +88,7 @@ export function useRequirementWorkspace() {
     currentStageId,
     currentTaskId,
     setStageId,
+    openStageExecution,
     setTaskId,
     resolveInitialStageId
   }

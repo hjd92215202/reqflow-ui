@@ -144,6 +144,7 @@ const {
   currentStageId,
   currentTaskId,
   setStageId,
+  openStageExecution,
   setTaskId,
   resolveInitialStageId
 } = useRequirementWorkspace()
@@ -289,8 +290,7 @@ const retryWorkspaceData = async () => {
 }
 
 const handleGoStageExecution = (stageId: number) => {
-  activeTab.value = 'execution'
-  setStageId(stageId)
+  openStageExecution(stageId)
 }
 
 const handleCreateStage = async (payload: { title: string; dateRange: [string, string] | [] }) => {
