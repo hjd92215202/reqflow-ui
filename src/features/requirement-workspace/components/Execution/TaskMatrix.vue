@@ -241,10 +241,17 @@ defineExpose({
 .task-matrix-wrapper {
   flex: 1;
   overflow: auto;
+  padding: 0 12px 12px;
+  box-sizing: border-box;
+  background: #f6f8fb;
 }
 
 .matrix-tree-table {
   width: 100%;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #e9edf2;
+  border-radius: 8px;
 }
 
 .cell-title-box {

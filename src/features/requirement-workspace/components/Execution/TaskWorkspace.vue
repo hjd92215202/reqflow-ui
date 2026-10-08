@@ -27,6 +27,29 @@
         @add-child="p => emit('add-child', p)"
         @delete-task="id => emit('delete-task', id)"
       />
+
+      <div class="stage-task-summary">
+        <div class="summary-copy">
+          <template v-if="allFlatTasks.length">
+            <strong>{{ allFlatTasks.length }}</strong>
+            <span>项工作项</span>
+            <span v-if="visibleTaskCount !== allFlatTasks.length" class="visible-count">
+              当前显示 {{ visibleTaskCount }} 项
+            </span>
+          </template>
+          <span v-else class="empty-summary">本阶段还没有工作项</span>
+        </div>
+        <div v-if="allFlatTasks.length" class="summary-statuses">
+          <span><i class="status-dot todo-dot"></i>{{ taskStatusCounts.todo }} 待处理</span>
+          <span
+            ><i class="status-dot progress-dot"></i>{{ taskStatusCounts.inProgress }} 进行中</span
+          >
+          <span><i class="status-dot done-dot"></i>{{ taskStatusCounts.done }} 已完成</span>
+        </div>
+        <el-button type="primary" plain size="small" @click="createDialogVisible = true">
+          {{ allFlatTasks.length ? '+ 新建工作项' : '创建第一个工作项' }}
+        </el-button>
+      </div>
     </div>
 
     <!-- 1. 宽屏模式：内联 340px 固定面板 -->
@@ -76,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { computed, nextTick, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import type { SubTask, TaskDependency, TaskFilters } from '@/types'
 import TaskToolbar from './TaskToolbar.vue'
 import TaskMatrix from './TaskMatrix.vue'
@@ -120,6 +143,18 @@ const visibleColumns = ref<string[]>([])
 const createDialogVisible = ref(false)
 const isNarrowScreen = ref(false)
 let restoringColumns = false
+
+const visibleTaskCount = computed(() => {
+  const count = (tasks: SubTask[]): number =>
+    tasks.reduce((total, task) => total + 1 + count(task.children || []), 0)
+  return count(props.filteredTasks)
+})
+
+const taskStatusCounts = computed(() => ({
+  todo: props.allFlatTasks.filter(task => task.status === 'TODO').length,
+  inProgress: props.allFlatTasks.filter(task => task.status === 'IN_PROGRESS').length,
+  done: props.allFlatTasks.filter(task => task.status === 'DONE').length
+}))
 
 watch(
   () => props.columnPreferenceKey,
@@ -174,10 +209,90 @@ onBeforeUnmount(() => {
   flex-direction: column;
   min-width: 0;
   overflow: hidden;
+  background: #f6f8fb;
+}
+
+.stage-task-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 0 12px 12px;
+  padding: 10px 14px;
+  color: #667085;
+  background: #fff;
+  border: 1px solid #e9edf2;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.summary-copy,
+.summary-statuses,
+.summary-statuses span {
+  display: flex;
+  align-items: center;
+}
+
+.summary-copy {
+  gap: 5px;
+}
+
+.summary-copy strong {
+  color: #344054;
+  font-size: 14px;
+}
+
+.visible-count {
+  margin-left: 8px;
+  color: #98a2b3;
+}
+
+.empty-summary {
+  color: #8a94a3;
+}
+
+.summary-statuses {
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.summary-statuses span {
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.todo-dot {
+  background: #a8abb2;
+}
+
+.progress-dot {
+  background: #e6a23c;
+}
+
+.done-dot {
+  background: #67c23a;
 }
 
 .drawer-inspector-body {
   width: 100% !important;
   border-left: none !important;
+}
+
+@media (max-width: 760px) {
+  .stage-task-summary {
+    align-items: flex-start;
+  }
+
+  .summary-statuses {
+    order: 3;
+    width: 100%;
+  }
 }
 </style>
