@@ -48,6 +48,20 @@
         />
       </el-form-item>
 
+      <el-form-item label="备注" class="note-form-item">
+        <el-input
+          v-model="form.note"
+          type="textarea"
+          :rows="4"
+          maxlength="2000"
+          show-word-limit
+          resize="vertical"
+          placeholder="记录执行说明、处理过程或需要交接的信息…"
+          @blur="handleSaveField"
+        />
+        <span class="field-hint">离开输入框后自动保存</span>
+      </el-form-item>
+
       <!-- 动态自定义字段一览及行内添加 -->
       <div class="custom-fields-section">
         <div class="custom-sec-header">
@@ -108,6 +122,7 @@ const form = ref<{
   assignee: string
   startDate: string | null | undefined
   endDate: string | null | undefined
+  note: string
   customFields: Record<string, any>
 }>({
   id: props.task.id,
@@ -116,6 +131,7 @@ const form = ref<{
   assignee: props.task.assignee || '',
   startDate: props.task.startDate,
   endDate: props.task.endDate,
+  note: props.task.note || '',
   customFields: { ...(props.task.customFields || {}) }
 })
 
@@ -129,6 +145,7 @@ watch(
       assignee: newTask.assignee || '',
       startDate: newTask.startDate,
       endDate: newTask.endDate,
+      note: newTask.note || '',
       customFields: { ...(newTask.customFields || {}) }
     }
     dateRange.value =
@@ -149,6 +166,7 @@ const handleSaveField = () => {
     assignee: form.value.assignee,
     startDate: form.value.startDate,
     endDate: form.value.endDate,
+    note: form.value.note,
     customFields: { ...form.value.customFields }
   })
 }
@@ -202,6 +220,18 @@ const handleRemoveProperty = (key: string) => {
   margin-top: 14px;
   border-top: 1px dashed rgba(55, 53, 47, 0.09);
   padding-top: 12px;
+}
+
+.note-form-item {
+  margin-top: 2px;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 5px;
+  color: #98a2b3;
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .custom-sec-header {

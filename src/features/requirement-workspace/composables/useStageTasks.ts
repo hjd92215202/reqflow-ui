@@ -48,6 +48,7 @@ export function useStageTasks() {
       status: task.status,
       startDate: task.startDate,
       endDate: task.endDate,
+      note: task.note || '',
       customFields: task.customFields
     }
 

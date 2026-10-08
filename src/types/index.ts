@@ -95,6 +95,7 @@ export interface SubTask {
   status: TaskStatus
   startDate?: string | null
   endDate?: string | null
+  note?: string | null
   // 严格映射 PostgreSQL JSONB 动态扩展字段
   customFields: Record<string, any>
   children?: SubTask[]
