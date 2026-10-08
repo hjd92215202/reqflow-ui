@@ -54,6 +54,7 @@ export function updateOriginalNode(nodes: SubTask[], updatedNode: SubTask): bool
       nodes[i].assignee = updatedNode.assignee
       nodes[i].startDate = updatedNode.startDate
       nodes[i].endDate = updatedNode.endDate
+      nodes[i].note = updatedNode.note ?? ''
       nodes[i].customFields = { ...updatedNode.customFields }
       return true
     }

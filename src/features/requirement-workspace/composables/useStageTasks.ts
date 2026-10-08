@@ -53,7 +53,12 @@ export function useStageTasks() {
     }
 
     try {
-      return await updateSubTaskApi(task.id, payload)
+      const updated = await updateSubTaskApi(task.id, payload)
+      // 👇 接口响应成功后，再次用后端返回的实体保证数据完全一致
+      if (cachedTree && updated) {
+        updateOriginalNode(cachedTree, updated)
+      }
+      return updated
     } catch (err) {
       await loadStageTasks(stageId, true)
       throw err
