@@ -90,6 +90,9 @@ const formatStStatus = (s: TaskStatus) => {
 
 <style scoped>
 .overview-container {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
   padding: 24px;
   height: 100%;
   overflow-y: auto;
@@ -98,9 +101,9 @@ const formatStStatus = (s: TaskStatus) => {
 
 .overview-grid {
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
   gap: 20px;
-  max-width: 1200px;
+  max-width: 1440px;
   margin: 0 auto;
 }
 
@@ -194,6 +197,12 @@ const formatStStatus = (s: TaskStatus) => {
   .overview-grid {
     grid-template-columns: 1fr;
     gap: 14px;
+  }
+}
+
+@media (max-width: 620px) {
+  .overview-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

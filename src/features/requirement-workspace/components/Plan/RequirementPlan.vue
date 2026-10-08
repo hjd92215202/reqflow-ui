@@ -69,6 +69,11 @@ const handleDeleteStage = (id: number) => {
 
 <style scoped>
 .plan-page-container {
+  flex: 1;
+  width: 100%;
+  max-width: 1440px;
+  min-width: 0;
+  margin: 0 auto;
   padding: 24px;
   height: 100%;
   overflow-y: auto;

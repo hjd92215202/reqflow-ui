@@ -116,6 +116,9 @@ onMounted(() => {
 
 <style scoped>
 .req-activity-container {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
   padding: 24px 32px;
   height: 100%;
   overflow-y: auto;
@@ -123,6 +126,9 @@ onMounted(() => {
 }
 
 .activity-filter-bar {
+  max-width: 1080px;
+  margin-right: auto;
+  margin-left: auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -136,10 +142,12 @@ onMounted(() => {
 }
 
 .activity-timeline-wrap {
-  max-width: 800px;
+  max-width: 1080px;
+  margin: 0 auto;
 }
 
 .activity-item-card {
+  max-width: 900px;
   background-color: #fcfcfb;
   border: 1px solid rgba(55, 53, 47, 0.08);
   border-radius: 6px;
