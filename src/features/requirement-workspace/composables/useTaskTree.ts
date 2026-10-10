@@ -85,6 +85,9 @@ export function updateOriginalNode(nodes: SubTask[], updatedNode: SubTask): bool
       nodes[i].startDate = updatedNode.startDate
       nodes[i].endDate = updatedNode.endDate
       nodes[i].note = updatedNode.note ?? ''
+      if (updatedNode.deliverable !== undefined) nodes[i].deliverable = updatedNode.deliverable
+      if (updatedNode.completionCriteria !== undefined)
+        nodes[i].completionCriteria = updatedNode.completionCriteria
       nodes[i].customFields = { ...updatedNode.customFields }
       return true
     }

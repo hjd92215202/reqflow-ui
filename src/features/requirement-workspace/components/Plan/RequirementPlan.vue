@@ -6,46 +6,69 @@
         <h3 class="plan-heading">🗺️ 执行计划与阶段安排</h3>
         <span class="plan-sub">建立清晰的递进阶段，再开始向下拆解工作事项。</span>
       </div>
-      <el-button type="primary" size="default" @click="editorVisible = true">
+      <el-button type="primary" size="default" @click="openEditor(null)">
         ➕ 新增执行阶段
       </el-button>
     </div>
 
     <el-divider style="margin: 16px 0" />
+    <el-alert
+      v-if="countsError"
+      title="部分工作项统计加载失败，请重试。"
+      type="warning"
+      :closable="false"
+    >
+      <el-button link :loading="countsLoading" @click="emit('retry-counts')"
+        >重新加载统计</el-button
+      >
+    </el-alert>
 
     <StageList
       :stages="stages"
+      :tasks-by-stage="tasksByStage"
+      :counts-loading="countsLoading"
+      @edit-stage="openEditor"
       @update-stage="handleUpdateStage"
       @delete-stage="handleDeleteStage"
       @go-execution="id => emit('go-execution', id)"
     />
 
-    <StageEditor v-model="editorVisible" @submit="handleCreateStage" />
+    <StageEditor v-model="editorVisible" :stage="editingStage" @submit="handleSubmitStage" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { Stage } from '@/types'
+import type { Stage, StageFormPayload, SubTask } from '@/types'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import StageList from './StageList.vue'
 import StageEditor from './StageEditor.vue'
 
 defineProps<{
   stages: Stage[]
+  tasksByStage: Record<number, SubTask[]>
+  countsLoading?: boolean
+  countsError?: string
 }>()
 
 const emit = defineEmits<{
-  (e: 'create-stage', payload: { title: string; dateRange: [string, string] | [] }): void
-  (e: 'update-stage', id: number, data: Partial<Stage>): void
+  (e: 'create-stage', payload: StageFormPayload, complete: (saved: boolean) => void): void
+  (e: 'update-stage', id: number, data: Partial<Stage>, complete?: (saved: boolean) => void): void
   (e: 'delete-stage', id: number): void
   (e: 'go-execution', stageId: number): void
+  (e: 'retry-counts'): void
 }>()
 
 const editorVisible = ref(false)
+const editingStage = ref<Stage | null>(null)
+const openEditor = (stage: Stage | null) => {
+  editingStage.value = stage
+  editorVisible.value = true
+}
 
-const handleCreateStage = (payload: { title: string; dateRange: [string, string] | [] }) => {
-  emit('create-stage', payload)
+const handleSubmitStage = (payload: StageFormPayload, complete: (saved: boolean) => void) => {
+  if (editingStage.value) emit('update-stage', editingStage.value.id, payload, complete)
+  else emit('create-stage', payload, complete)
 }
 
 const handleUpdateStage = (id: number, data: Partial<Stage>) => {

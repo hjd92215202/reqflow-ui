@@ -52,12 +52,12 @@
 
     <div class="inspector-body">
       <TaskDetail
-        v-if="activeTab === 'detail'"
+        v-show="activeTab === 'detail'"
         :task="task"
         @update-task="t => emit('update-task', t)"
       />
       <TaskSubtasks
-        v-else-if="activeTab === 'subtasks'"
+        v-if="activeTab === 'subtasks'"
         :task="task"
         @add-child="(p, title) => emit('add-child', p, title)"
         @select-task="t => emit('select-task', t)"

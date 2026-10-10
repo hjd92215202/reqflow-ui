@@ -28,6 +28,25 @@
       </el-alert>
 
       <!-- 3. 工作区主体视口 -->
+      <el-alert
+        v-if="
+          (activeTab === 'plan' || activeTab === 'execution') &&
+          standardsCapability === 'unavailable'
+        "
+        title="当前服务尚未支持阶段目标与交付标准，请升级后端后使用。"
+        type="info"
+        :closable="false"
+      />
+      <el-alert
+        v-if="
+          (activeTab === 'plan' || activeTab === 'execution') && standardsCapability === 'error'
+        "
+        title="阶段目标与交付标准能力检测失败。"
+        type="warning"
+        :closable="false"
+      >
+        <el-button link @click="retryStandardsCapability">重试检测</el-button>
+      </el-alert>
       <main class="workspace-body-container">
         <!-- Tab 1: 概览 -->
         <RequirementOverview
@@ -47,6 +66,10 @@
         <RequirementPlan
           v-if="activeTab === 'plan'"
           :stages="stages"
+          :tasks-by-stage="stageTasksCache"
+          :counts-loading="overviewLoading"
+          :counts-error="overviewError"
+          @retry-counts="loadOverviewData"
           @create-stage="handleCreateStage"
           @update-stage="handleUpdateStage"
           @delete-stage="handleDeleteStage"
@@ -119,7 +142,8 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getRequirementApi } from '@/features/requirement/api'
-import type { Requirement, SubTask } from '@/types'
+import type { Requirement, SubTask, Stage, StageFormPayload, TaskCreatePayload } from '@/types'
+import { provideExecutionStandards } from './composables/useExecutionStandards'
 
 import { useRequirementWorkspace } from './composables/useRequirementWorkspace'
 import { useRequirementStages } from './composables/useRequirementStages'
@@ -166,6 +190,10 @@ const {
   addDependency,
   removeDependency
 } = useStageTasks()
+const { capability: standardsCapability, retryCapability: retryStandardsCapability } =
+  provideExecutionStandards((task, changes) =>
+    updateTaskLocallyAndPersist(task.stageId, task, changes)
+  )
 
 const { filters, resetFilters, updateFilters } = useTaskFilters()
 
@@ -257,7 +285,7 @@ const initWorkspace = async () => {
     if (requestId !== workspaceInitRequestId || requestedRequirementId !== requirementId.value)
       return
     workspaceLoadError.value = ''
-    if (activeTab.value === 'overview') void loadOverviewData()
+    if (activeTab.value === 'overview' || activeTab.value === 'plan') void loadOverviewData()
 
     // 若处于 execution Tab 且没有有效 stageId，执行默认推导
     if (activeTab.value === 'execution' && !currentStageId.value) {
@@ -312,22 +340,37 @@ const loadOverviewData = async () => {
 }
 
 watch(activeTab, tab => {
-  if (tab === 'overview') void loadOverviewData()
+  if (tab === 'overview' || tab === 'plan') void loadOverviewData()
 })
 
 const handleGoStageExecution = (stageId: number) => {
   openStageExecution(stageId)
 }
 
-const handleCreateStage = async (payload: { title: string; dateRange: [string, string] | [] }) => {
-  if (!requirement.value) return
-  await createStage(requirement.value.id, payload.title, payload.dateRange as [string, string])
-  ElMessage.success('已新建执行阶段')
+const handleCreateStage = async (payload: StageFormPayload, complete: (saved: boolean) => void) => {
+  if (!requirement.value) {
+    complete(false)
+    return
+  }
+  try {
+    const created = await createStage(requirement.value.id, payload)
+    stageTasksCache.value[created.id] = []
+    ElMessage.success('已新建执行阶段')
+    complete(true)
+  } catch {
+    ElMessage.error('阶段创建失败，输入已保留，请重试')
+    complete(false)
+  }
 }
 
-const handleUpdateStage = async (id: number, data: any) => {
+const handleUpdateStage = async (
+  id: number,
+  data: Partial<Stage>,
+  complete?: (saved: boolean) => void
+) => {
   try {
     await updateStage(id, data)
+    complete?.(true)
   } catch {
     let restored = false
     if (requirement.value) {
@@ -341,6 +384,7 @@ const handleUpdateStage = async (id: number, data: any) => {
     ElMessage.error(
       restored ? '阶段保存失败，已恢复最近保存的内容' : '阶段保存失败，请重新加载确认最新状态'
     )
+    complete?.(false)
   }
 }
 
@@ -369,16 +413,16 @@ const handleUpdateTask = async (task: SubTask) => {
   }
 }
 
-const handleCreateTask = async (
-  payload: { title: string; assignee: string },
-  complete: (saved: boolean) => void
-) => {
+const handleCreateTask = async (payload: TaskCreatePayload, complete: (saved: boolean) => void) => {
   if (!currentStageId.value) {
     complete(false)
     return
   }
   try {
-    const created = await createTask(currentStageId.value, payload.title, payload.assignee)
+    const created = await createTask(currentStageId.value, payload.title, payload.assignee, null, {
+      deliverable: payload.deliverable,
+      completionCriteria: payload.completionCriteria
+    })
     ElMessage.success('任务创建成功')
     setTaskId(created.id)
     complete(true)

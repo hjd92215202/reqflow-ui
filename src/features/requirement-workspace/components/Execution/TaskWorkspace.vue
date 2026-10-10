@@ -100,7 +100,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch, onMounted, onBeforeUnmount } from 'vue'
-import type { SubTask, TaskDependency, TaskFilters } from '@/types'
+import type { SubTask, TaskDependency, TaskFilters, TaskCreatePayload } from '@/types'
 import TaskToolbar from './TaskToolbar.vue'
 import TaskMatrix from './TaskMatrix.vue'
 import TaskInspector from './TaskInspector.vue'
@@ -128,11 +128,7 @@ const emit = defineEmits<{
   (e: 'add-child', parentTask: SubTask): void
   (e: 'add-child-with-title', parentTask: SubTask, title: string): void
   (e: 'delete-task', taskId: number): void
-  (
-    e: 'create-task',
-    payload: { title: string; assignee: string },
-    complete: (saved: boolean) => void
-  ): void
+  (e: 'create-task', payload: TaskCreatePayload, complete: (saved: boolean) => void): void
   (e: 'add-dep', predId: number): void
   (e: 'remove-dep', depId: number): void
 }>()

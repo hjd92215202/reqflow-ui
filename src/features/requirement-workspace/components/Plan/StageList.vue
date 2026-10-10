@@ -46,6 +46,13 @@
             {{ st.startDate || '未定' }} 至 {{ st.endDate || '未定' }}
           </el-button>
         </div>
+        <p v-if="available" class="stage-goal">{{ st.goal || '尚未填写阶段目标' }}</p>
+        <span v-if="tasksByStage[st.id]" class="stage-task-count">
+          工作项 {{ taskCounts(st.id).done }} / {{ taskCounts(st.id).total }} 已完成
+        </span>
+        <span v-else class="stage-task-count">{{
+          countsLoading ? '工作项统计加载中…' : '工作项统计尚未加载'
+        }}</span>
       </div>
 
       <!-- 状态单选切换 -->
@@ -63,6 +70,7 @@
 
       <!-- 进入 Execution 操作 -->
       <div class="stage-action-col">
+        <el-button link size="small" @click="emit('edit-stage', st)">编辑阶段</el-button>
         <el-button type="primary" link size="small" @click="emit('go-execution', st.id)">
           前往执行拆解 ➔
         </el-button>
@@ -82,13 +90,23 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { Stage } from '@/types'
+import type { Stage, SubTask } from '@/types'
+import { flattenTaskTree } from '../../composables/useTaskTree'
+import { useExecutionStandards } from '../../composables/useExecutionStandards'
 
-defineProps<{
+const props = defineProps<{
   stages: Stage[]
+  tasksByStage: Record<number, SubTask[]>
+  countsLoading?: boolean
 }>()
+const { available } = useExecutionStandards()
+const taskCounts = (stageId: number) => {
+  const tasks = flattenTaskTree(props.tasksByStage[stageId] || [])
+  return { total: tasks.length, done: tasks.filter(task => task.status === 'DONE').length }
+}
 
 const emit = defineEmits<{
+  (e: 'edit-stage', stage: Stage): void
   (e: 'update-stage', id: number, data: Partial<Stage>): void
   (e: 'delete-stage', id: number): void
   (e: 'go-execution', stageId: number): void
@@ -105,6 +123,7 @@ const startEditTitle = (stage: Stage) => {
 }
 
 const saveTitle = (stage: Stage) => {
+  if (editingTitleId.value !== stage.id) return
   editingTitleId.value = null
   const newT = stage.title.trim()
   if (!newT) {
@@ -132,6 +151,21 @@ const saveDate = (stage: Stage) => {
 </script>
 
 <style scoped>
+.stage-goal {
+  margin: 4px 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #606266;
+  font-size: 12px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.stage-task-count {
+  font-size: 11px;
+  color: #8c8c8c;
+}
 .plan-stage-list {
   display: flex;
   flex-direction: column;

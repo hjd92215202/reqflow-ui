@@ -73,6 +73,9 @@ export interface Stage {
   id: number
   requirementId: number
   title: string
+  goal?: string | null
+  expectedOutput?: string | null
+  exitCriteria?: string | null
   startDate?: string | null
   endDate?: string | null
   status: TaskStatus
@@ -96,6 +99,8 @@ export interface SubTask {
   startDate?: string | null
   endDate?: string | null
   note?: string | null
+  deliverable?: string | null
+  completionCriteria?: string | null
   // 严格映射 PostgreSQL JSONB 动态扩展字段
   customFields: Record<string, any>
   children?: SubTask[]
@@ -104,6 +109,16 @@ export interface SubTask {
   latestLog?: string
   predecessorIds?: number[]
 }
+
+export type StageFormPayload = Pick<
+  Stage,
+  'title' | 'startDate' | 'endDate' | 'goal' | 'expectedOutput' | 'exitCriteria'
+>
+export type TaskCreatePayload = Pick<
+  SubTask,
+  'title' | 'assignee' | 'deliverable' | 'completionCriteria'
+>
+export type TaskStandards = Pick<SubTask, 'deliverable' | 'completionCriteria'>
 
 // ==========================================
 // 7. 任务依赖关系拓扑

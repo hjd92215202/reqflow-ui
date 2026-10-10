@@ -4,7 +4,9 @@ import { supportsDefinitionApi } from '../api/definition'
 
 export const definitionFeatureEnabled = import.meta.env.VITE_ENGINEERING_GROWTH !== 'false'
 
-export function useDefinitionCapability() {
+export function useDefinitionCapability(
+  checkSupport: () => Promise<boolean> = supportsDefinitionApi
+) {
   const userStore = useUserStore()
   const capability = ref<'disabled' | 'checking' | 'available' | 'unavailable' | 'error'>(
     definitionFeatureEnabled ? 'checking' : 'disabled'
@@ -18,7 +20,7 @@ export function useDefinitionCapability() {
     }
     capability.value = 'checking'
     try {
-      const supported = await supportsDefinitionApi()
+      const supported = await checkSupport()
       if (requestId === currentRequest) {
         capability.value = supported ? 'available' : 'unavailable'
       }

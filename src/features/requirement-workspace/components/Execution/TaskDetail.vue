@@ -66,6 +66,7 @@
       </el-form-item>
 
       <!-- 动态自定义字段一览及行内添加 -->
+      <TaskDeliveryCriteria :task="task" />
       <div class="custom-fields-section">
         <div class="custom-sec-header">
           <span class="custom-sec-title">扩展属性 (JSONB)</span>
@@ -107,6 +108,7 @@
 import { ref, watch, computed } from 'vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import type { SubTask, TaskStatus } from '@/types'
+import TaskDeliveryCriteria from './TaskDeliveryCriteria.vue'
 
 const props = defineProps<{
   task: SubTask

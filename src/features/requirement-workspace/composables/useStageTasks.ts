@@ -1,13 +1,14 @@
 import { ref } from 'vue'
 import { getSubTasksApi, createSubTaskApi, updateSubTaskApi, deleteSubTaskApi } from '../api/task'
 import { getDependenciesApi, createDependencyApi, deleteDependencyApi } from '../api/dependency'
-import type { SubTask, TaskDependency } from '@/types'
+import type { SubTask, TaskDependency, TaskStandards } from '@/types'
 import { arrayToTree, updateOriginalNode } from './useTaskTree'
 
 export function useStageTasks() {
   const stageTasksCache = ref<Record<number, SubTask[]>>({})
   const stageDependenciesCache = ref<Record<number, TaskDependency[]>>({})
   const loading = ref(false)
+  const pendingSaves = new Map<number, Promise<SubTask>>()
 
   const loadStageTasks = async (stageId: number, forceRefresh = false): Promise<SubTask[]> => {
     if (!forceRefresh && stageTasksCache.value[stageId]) {
@@ -33,43 +34,61 @@ export function useStageTasks() {
     delete stageDependenciesCache.value[stageId]
   }
 
-  const updateTaskLocallyAndPersist = async (stageId: number, task: SubTask): Promise<SubTask> => {
-    const cachedTree = stageTasksCache.value[stageId]
-    if (cachedTree) {
-      updateOriginalNode(cachedTree, task)
-    }
-
-    const payload: Partial<SubTask> = {
-      id: task.id,
-      stageId: task.stageId,
-      parentId: task.parentId,
-      title: task.title,
-      assignee: task.assignee,
-      status: task.status,
-      startDate: task.startDate,
-      endDate: task.endDate,
-      note: task.note || '',
-      customFields: task.customFields
-    }
-
-    try {
-      const updated = await updateSubTaskApi(task.id, payload)
-      // 👇 接口响应成功后，再次用后端返回的实体保证数据完全一致
-      if (cachedTree && updated) {
-        updateOriginalNode(cachedTree, updated)
+  const updateTaskLocallyAndPersist = (
+    stageId: number,
+    task: SubTask,
+    standards?: TaskStandards
+  ): Promise<SubTask> => {
+    // Ordinary matrix/detail edits never include the independent standards draft.
+    const payload: Partial<SubTask> = standards
+      ? { ...standards }
+      : {
+          id: task.id,
+          stageId: task.stageId,
+          parentId: task.parentId,
+          title: task.title,
+          assignee: task.assignee,
+          status: task.status,
+          startDate: task.startDate,
+          endDate: task.endDate,
+          note: task.note || '',
+          customFields: { ...task.customFields }
+        }
+    const save = async () => {
+      if (!standards && stageTasksCache.value[stageId]) {
+        updateOriginalNode(stageTasksCache.value[stageId], {
+          ...task,
+          deliverable: undefined,
+          completionCriteria: undefined
+        })
       }
-      return updated
-    } catch (err) {
-      await loadStageTasks(stageId, true)
-      throw err
+      try {
+        const updated = await updateSubTaskApi(task.id, payload)
+        if (stageTasksCache.value[stageId] && updated)
+          updateOriginalNode(stageTasksCache.value[stageId], updated)
+        return updated
+      } catch (err) {
+        await loadStageTasks(stageId, true).catch(() => {})
+        throw err
+      }
     }
+    // Serialize the same task so late ordinary responses cannot replace newer standards.
+    const pending = (pendingSaves.get(task.id) ?? Promise.resolve()).catch(() => {}).then(save)
+    pendingSaves.set(task.id, pending)
+    void pending
+      .finally(() => {
+        if (pendingSaves.get(task.id) === pending) pendingSaves.delete(task.id)
+      })
+      .catch(() => {})
+    return pending
   }
 
   const createTask = async (
     stageId: number,
     title: string,
     assignee?: string,
-    parentId?: number | null
+    parentId?: number | null,
+    standards?: TaskStandards
   ) => {
     const created = await createSubTaskApi({
       stageId,
@@ -77,7 +96,8 @@ export function useStageTasks() {
       title: title.trim(),
       assignee: assignee ? assignee.trim() : '',
       status: 'TODO',
-      customFields: {}
+      customFields: {},
+      ...standards
     })
     await loadStageTasks(stageId, true)
     return created

@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { getStagesApi, createStageApi, updateStageApi, deleteStageApi } from '../api/stage'
-import type { Stage, SubTask } from '@/types'
+import type { Stage, StageFormPayload, SubTask } from '@/types'
 
 export function useRequirementStages() {
   const stages = ref<Stage[]>([])
@@ -17,17 +17,14 @@ export function useRequirementStages() {
     }
   }
 
-  const createStage = async (
-    requirementId: number,
-    title: string,
-    dateRange?: [string, string]
-  ) => {
+  const createStage = async (requirementId: number, data: StageFormPayload) => {
     const payload: Partial<Stage> = {
       requirementId,
-      title: title.trim(),
+      ...data,
+      title: data.title.trim(),
       status: 'TODO',
-      startDate: dateRange?.[0] || null,
-      endDate: dateRange?.[1] || null
+      startDate: data.startDate || null,
+      endDate: data.endDate || null
     }
     const created = await createStageApi(payload)
     stages.value.push(created)
@@ -36,11 +33,7 @@ export function useRequirementStages() {
 
   const updateStage = async (id: number, data: Partial<Stage>) => {
     const idx = stages.value.findIndex(s => s.id === id)
-    const current = idx === -1 ? undefined : stages.value[idx]
-    // The API accepts a Stage-shaped body; send the complete current stage so
-    // changing one field cannot clear required or unrelated values.
-    const payload = current ? { ...current, ...data } : data
-    const updated = await updateStageApi(id, payload)
+    const updated = await updateStageApi(id, data)
     if (idx !== -1) {
       stages.value[idx] = { ...stages.value[idx], ...updated }
     }
