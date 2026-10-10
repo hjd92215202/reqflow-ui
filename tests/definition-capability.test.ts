@@ -7,6 +7,7 @@ import { useUserStore } from '../src/store/user'
 import { supportsDefinitionApi } from '../src/features/requirement/api/definition'
 import { useDefinitionCapability } from '../src/features/requirement/composables/useDefinitionCapability'
 import { supportsExecutionStandardsApi } from '../src/features/requirement-workspace/composables/useExecutionStandards'
+import { supportsDecisionRecordsApi } from '../src/features/requirement-workspace/api/decision'
 
 vi.mock('../src/api/request', () => ({ default: { get: vi.fn() } }))
 beforeEach(() => {
@@ -15,6 +16,17 @@ beforeEach(() => {
 })
 
 describe('自托管后端兼容', () => {
+  it('决策能力单独声明，定义和标准能力不等于决策能力', async () => {
+    vi.mocked(request.get).mockResolvedValueOnce({
+      requirementDefinition: 1,
+      executionStandards: 1
+    })
+    expect(await supportsDecisionRecordsApi()).toBe(false)
+    vi.mocked(request.get).mockResolvedValueOnce({ decisionRecords: 1 })
+    expect(await supportsDecisionRecordsApi()).toBe(true)
+    vi.mocked(request.get).mockResolvedValueOnce({ status: 404 })
+    expect(await supportsDecisionRecordsApi()).toBe(false)
+  })
   it('仅问题定义能力不足以开启阶段和任务标准', async () => {
     vi.mocked(request.get).mockResolvedValueOnce({ requirementDefinition: 1 })
     expect(await supportsExecutionStandardsApi()).toBe(false)

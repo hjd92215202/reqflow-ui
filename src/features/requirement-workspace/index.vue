@@ -29,6 +29,20 @@
 
       <!-- 3. 工作区主体视口 -->
       <el-alert
+        v-if="decisionCapability === 'error'"
+        title="决策记录能力检测失败。"
+        type="warning"
+        :closable="false"
+      >
+        <el-button link @click="retryDecisionCapability">重试检测</el-button>
+      </el-alert>
+      <el-alert
+        v-else-if="decisionCapability === 'unavailable'"
+        title="当前服务尚未支持决策记录，请升级后端后使用。"
+        type="info"
+        :closable="false"
+      />
+      <el-alert
         v-if="
           (activeTab === 'plan' || activeTab === 'execution') &&
           standardsCapability === 'unavailable'
@@ -134,6 +148,13 @@
 
     <!-- 弹窗：快捷创建阶段 -->
     <StageEditor v-model="planEditorVisible" @submit="handleCreateStage" />
+    <DecisionDrawer
+      ref="decisionDrawer"
+      :requirement-id="requirementId"
+      :capability="decisionCapability"
+      @retry-capability="retryDecisionCapability"
+      @saved="notifyDecisionSaved"
+    />
   </div>
 </template>
 
@@ -144,6 +165,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { getRequirementApi } from '@/features/requirement/api'
 import type { Requirement, SubTask, Stage, StageFormPayload, TaskCreatePayload } from '@/types'
 import { provideExecutionStandards } from './composables/useExecutionStandards'
+import { provideDecisionActions } from './composables/useDecisionActions'
+import DecisionDrawer from './components/Decisions/DecisionDrawer.vue'
 
 import { useRequirementWorkspace } from './composables/useRequirementWorkspace'
 import { useRequirementStages } from './composables/useRequirementStages'
@@ -166,6 +189,14 @@ import RequirementKnowledge from './components/Knowledge/RequirementKnowledge.vu
 import StageEditor from './components/Plan/StageEditor.vue'
 
 const router = useRouter()
+const decisionDrawer = ref<InstanceType<typeof DecisionDrawer> | null>(null)
+const {
+  capability: decisionCapability,
+  retryCapability: retryDecisionCapability,
+  notifySaved: notifyDecisionSaved
+} = provideDecisionActions((context, id) => {
+  void decisionDrawer.value?.open(context, id)
+})
 
 const {
   requirementId,

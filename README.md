@@ -37,7 +37,9 @@
 
 计划页支持阶段目标、预期产出、结束条件及工作项完成数量；任务创建可选填交付物与完成标准，详情中通过“编辑交付标准”显式保存。保存失败保留输入，离开时保护未保存内容；快速创建仍只需标题。
 
-问题定义需要后端完成 V1.0.6 迁移；阶段与任务标准需要 V1.0.7 及 `executionStandards: 1` 能力。旧后端仍可使用普通需求、任务和 Wiki。构建时设置 `VITE_ENGINEERING_GROWTH=false` 可关闭新入口。旧独立矩阵已移除，统一使用需求工作区的计划与执行页面。
+概览、阶段列表和任务详情可记录决策，支持提案、采纳、否决及替代。候选方案、取舍、风险、信心、复查日期和 AI 参与说明可逐步补齐；替代保留旧记录和关联。决策列表支持筛选、分页，版本冲突可比较并保留输入，活动来源与链接可直达详情。
+
+问题定义需要后端完成 V1.0.6 迁移；阶段与任务标准需要 V1.0.7 及 `executionStandards: 1` 能力；决策需要 V1.0.8 及 `decisionRecords: 1`。旧后端仍可使用普通需求、任务和 Wiki。构建时设置 `VITE_ENGINEERING_GROWTH=false` 可关闭新入口。旧独立矩阵已移除，统一使用需求工作区的计划与执行页面。
 
 开发顺序见 [开发计划](docs/engineering-growth-development-plan.md)，接口与升级规则见 [接口契约](docs/engineering-growth-api-contract.md)。验证命令：`npm test`、`npm run type-check`、`npm run build`。
 

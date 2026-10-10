@@ -70,6 +70,7 @@
 
       <!-- 进入 Execution 操作 -->
       <div class="stage-action-col">
+        <DecisionEntry :context="{ stageId: st.id, stageTitle: st.title }" />
         <el-button link size="small" @click="emit('edit-stage', st)">编辑阶段</el-button>
         <el-button type="primary" link size="small" @click="emit('go-execution', st.id)">
           前往执行拆解 ➔
@@ -93,6 +94,7 @@ import { ref } from 'vue'
 import type { Stage, SubTask } from '@/types'
 import { flattenTaskTree } from '../../composables/useTaskTree'
 import { useExecutionStandards } from '../../composables/useExecutionStandards'
+import DecisionEntry from '../Decisions/DecisionEntry.vue'
 
 const props = defineProps<{
   stages: Stage[]

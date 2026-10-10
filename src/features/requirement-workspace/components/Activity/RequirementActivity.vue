@@ -3,6 +3,7 @@
   <div class="req-activity-container">
     <div class="activity-filter-bar">
       <span class="activity-heading">🕒 需求工程活动流水</span>
+      <DecisionEntry />
       <el-radio-group v-model="filterType" size="small">
         <el-radio-button value="ALL">全部动态</el-radio-button>
         <el-radio-button value="STATUS">状态流转</el-radio-button>
@@ -32,6 +33,13 @@
               </el-tag>
             </div>
             <p class="item-summary">{{ item.summary }}</p>
+            <el-button
+              v-if="decisionsAvailable && item.targetType === 'DECISION'"
+              link
+              type="primary"
+              @click="openDecision({}, item.targetId)"
+              >查看决策 #{{ item.targetId }}</el-button
+            >
           </div>
         </el-timeline-item>
       </el-timeline>
@@ -42,9 +50,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { getActivityLogsApi } from '@/features/activity/api'
 import type { ActivityLog } from '@/types'
+import DecisionEntry from '../Decisions/DecisionEntry.vue'
+import { useDecisionActions } from '../../composables/useDecisionActions'
+const {
+  available: decisionsAvailable,
+  open: openDecision,
+  revision: decisionRevision
+} = useDecisionActions()
 
 const props = defineProps<{
   requirementId: number
@@ -54,20 +69,24 @@ const loading = ref(false)
 const loadError = ref('')
 const logs = ref<ActivityLog[]>([])
 const filterType = ref<'ALL' | 'STATUS' | 'TASK'>('ALL')
+let activityRequest = 0
 
 const loadActivities = async () => {
+  const current = ++activityRequest
+  const requirement = props.requirementId
   loading.value = true
   loadError.value = ''
   try {
-    const res = await getActivityLogsApi({ requirementId: props.requirementId, page: 0, size: 50 })
+    const res = await getActivityLogsApi({ requirementId: requirement, page: 0, size: 50 })
     const list: ActivityLog[] = Array.isArray(res) ? res : (res as any)?.content || []
-    logs.value = list
+    if (current === activityRequest && requirement === props.requirementId) logs.value = list
   } catch {
+    if (current !== activityRequest) return
     loadError.value = logs.value.length
       ? '活动加载失败，仍显示上次成功的记录。'
       : '活动流水加载失败，请检查网络后重试。'
   } finally {
-    loading.value = false
+    if (current === activityRequest) loading.value = false
   }
 }
 
@@ -104,14 +123,21 @@ const formatTarget = (target: string): string => {
     REQUIREMENT: '需求',
     STAGE: '阶段',
     SUB_TASK: '任务',
-    WIKI: 'Wiki'
+    WIKI: 'Wiki',
+    DECISION: '决策'
   }
   return map[target] || target
 }
 
-onMounted(() => {
-  loadActivities()
-})
+watch(
+  () => [props.requirementId, decisionRevision?.value],
+  (next, previous) => {
+    if (previous && next[0] !== previous[0]) logs.value = []
+    void loadActivities()
+  },
+  { immediate: true }
+)
+onBeforeUnmount(() => activityRequest++)
 </script>
 
 <style scoped>

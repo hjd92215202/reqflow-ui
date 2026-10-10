@@ -2,6 +2,15 @@
   <div class="overview-container">
     <div class="overview-content">
       <RequirementDefinitionCard :requirement-id="requirement.id" />
+      <section v-if="decisionsAvailable" class="overview-card">
+        <div class="section-heading">
+          <div>
+            <h2 class="section-title">关键决策</h2>
+            <p class="section-subtitle">记录方案取舍与判断，查看历史和替代关系。</p>
+          </div>
+          <DecisionEntry />
+        </div>
+      </section>
       <section class="summary-grid" aria-label="项目整体进度">
         <article class="overview-card progress-card">
           <div class="metric-heading">
@@ -162,6 +171,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import RequirementDefinitionCard from './RequirementDefinitionCard.vue'
+import DecisionEntry from '../Decisions/DecisionEntry.vue'
+import { useDecisionActions } from '../../composables/useDecisionActions'
+const { available: decisionsAvailable } = useDecisionActions()
 import type { Requirement, Stage, SubTask, TaskDependency, TaskStatus } from '@/types'
 
 const props = defineProps<{
