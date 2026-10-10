@@ -29,21 +29,6 @@ const routes: RouteRecordRaw[] = [
         name: 'RequirementWorkspace',
         component: () => import('@/features/requirement-workspace/index.vue')
       },
-      // 遗留 Matrix 路由平滑兼容重定向
-      {
-        path: 'matrix',
-        name: 'MatrixLegacy',
-        redirect: to => {
-          const reqId = to.query.reqId
-          if (reqId) {
-            return {
-              path: `/requirements/${reqId}`,
-              query: { tab: 'execution' }
-            }
-          }
-          return '/requirements'
-        }
-      },
       {
         path: 'wiki',
         name: 'Wiki',

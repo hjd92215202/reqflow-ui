@@ -28,6 +28,7 @@
           end-placeholder="截止日期"
           value-format="YYYY-MM-DD"
           style="width: 100%"
+          @change="datesEdited = true"
         />
       </el-form-item>
       <el-form-item label="优先级">
@@ -48,14 +49,24 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="visible = false">取消</el-button>
-      <el-button type="primary" :loading="saving" @click="handleSubmit">保存</el-button>
+      <el-button :disabled="saving" @click="visible = false">取消</el-button>
+      <el-button
+        v-if="!isEdit && capability === 'available'"
+        :disabled="saving"
+        @click="handleSubmit(true)"
+        >创建并定义问题</el-button
+      >
+      <el-button type="primary" :loading="saving" @click="handleSubmit(false)">{{
+        isEdit ? '保存' : '创建需求'
+      }}</el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { useDefinitionCapability } from '../composables/useDefinitionCapability'
 import { createRequirementApi, updateRequirementApi } from '../api'
 import { useWorkspaceStore } from '@/store/workspace'
 import type { Requirement, PriorityLevel, RequirementStatus } from '@/types'
@@ -73,9 +84,12 @@ const emit = defineEmits<{
 }>()
 
 const workspaceStore = useWorkspaceStore()
+const router = useRouter()
+const { capability } = useDefinitionCapability()
 const visible = ref(props.modelValue)
 const saving = ref(false)
 const dateRange = ref<[string, string] | []>([])
+const datesEdited = ref(false)
 
 const form = ref<Partial<Requirement>>({
   id: undefined,
@@ -93,6 +107,7 @@ watch(
   val => {
     visible.value = val
     if (val) {
+      datesEdited.value = false
       if (props.isEdit && props.requirementData) {
         form.value = { ...props.requirementData }
         if (props.requirementData.startDate && props.requirementData.endDate) {
@@ -121,7 +136,8 @@ watch(visible, val => {
   emit('update:modelValue', val)
 })
 
-const handleSubmit = async () => {
+const handleSubmit = async (defineAfterCreate = false) => {
+  if (saving.value) return
   if (!form.value.title?.trim()) {
     ElMessage.warning('需求标题不能为空')
     return
@@ -130,7 +146,7 @@ const handleSubmit = async () => {
   if (dateRange.value && dateRange.value.length === 2) {
     form.value.startDate = dateRange.value[0]
     form.value.endDate = dateRange.value[1]
-  } else {
+  } else if (!props.isEdit || datesEdited.value) {
     form.value.startDate = null
     form.value.endDate = null
   }
@@ -144,8 +160,14 @@ const handleSubmit = async () => {
       if (workspaceStore.activeProjectId) {
         form.value.projectId = workspaceStore.activeProjectId
       }
-      await createRequirementApi(form.value)
+      const created = await createRequirementApi(form.value)
       ElMessage.success('录入成功')
+      if (defineAfterCreate) {
+        await router.push({
+          path: `/requirements/${created.id}`,
+          query: { tab: 'overview', define: '1' }
+        })
+      }
     }
     visible.value = false
     emit('saved')

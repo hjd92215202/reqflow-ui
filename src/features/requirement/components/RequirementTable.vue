@@ -150,7 +150,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'drag-end', list: Requirement[]): void
-  (e: 'go-matrix', reqId: number): void
   (e: 'go-wiki', reqId: number): void
   (e: 'edit', row: Requirement): void
   (e: 'delete', id: number): void

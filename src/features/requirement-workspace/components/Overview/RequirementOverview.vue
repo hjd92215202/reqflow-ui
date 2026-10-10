@@ -1,6 +1,7 @@
 <template>
   <div class="overview-container">
     <div class="overview-content">
+      <RequirementDefinitionCard :requirement-id="requirement.id" />
       <section class="summary-grid" aria-label="项目整体进度">
         <article class="overview-card progress-card">
           <div class="metric-heading">
@@ -42,12 +43,12 @@
       <section class="overview-card goal-card">
         <div class="section-heading">
           <div>
-            <h2 class="section-title">项目目标</h2>
-            <p class="section-subtitle">保持目标清晰，便于团队判断当前工作是否仍在解决核心问题。</p>
+            <h2 class="section-title">需求背景</h2>
+            <p class="section-subtitle">保留需求的背景说明与业务上下文。</p>
           </div>
         </div>
         <p class="goal-description">
-          {{ requirement.description || '暂未填写项目目标或背景，可在需求信息中补充。' }}
+          {{ requirement.description || '暂未填写需求背景，可在需求信息中补充。' }}
         </p>
       </section>
 
@@ -160,6 +161,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import RequirementDefinitionCard from './RequirementDefinitionCard.vue'
 import type { Requirement, Stage, SubTask, TaskDependency, TaskStatus } from '@/types'
 
 const props = defineProps<{

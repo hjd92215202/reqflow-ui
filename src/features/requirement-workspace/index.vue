@@ -31,7 +31,7 @@
       <main class="workspace-body-container">
         <!-- Tab 1: 概览 -->
         <RequirementOverview
-          v-if="activeTab === 'overview'"
+          v-show="activeTab === 'overview'"
           :requirement="requirement"
           :stages="stages"
           :tasks-by-stage="stageTasksCache"
@@ -45,7 +45,7 @@
 
         <!-- Tab 2: 计划 -->
         <RequirementPlan
-          v-else-if="activeTab === 'plan'"
+          v-if="activeTab === 'plan'"
           :stages="stages"
           @create-stage="handleCreateStage"
           @update-stage="handleUpdateStage"
